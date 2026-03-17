@@ -1,0 +1,120 @@
+import { Model, DataTypes, Optional } from 'sequelize';
+import { sequelize } from '../../db/sequelize';
+
+interface ProductAttributes {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  images?: string[];
+  specifications?: Record<string, any>;
+  basePrice?: number;
+  hsn_code?: string;
+  gst_rate: number;
+  certifications?: string[];
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type ProductCreationAttributes = Optional<
+  ProductAttributes,
+  'id' | 'gst_rate' | 'status' | 'createdAt' | 'updatedAt'
+>;
+
+export class Product extends Model<ProductAttributes, ProductCreationAttributes> implements ProductAttributes {
+  public id!: string;
+  public categoryId!: string;
+  public name!: string;
+  public slug!: string;
+  public description?: string;
+  public images?: string[];
+  public specifications?: Record<string, any>;
+  public basePrice?: number;
+  public hsn_code?: string;
+  public gst_rate!: number;
+  public certifications?: string[];
+  public status!: 'ACTIVE' | 'INACTIVE';
+
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Product.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+      unique: true,
+    },
+    categoryId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+    name: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    slug: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      unique: true,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    images: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    specifications: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: {},
+    },
+    basePrice: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    hsn_code: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    gst_rate: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: false,
+      defaultValue: 18.0,
+    },
+    certifications: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    status: {
+      type: DataTypes.ENUM('ACTIVE', 'INACTIVE'),
+      allowNull: false,
+      defaultValue: 'ACTIVE',
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+  },
+  {
+    sequelize,
+    tableName: 'products',
+    timestamps: true,
+  }
+);
+
+export default Product;

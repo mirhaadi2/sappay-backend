@@ -1,9 +1,48 @@
 import { Address, AddressType } from "./model";
 import { Op } from "sequelize";
 
-export class AddressRepository {
-  async create(addressData: {
-    userId: string;
+export const create = async (addressData: {
+  userId: string;
+  type: AddressType;
+  name?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  isDefault?: boolean;
+}) => {
+  return await Address.create({
+    ...addressData,
+    isDefault: addressData.isDefault || false,
+  });
+};
+
+export const findByIdAndUserId = async (id: string, userId: string) => {
+  return await Address.findOne({
+    where: { id, userId },
+  });
+};
+
+export const findAllByUserId = async (userId: string) => {
+  return await Address.findAll({
+    where: { userId },
+    order: [["isDefault", "DESC"], ["createdAt", "DESC"]],
+  });
+};
+
+export const findDefaultByUserId = async (userId: string) => {
+  return await Address.findOne({
+    where: { userId, isDefault: true },
+  });
+};
+
+export const update = async (
+  id: string,
+  userId: string,
+  addressData: Partial<{
     type: AddressType;
     name?: string;
     addressLine1: string;
@@ -13,89 +52,44 @@ export class AddressRepository {
     postalCode: string;
     country: string;
     phone: string;
-    isDefault?: boolean;
-  }) {
-    return await Address.create({
-      ...addressData,
-      isDefault: addressData.isDefault || false,
-    });
-  }
+  }>
+) => {
+  const address = await findByIdAndUserId(id, userId);
+  if (!address) return null;
 
-  async findByIdAndUserId(id: string, userId: string) {
-    return await Address.findOne({
-      where: { id, userId },
-    });
-  }
+  return await address.update(addressData);
+};
 
-  async findAllByUserId(userId: string) {
-    return await Address.findAll({
-      where: { userId },
-      order: [["isDefault", "DESC"], ["createdAt", "DESC"]],
-    });
-  }
+export const deleteAddress = async (id: string, userId: string) => {
+  const address = await findByIdAndUserId(id, userId);
+  if (!address) return false;
 
-  async findDefaultByUserId(userId: string) {
-    return await Address.findOne({
+  await address.destroy();
+  return true;
+};
+
+export const setAsDefault = async (id: string, userId: string) => {
+  await Address.update(
+    { isDefault: false },
+    {
       where: { userId, isDefault: true },
-    });
-  }
+    }
+  );
 
-  async update(
-    id: string,
-    userId: string,
-    addressData: Partial<{
-      type: AddressType;
-      name?: string;
-      addressLine1: string;
-      addressLine2?: string;
-      city: string;
-      state: string;
-      postalCode: string;
-      country: string;
-      phone: string;
-    }>
-  ) {
-    const address = await this.findByIdAndUserId(id, userId);
-    if (!address) return null;
+  const address = await findByIdAndUserId(id, userId);
+  if (!address) return null;
 
-    return await address.update(addressData);
-  }
+  return await address.update({ isDefault: true });
+};
 
-  async delete(id: string, userId: string) {
-    const address = await this.findByIdAndUserId(id, userId);
-    if (!address) return false;
+export const deleteAllByUserId = async (userId: string) => {
+  return await Address.destroy({
+    where: { userId },
+  });
+};
 
-    await address.destroy();
-    return true;
-  }
-
-  async setAsDefault(id: string, userId: string) {
-    // Remove default from all other addresses
-    await Address.update(
-      { isDefault: false },
-      {
-        where: { userId, isDefault: true },
-      }
-    );
-
-    // Set this address as default
-    const address = await this.findByIdAndUserId(id, userId);
-    if (!address) return null;
-
-    return await address.update({ isDefault: true });
-  }
-
-  async deleteAllByUserId(userId: string) {
-    return await Address.destroy({
-      where: { userId },
-    });
-  }
-
-  async countByUserId(userId: string) {
-    return await Address.count({
-      where: { userId },
-    });
-  }
-}
-
-export default new AddressRepository();
+export const countByUserId = async (userId: string) => {
+  return await Address.count({
+    where: { userId },
+  });
+};
