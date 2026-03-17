@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { OtpType } from './otp.model';
 import { createOtp, findOtpByEmail, deleteOtp, cleanupExpiredOtps } from './repository';
 import { AppError } from '../../utils/AppError';
-import { sendOtpToEmail } from '../../utils/sendEmail';
+import { sendOtpToEmail as sendOtpEmail } from '../../utils/sendEmail';
 
 export const generateOtp = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -27,7 +27,7 @@ export const sendOtpToEmail = async (email: string, type: OtpType = OtpType.REGI
   // Send OTP via email if email is provided
   if (email) {
     try {
-      await sendOtpToEmail(email, code);
+      await sendOtpEmail(email, code);
       console.log(`✅ OTP sent to email: ${email}`);
     } catch (error) {
       console.error(`❌ Failed to send OTP email to ${email}:`, error);
