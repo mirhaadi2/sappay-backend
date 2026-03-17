@@ -1,9 +1,11 @@
 import { Sequelize } from "sequelize";
 import { config } from "../config";
-// Import models to register them
-import "../modules/users/models";
 
 export const sequelize = new Sequelize(config.databaseUrl, {
   dialect: "postgres",
   logging: false,
 });
+
+// Import models - they will self-initialize with the sequelize instance
+import "../modules/users/models";
+import "../modules/users/otp.model";

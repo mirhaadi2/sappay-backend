@@ -10,6 +10,8 @@ interface UserAttributes {
   id: string;
   email: string;
   password: string;
+  name?: string;
+  phone?: string;
   role: UserRole;
   createdAt: Date;
   updatedAt: Date;
@@ -25,6 +27,8 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public id!: string;
   public email!: string;
   public password!: string;
+  public name?: string;
+  public phone?: string;
   public role!: UserRole;
 
   public readonly createdAt!: Date;
@@ -48,6 +52,15 @@ User.init(
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,
+    },
+    name: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    phone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      unique: true,
     },
     role: {
       type: DataTypes.ENUM(...Object.values(UserRole)),

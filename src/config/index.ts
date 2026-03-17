@@ -16,4 +16,9 @@ export const config = {
   },
   databaseUrl: process.env.DATABASE_URL ?? "",
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+  email: {
+    smtpHost: process.env.SMTP_HOST ?? "",
+    smtpPort: Number(process.env.SMTP_PORT ?? 587),
+    smtpPassword: process.env.SMTP_PASSWORD ?? "",
+  },
 };
