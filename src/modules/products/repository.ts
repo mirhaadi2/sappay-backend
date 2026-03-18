@@ -8,7 +8,17 @@ export const createProduct = async (data: any) => {
 };
 
 export const findProductById = async (id: string) => {
-  return await Product.findByPk(id);
+  return await Product.findByPk(id, {
+    include: [
+      {
+        model: SellerProduct,
+        as: 'sellerProducts',
+        attributes: ['id', 'sellerId', 'sellerPrice', 'costPrice', 'discountedPrice', 'discountedPercent', 'rating', 'ratingCount', 'status'],
+        where: { status: 'ACTIVE' },
+        required: false,
+      },
+    ],
+  });
 };
 
 export const findProductBySlug = async (slug: string) => {
@@ -21,15 +31,33 @@ export const findAllProducts = async (filters: any) => {
 
   if (categoryId) where.categoryId = categoryId;
   if (status) where.status = status;
-  if (search) {
-    // Will use raw query with LIKE
-  }
 
-  return await Product.findAndCountAll({
+  // Fetch products with their seller information and ratings
+  const products = await Product.findAll({
     where,
+    // include: [
+    //   {
+    //     model: SellerProduct,
+    //     as: 'sellerProducts',
+    //     attributes: ['id', 'sellerId', 'sellerPrice', 'costPrice', 'discountedPrice', 'discountedPercent', 'rating', 'ratingCount', 'status'],
+    //     where: { status: 'ACTIVE' },
+    //     required: false, // LEFT JOIN - show products even without sellers
+    //   },
+    // ],
     limit,
     offset,
+    order: [['createdAt', 'DESC']],
   });
+
+  const total = await Product.count({ where });
+
+  return {
+    products,
+    total,
+    page: Math.floor(offset / limit) + 1,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 };
 
 export const updateProduct = async (id: string, data: any) => {

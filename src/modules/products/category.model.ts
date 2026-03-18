@@ -60,6 +60,7 @@ Category.init(
     parentCategoryId: {
       type: DataTypes.UUID,
       allowNull: true,
+      field: 'parent_category_id'
     },
     image: {
       type: DataTypes.STRING(500),
@@ -69,11 +70,13 @@ Category.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+      field: 'is_active',
     },
     displayOrder: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+      field: 'display_order',
     },
     metadata: {
       type: DataTypes.JSON,
@@ -84,11 +87,13 @@ Category.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'created_at',
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'updated_at',
     },
   },
   {

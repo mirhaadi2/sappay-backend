@@ -18,6 +18,7 @@ module.exports = {
         },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
+        field: 'seller_id',
       },
       productId: {
         type: Sequelize.UUID,
@@ -28,18 +29,22 @@ module.exports = {
         },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
+        field: 'product_id',
       },
       sellerSku: {
         type: Sequelize.STRING(100),
         allowNull: true,
+        field: 'seller_sku',
       },
       sellerPrice: {
         type: Sequelize.DECIMAL(12, 2),
         allowNull: false,
+        field: 'seller_price',
       },
       costPrice: {
         type: Sequelize.DECIMAL(12, 2),
         allowNull: false,
+        field: 'cost_price',
       },
       weight: {
         type: Sequelize.DECIMAL(10, 2),
@@ -53,6 +58,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: true,
         defaultValue: 0,
+        field: 'warranty_months',
       },
       status: {
         type: Sequelize.ENUM('ACTIVE', 'INACTIVE', 'DISCONTINUED'),
@@ -63,22 +69,29 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.fn('NOW'),
+        field: 'created_at',
       },
       updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.fn('NOW'),
+        field: 'updated_at',
+      },
+      deletedAt: {
+        type: Sequelize.DATE,
+        allowNull: true,
+        field: 'deleted_at',
       },
     });
 
     // Add unique constraint and indexes
     await queryInterface.addConstraint('seller_products', {
-      fields: ['sellerId', 'productId'],
+      fields: ['seller_id', 'product_id'],
       type: 'unique',
       name: 'unique_seller_product',
     });
-    await queryInterface.addIndex('seller_products', ['sellerId']);
-    await queryInterface.addIndex('seller_products', ['productId']);
+    await queryInterface.addIndex('seller_products', ['seller_id']);
+    await queryInterface.addIndex('seller_products', ['product_id']);
     await queryInterface.addIndex('seller_products', ['status']);
   },
 

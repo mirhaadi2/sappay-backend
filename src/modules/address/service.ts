@@ -4,7 +4,7 @@ import {
   findAllByUserId,
   findByIdAndUserId,
   update,
-  delete as deleteAddress,
+  deleteAddress,
   setAsDefault,
   findDefaultByUserId,
 } from "./repository";

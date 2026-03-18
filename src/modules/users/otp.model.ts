@@ -9,7 +9,7 @@ export enum OtpType {
 
 interface OtpAttributes {
   id: string;
-  phone: string;
+  email: string;
   code: string;
   type: OtpType;
   expiresAt: Date;
@@ -24,7 +24,7 @@ type OtpCreationAttributes = Optional<
 
 export class Otp extends Model<OtpAttributes, OtpCreationAttributes> implements OtpAttributes {
   public id!: string;
-  public phone!: string;
+  public email!: string;
   public code!: string;
   public type!: OtpType;
   public expiresAt!: Date;

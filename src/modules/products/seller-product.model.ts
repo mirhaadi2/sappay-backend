@@ -8,6 +8,10 @@ interface SellerProductAttributes {
   sellerSku?: string;
   sellerPrice: number;
   costPrice: number;
+  discountedPrice?: number;
+  discountedPercent?: number;
+  rating?: number;
+  ratingCount?: number;
   weight?: number;
   dimensions?: Record<string, any>;
   warrantyMonths?: number;
@@ -29,6 +33,10 @@ export class SellerProduct extends Model<SellerProductAttributes, SellerProductC
   public sellerSku?: string;
   public sellerPrice!: number;
   public costPrice!: number;
+  public discountedPrice?: number;
+  public discountedPercent?: number;
+  public rating?: number;
+  public ratingCount?: number;
   public weight?: number;
   public dimensions?: Record<string, any>;
   public warrantyMonths?: number;
@@ -66,6 +74,35 @@ SellerProduct.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
     },
+    discountedPrice: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+      field: 'discounted_price',
+    },
+    discountedPercent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      field: 'discounted_percent',
+      validate: {
+        min: 0,
+        max: 100,
+      },
+    },
+    rating: {
+      type: DataTypes.DECIMAL(3, 2),
+      allowNull: true,
+      defaultValue: 0,
+      validate: {
+        min: 0,
+        max: 5,
+      },
+    },
+    ratingCount: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+      field: 'rating_count',
+    },
     weight: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
@@ -101,5 +138,11 @@ SellerProduct.init(
     timestamps: true,
   }
 );
+
+// Add association with Product
+SellerProduct.belongsTo(require('./product.model').default, {
+  foreignKey: 'productId',
+  as: 'product',
+});
 
 export default SellerProduct;

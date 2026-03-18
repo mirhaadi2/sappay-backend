@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import {
   createProductService,
   getProductDetailsService,
-  searchProductsService,
+  fetchProductsService,
   getCategoriesService,
+  createCategoryService,
   addProductToSellerService,
   getSellerProductsService,
   updateSellerProductPriceService,
@@ -38,14 +39,28 @@ export const getProductDetailsHandler = async (
   }
 };
 
-export const searchProductsHandler = async (
+export const fetchProductsHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const result = await searchProductsService(req.query);
-    res.json({ success: true, data: result });
+    const result = await fetchProductsService(req.query);
+    console.log(result,'result');
+    res.json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createCategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const category = await createCategoryService(req.body);
+    res.status(201).json({ success: true, data: category });
   } catch (error) {
     next(error);
   }

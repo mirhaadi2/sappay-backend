@@ -18,6 +18,7 @@ module.exports = {
         },
         onUpdate: 'CASCADE',
         onDelete: 'RESTRICT',
+        field: 'category_id',
       },
       name: {
         type: Sequelize.STRING(255),
@@ -45,10 +46,12 @@ module.exports = {
       basePrice: {
         type: Sequelize.DECIMAL(12, 2),
         allowNull: true,
+        field: 'base_price',
       },
       hsn_code: {
         type: Sequelize.STRING(50),
         allowNull: true,
+        field: 'hsn_code',
       },
       gst_rate: {
         type: Sequelize.DECIMAL(5, 2),
@@ -69,16 +72,23 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.fn('NOW'),
+        field: 'created_at',
       },
       updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.fn('NOW'),
+        field: 'updated_at',
       },
+      deletedAt: {
+        type: Sequelize.DATE,
+        allowNull: true,
+        field: 'deleted_at',
+      }
     });
 
     // Add indexes
-    await queryInterface.addIndex('products', ['categoryId']);
+    await queryInterface.addIndex('products', ['category_id']);
     await queryInterface.addIndex('products', ['slug']);
     await queryInterface.addIndex('products', ['status']);
   },

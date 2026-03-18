@@ -11,6 +11,7 @@ import {
   getSellerProducts,
   findSellerProductById,
   updateSellerProduct,
+  createCategory,
 } from './repository';
 import { AppError } from '../../utils/AppError';
 
@@ -81,8 +82,18 @@ export const getProductDetailsService = async (productId: string) => {
   };
 };
 
-export const searchProductsService = async (filters: any) => {
+export const fetchProductsService = async (filters: any) => {
   return await findAllProducts(filters);
+};
+
+export const createCategoryService = async (data: any) => {
+  const { name, slug } = data;
+
+  if (!name || !slug) {
+    throw new AppError('BadRequest', 400, 'Name and slug are required');
+  }
+
+  return await createCategory(data);
 };
 
 export const getCategoriesService = async (filters: any = {}) => {

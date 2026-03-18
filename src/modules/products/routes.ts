@@ -2,8 +2,9 @@ import { Router } from 'express';
 import {
   createProductHandler,
   getProductDetailsHandler,
-  searchProductsHandler,
+  fetchProductsHandler,
   getCategoriesHandler,
+  createCategoryHandler,
   addProductToSellerHandler,
   getSellerProductsHandler,
   updateProductPriceHandler,
@@ -13,10 +14,11 @@ const router = Router();
 
 // Product endpoints
 router.post('/', createProductHandler);
-router.get('/search', searchProductsHandler);
+router.get('/', fetchProductsHandler);
 router.get('/:id', getProductDetailsHandler);
 
 // Category endpoints
+router.post('/categories', createCategoryHandler);
 router.get('/categories', getCategoriesHandler);
 router.get('/categories/:category/products', getProductDetailsHandler);
 

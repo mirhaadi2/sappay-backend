@@ -16,11 +16,12 @@ interface ProductAttributes {
   status: 'ACTIVE' | 'INACTIVE';
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date;
 }
 
 type ProductCreationAttributes = Optional<
   ProductAttributes,
-  'id' | 'gst_rate' | 'status' | 'createdAt' | 'updatedAt'
+  'id' | 'gst_rate' | 'status' | 'createdAt' | 'updatedAt' | 'deletedAt'
 >;
 
 export class Product extends Model<ProductAttributes, ProductCreationAttributes> implements ProductAttributes {
@@ -39,6 +40,7 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+  public readonly deletedAt?: Date;
 }
 
 Product.init(
@@ -52,6 +54,7 @@ Product.init(
     categoryId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'category_id',
     },
     name: {
       type: DataTypes.STRING(255),
@@ -79,6 +82,7 @@ Product.init(
     basePrice: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
+      field: 'base_price',
     },
     hsn_code: {
       type: DataTypes.STRING(50),
@@ -103,18 +107,32 @@ Product.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'created_at',
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'updated_at',
     },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'deleted_at'
+    }
   },
   {
     sequelize,
     tableName: 'products',
     timestamps: true,
+    paranoid: true,
   }
 );
+
+// Add association with SellerProduct
+// Product.hasMany(require('./seller-product.model').SellerProduct, {
+//   foreignKey: 'productId',
+//   as: 'sellerProducts',
+// });
 
 export default Product;

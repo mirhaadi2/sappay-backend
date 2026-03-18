@@ -7,6 +7,7 @@ import { sessionOptions } from "./config/session";
 import authRoutes from "./modules/auth/routes";
 import userRoutes from "./modules/users/routes";
 import addressRoutes from "./modules/address/routes";
+import productRoutes from "./modules/products/routes";
 import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
@@ -22,6 +23,7 @@ app.use(session(sessionOptions));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/addresses", addressRoutes);
+app.use("/api/products", productRoutes);
 
 app.use(errorHandler);
 
