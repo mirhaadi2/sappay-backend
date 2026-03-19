@@ -14,7 +14,13 @@ export const registerHandler = async (req: Request, res: Response, next: NextFun
   try {
     const { email, password } = req.body;
     const user = await registerUser(email, password);
-    res.status(201).json({ user });
+    
+    req.session.user = user;
+    
+    res.status(201).json({
+      success: true,
+      data: { user },
+    });
   } catch (err) {
     next(err);
   }
@@ -58,7 +64,10 @@ export const completeRegistrationHandler = async (req: Request, res: Response, n
     // Set session after successful registration
     req.session.user = result.user;
 
-    res.status(201).json(result);
+    res.status(201).json({
+      success: true,
+      data: result,
+    });
   } catch (err) {
     next(err);
   }
@@ -71,7 +80,10 @@ export const loginHandler = async (req: Request, res: Response, next: NextFuncti
 
     req.session.user = user;
 
-    res.json({ user });
+    res.json({
+      success: true,
+      data: { user },
+    });
   } catch (err) {
     next(err);
   }
@@ -95,10 +107,16 @@ export const meHandler = async (req: Request, res: Response, next: NextFunction)
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(200).json({ user: null });
+      return res.status(200).json({
+        success: true,
+        data: { user: null },
+      });
     }
     const user = await getUserById(userId);
-    res.json({ user });
+    res.json({
+      success: true,
+      data: { user },
+    });
   } catch (err) {
     next(err);
   }

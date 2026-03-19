@@ -4,6 +4,7 @@ import { sequelize } from "../../db/sequelize";
 export enum UserRole {
   USER = "USER",
   ADMIN = "ADMIN",
+  SELLER = "SELLER",
 }
 
 interface UserAttributes {

@@ -8,15 +8,26 @@ import {
   approveSellerHandler,
   rejectSellerHandler,
   suspendSellerHandler,
+  sellerProfileHandler,
+  loginSellerHandler,
+  getSellerMeHandler,
+  logoutSellerHandler,
 } from './controller';
+import { requireAuth } from '../../middleware/auth.middleware';
 
 const router = Router();
 
-// Seller routes
+// Public routes (no auth required)
 router.post('/register', registerSellerHandler);
+router.post('/login', loginSellerHandler);
+router.post('/logout', logoutSellerHandler);
+
+// Protected routes (auth required)
+router.get('/me', requireAuth, getSellerMeHandler);
+router.get('/profile', requireAuth, sellerProfileHandler);
 router.get('/:id', getProfileHandler);
-router.put('/:id', updateProfileHandler);
-router.get('/:id/dashboard', getDashboardHandler);
+router.put('/:id', requireAuth, updateProfileHandler);
+router.get('/:id/dashboard', requireAuth, getDashboardHandler);
 
 // Admin routes
 router.get('/', listSellersHandler);

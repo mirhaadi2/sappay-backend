@@ -2,7 +2,8 @@ import { Seller, SellerStatus, BusinessType } from './model';
 import { AppError } from '../../utils/AppError';
 
 export const create = async (sellerData: {
-  userId: string;
+  // userId: string;
+  password?: string;
   businessName: string;
   businessRegistrationNo: string;
   businessType: string;
@@ -13,6 +14,7 @@ export const create = async (sellerData: {
   bankAccountName: string;
   bankAccountNumber: string;
   bankIfscCode: string;
+  businessIdType?: string;
 }) => {
   return await Seller.create({
     ...sellerData,
@@ -24,13 +26,20 @@ export const findById = async (sellerId: string, includeDeleted = false) => {
   return await Seller.findByPk(sellerId, { paranoid: !includeDeleted });
 };
 
-export const findByUserId = async (userId: string) => {
-  return await Seller.findOne({ where: { userId }, paranoid: true });
-};
+// export const findByUserId = async (userId: string) => {
+//   return await Seller.findOne({ where: { userId }, paranoid: true });
+// };
 
 export const findByBusinessReg = async (regNo: string) => {
   return await Seller.findOne({
     where: { businessRegistrationNo: regNo },
+    paranoid: true,
+  });
+};
+
+export const findByEmail = async (email: string) => {
+  return await Seller.findOne({
+    where: { ownerEmail: email },
     paranoid: true,
   });
 };

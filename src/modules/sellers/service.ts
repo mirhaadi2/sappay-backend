@@ -1,7 +1,10 @@
 import { AppError } from '../../utils/AppError';
+import { comparePassword } from '../../utils/password';
+import { signJwt } from '../../config/jwt';
 import {
   findById,
-  findByUserId,
+  findByEmail,
+  // findByUserId,
   findByBusinessReg,
   create,
   update,
@@ -11,11 +14,12 @@ import {
 } from './repository';
 
 export const registerSeller = async (
-  userId: string,
   sellerData: {
+    password: string; // This should be already hashed by controller
     businessName: string;
     businessRegistrationNo: string;
     businessType: string;
+    businessIdType?: string;
     gstNumber?: string;
     businessAddress: string;
     businessPhone: string;
@@ -26,27 +30,44 @@ export const registerSeller = async (
     bankIfscCode: string;
   }
 ) => {
-  const existingSeller = await findByUserId(userId);
-  if (existingSeller) {
-    throw new AppError('BadRequest', 400, 'You are already registered as a seller');
-  }
-
+  // Check if business is already registered
   const existingBusiness = await findByBusinessReg(sellerData.businessRegistrationNo);
   if (existingBusiness) {
     throw new AppError('BadRequest', 400, 'This business registration number is already registered');
   }
 
+  // Validate required business information
   if (!sellerData.businessName || !sellerData.businessAddress) {
     throw new AppError('BadRequest', 400, 'Missing required seller information');
   }
 
-  const seller = await create({ userId, ...sellerData });
+  // Store businessIdType in metadata for easy access and future features
+  const metadata = sellerData.businessIdType ? { businessIdType: sellerData.businessIdType } : {};
 
+  // Create seller record with hashed password
+  const seller = await create({
+    businessName: sellerData.businessName,
+    businessRegistrationNo: sellerData.businessRegistrationNo,
+    businessType: sellerData.businessType,
+    businessIdType: sellerData.businessIdType,
+    // gstNumber: sellerData.gstNumber,
+    businessAddress: sellerData.businessAddress,
+    businessPhone: sellerData.businessPhone,
+    ownerName: sellerData.ownerName,
+    ownerEmail: sellerData.ownerEmail,
+    password: sellerData.password, // Already hashed by controller
+    bankAccountName: sellerData.bankAccountName,
+    bankAccountNumber: sellerData.bankAccountNumber,
+    bankIfscCode: sellerData.bankIfscCode,
+    // metadata,
+  });
+
+  // Return registration success response
   return {
     id: seller.id,
     status: seller.status,
     onboardingStep: seller.onboardingStep,
-    message: 'Seller account created. Awaiting document verification.',
+    message: 'Seller account created successfully. Check your email for further instructions.',
   };
 };
 
@@ -79,9 +100,9 @@ export const updateProfile = async (
     throw new AppError('NotFound', 404, 'Seller not found');
   }
 
-  if (seller.userId !== userId) {
-    throw new AppError('Forbidden', 403, 'Unauthorized: Cannot update another seller profile');
-  }
+  // if (seller.userId !== userId) {
+  //   throw new AppError('Forbidden', 403, 'Unauthorized: Cannot update another seller profile');
+  // }
 
   const allowedFields = [
     'businessAddress',
@@ -203,4 +224,93 @@ export const validateSellerStatus = async (sellerId: string) => {
   }
 
   return true;
+};
+
+/**
+ * Seller Login Service
+ * Authenticates seller by email and password
+ * Returns JWT tokens with portal-scoped authentication
+ */
+export const loginSeller = async (email: string, password: string) => {
+  // Find seller by email
+  const seller = await findByEmail(email);
+  if (!seller || !seller.password) {
+    throw new AppError('Unauthorized', 401, 'Invalid email or password');
+  }
+
+  // Verify password
+  const isPasswordValid = await comparePassword(password, seller.password);
+  if (!isPasswordValid) {
+    throw new AppError('Unauthorized', 401, 'Invalid email or password');
+  }
+
+  // Check seller status
+  if (seller.status === 'REJECTED') {
+    throw new AppError('Forbidden', 403, 'Your seller account has been rejected');
+  }
+
+  if (seller.status === 'SUSPENDED') {
+    throw new AppError('Forbidden', 403, 'Your seller account has been suspended');
+  }
+
+  // Generate JWT tokens with seller/portal context
+  const accessToken = signJwt({
+    sub: seller.id,
+    email: seller.ownerEmail,
+    role: 'SELLER' as any,
+  });
+
+  const refreshToken = signJwt({
+    sub: seller.id,
+    email: seller.ownerEmail,
+    role: 'SELLER' as any,
+  });
+
+  return {
+    seller: {
+      id: seller.id,
+      businessName: seller.businessName,
+      ownerName: seller.ownerName,
+      ownerEmail: seller.ownerEmail,
+      status: seller.status,
+      businessType: seller.businessType,
+    },
+    tokens: {
+      accessToken,
+      refreshToken,
+      expiresIn: 86400, // 24 hours
+    },
+  };
+};
+
+/**
+ * Get Current Seller Profile
+ * Returns complete seller profile for authenticated seller
+ */
+export const getCurrentSellerProfile = async (sellerId: string) => {
+  console.log(sellerId, 'sellerId')
+  const seller = await findById(sellerId);
+  if (!seller) {
+    throw new AppError('NotFound', 404, 'Seller profile not found');
+  }
+
+  return {
+    id: seller.id,
+    businessName: seller.businessName,
+    businessType: seller.businessType,
+    businessIdType: seller.metadata?.businessIdType,
+    gstNumber: seller.gstNumber,
+    businessAddress: seller.businessAddress,
+    businessPhone: seller.businessPhone,
+    ownerName: seller.ownerName,
+    ownerEmail: seller.ownerEmail,
+    bankAccountName: seller.bankAccountName,
+    bankAccountNumber: seller.bankAccountNumber,
+    bankIfscCode: seller.bankIfscCode,
+    status: seller.status,
+    commissionRate: seller.commissionRate,
+    onboardingStep: seller.onboardingStep,
+    approvedAt: seller.approvedAt,
+    createdAt: seller.createdAt,
+  };
 };

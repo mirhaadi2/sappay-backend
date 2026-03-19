@@ -12,11 +12,19 @@ declare module "express-session" {
   }
 }
 
+/**
+ * Session-Based Authentication Middleware
+ * Validates user session from HttpOnly secure cookie
+ * Sessions are stored in Redis for scalability
+ * Browser automatically sends cookie on each request
+ */
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.session.user) {
-    return next(new AppError("UnauthorizedError", 401, "Authentication required."));
+  // Check if session has user data
+  if (!req.session?.user) {
+    return next(new AppError("UnauthorizedError", 401, "Authentication required. Please login."));
   }
 
+  // User is authenticated via session
   req.user = req.session.user;
   next();
 };
