@@ -9,6 +9,7 @@ import {
   getSellerProductsHandler,
   updateProductPriceHandler,
 } from './controller';
+import { requireAuth } from '../../middleware/auth.middleware';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.get('/seller/products', getSellerProductsHandler);
 router.put('/seller/:sellerProductId/price', updateProductPriceHandler);
 
 // 3. Product endpoints
-router.post('/', createProductHandler);
+router.post('/', requireAuth, createProductHandler);
 router.get('/', fetchProductsHandler);
 
 // 4. Dynamic Parameter endpoints (MOVE THIS TO THE BOTTOM)

@@ -4,7 +4,7 @@ import helmet from "helmet";
 import session from "express-session";
 import { config } from "./config";
 import { getSessionOptionsForPortal } from "./config/session";
-import { Portal } from "./config/portal-config";
+import { Portal, portalConfigs } from "./config/portal-config";
 import authRoutes from "./modules/auth/routes";
 import userRoutes from "./modules/users/routes";
 import addressRoutes from "./modules/address/routes";
@@ -22,11 +22,19 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Website session (for /api/auth, /api/users, etc)
-app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products"], session(getSessionOptionsForPortal(Portal.WEBSITE)));
 
-// Seller session (for /api/sellers)
-app.use("/api/sellers", session(getSessionOptionsForPortal(Portal.SELLER)));
+// Universal session middleware for all portals
+app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin"], (req, res, next) => {
+  // Detect portal from cookie
+  const cookie = req.cookies || req.headers.cookie || '';
+  let portal: Portal = Portal.WEBSITE;
+  if (cookie.includes(portalConfigs[Portal.SELLER].cookieName)) {
+    portal = Portal.SELLER;
+  } else if (cookie.includes(portalConfigs[Portal.ADMIN].cookieName)) {
+    portal = Portal.ADMIN;
+  }
+  return session(getSessionOptionsForPortal(portal))(req, res, next);
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

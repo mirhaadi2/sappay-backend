@@ -18,8 +18,24 @@ export const createProductHandler = async (
   next: NextFunction
 ) => {
   try {
+    // Create Product (master catalog)
     const product = await createProductService(req.body);
-    res.status(201).json({ success: true, data: product });
+
+    // Get sellerId from session (assumes session-based auth)
+    const userId = req.session?.user?.id;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401, 'Please login first');
+    }
+    const seller = await findById(userId);
+    if (!seller) {
+      throw new AppError('BadRequest', 400, 'You are not registered as a seller');
+    }
+
+    // Create SellerProduct (seller listing)
+    const sellerProduct = await addProductToSellerService(seller.id, product.id, req.body);
+
+    // Return both Product and SellerProduct
+    res.status(201).json({ success: true, data: { product, sellerProduct } });
   } catch (error) {
     next(error);
   }
