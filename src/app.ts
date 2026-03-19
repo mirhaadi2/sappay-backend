@@ -3,7 +3,8 @@ import cors from "cors";
 import helmet from "helmet";
 import session from "express-session";
 import { config } from "./config";
-import { sessionOptions } from "./config/session";
+import { getSessionOptionsForPortal } from "./config/session";
+import { Portal } from "./config/portal-config";
 import authRoutes from "./modules/auth/routes";
 import userRoutes from "./modules/users/routes";
 import addressRoutes from "./modules/address/routes";
@@ -19,7 +20,12 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
-app.use(session(sessionOptions));
+
+// Website session (for /api/auth, /api/users, etc)
+app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products"], session(getSessionOptionsForPortal(Portal.WEBSITE)));
+
+// Seller session (for /api/sellers)
+app.use("/api/sellers", session(getSessionOptionsForPortal(Portal.SELLER)));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
