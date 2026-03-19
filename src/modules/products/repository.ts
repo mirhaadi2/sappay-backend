@@ -76,7 +76,7 @@ export const findCategoryById = async (id: string) => {
 
 export const findAllCategories = async (filters: any) => {
   const { isActive = true, limit = 100, offset = 0 } = filters;
-  return await Category.findAndCountAll({
+  return await Category.findAll({
     where: { isActive },
     limit,
     offset,

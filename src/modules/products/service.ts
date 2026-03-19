@@ -68,17 +68,17 @@ export const getProductDetailsService = async (productId: string) => {
     throw new AppError('NotFound', 404, 'Product not found');
   }
 
-  const sellers = await getAllSellersForProduct(productId);
+  // const sellers = await getAllSellersForProduct(productId);
 
   return {
     ...product.toJSON(),
-    sellers: sellers.map((sp: any) => ({
-      id: sp.id,
-      sellerId: sp.sellerId,
-      price: sp.sellerPrice,
-      rating: 4.5,
-      sellers: 150,
-    })),
+    // sellers: sellers.map((sp: any) => ({
+    //   id: sp.id,
+    //   sellerId: sp.sellerId,
+    //   price: sp.sellerPrice,
+    //   rating: 4.5,
+    //   sellers: 150,
+    // })),
   };
 };
 

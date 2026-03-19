@@ -1,5 +1,6 @@
 import { Model, DataTypes, Optional } from 'sequelize';
 import { sequelize } from '../../db/sequelize';
+import Product from './product.model';
 
 interface SellerProductAttributes {
   id: string;
@@ -140,9 +141,9 @@ SellerProduct.init(
 );
 
 // Add association with Product
-SellerProduct.belongsTo(require('./product.model').default, {
-  foreignKey: 'productId',
-  as: 'product',
-});
+// SellerProduct.belongsTo(Product, {
+//   foreignKey: 'productId',
+//   as: 'product',
+// });
 
 export default SellerProduct;

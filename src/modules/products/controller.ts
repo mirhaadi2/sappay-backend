@@ -9,7 +9,7 @@ import {
   getSellerProductsService,
   updateSellerProductPriceService,
 } from './service';
-import { findByUserId } from '../sellers/repository';
+import { findById } from '../sellers/repository';
 import { AppError } from '../../utils/AppError';
 
 export const createProductHandler = async (
@@ -92,7 +92,7 @@ export const addProductToSellerHandler = async (
       throw new AppError('Unauthorized', 401, 'Please login first');
     }
 
-    const seller = await findByUserId(userId);
+    const seller = await findById(userId);
     if (!seller) {
       throw new AppError('BadRequest', 400, 'You are not registered as a seller');
     }
@@ -116,7 +116,7 @@ export const getSellerProductsHandler = async (
       throw new AppError('Unauthorized', 401, 'Please login first');
     }
 
-    const seller = await findByUserId(userId);
+    const seller = await findById(userId);
     if (!seller) {
       throw new AppError('BadRequest', 400, 'You are not registered as a seller');
     }
@@ -141,7 +141,7 @@ export const updateProductPriceHandler = async (
       throw new AppError('Unauthorized', 401, 'Please login first');
     }
 
-    const seller = await findByUserId(userId);
+    const seller = await findById(userId);
     if (!seller) {
       throw new AppError('BadRequest', 400, 'You are not registered as a seller');
     }

@@ -24,6 +24,7 @@
     "seed:down": "npx sequelize-cli db:seed:undo:all"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1012.0",
     "bcrypt": "^5.1.0",
     "connect-pg-simple": "^8.0.0",
     "connect-redis": "^9.0.0",
@@ -33,6 +34,7 @@
     "express-session": "^1.17.3",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^8.5.1",
+    "multer": "^2.1.1",
     "nodemailer": "^8.0.2",
     "pg": "^8.10.0",
     "redis": "^5.11.0",
@@ -47,6 +49,7 @@
     "@types/express-session": "^1.17.6",
     "@types/jest": "^29.5.2",
     "@types/jsonwebtoken": "^9.0.2",
+    "@types/multer": "^2.1.0",
     "@types/nodemailer": "^7.0.11",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",

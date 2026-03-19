@@ -12,19 +12,23 @@ import {
 
 const router = Router();
 
-// Product endpoints
-router.post('/', createProductHandler);
-router.get('/', fetchProductsHandler);
-router.get('/:id', getProductDetailsHandler);
-
-// Category endpoints
-router.post('/categories', createCategoryHandler);
+// 1. Category endpoints (MOVE THESE UP)
+// These are specific strings like "/categories", so they should be checked first.
 router.get('/categories', getCategoriesHandler);
+router.post('/categories', createCategoryHandler);
 router.get('/categories/:category/products', getProductDetailsHandler);
 
-// Seller product endpoints
-router.post('/:productId/add-to-seller', addProductToSellerHandler);
+// 2. Seller product endpoints
 router.get('/seller/products', getSellerProductsHandler);
 router.put('/seller/:sellerProductId/price', updateProductPriceHandler);
+
+// 3. Product endpoints
+router.post('/', createProductHandler);
+router.get('/', fetchProductsHandler);
+
+// 4. Dynamic Parameter endpoints (MOVE THIS TO THE BOTTOM)
+// This is a "greedy" route. It should only run if nothing else matches.
+router.get('/:id', getProductDetailsHandler); 
+router.post('/:productId/add-to-seller', addProductToSellerHandler);
 
 export default router;

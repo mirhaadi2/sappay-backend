@@ -11,6 +11,7 @@ import addressRoutes from "./modules/address/routes";
 import productRoutes from "./modules/products/routes";
 import { errorHandler } from "./middleware/error.middleware";
 import { sellerRoutes } from "./modules/sellers";
+import { uploadsRoutes } from "./modules/uploads";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/sellers", sellerRoutes);
+app.use("/api/uploads", uploadsRoutes);
 
 app.use(errorHandler);
 
