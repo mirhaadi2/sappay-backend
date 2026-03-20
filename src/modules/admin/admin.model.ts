@@ -1,7 +1,7 @@
 import { Model, DataTypes, Optional } from 'sequelize';
 import { sequelize } from '../../db/sequelize';
 
-interface AdminAttributes {
+export interface AdminAttributes {
   id: string;
   email: string;
   password: string;
