@@ -1,4 +1,5 @@
 import Product from './product.model';
+import { fetchFromR2, getR2SignedUrl } from '../uploads/r2-utils';
 import { Category } from './category.model';
 import { SellerProduct } from './seller-product.model';
 import { AppError } from '../../utils/AppError';
@@ -32,23 +33,38 @@ export const findAllProducts = async (filters: any) => {
   if (categoryId) where.categoryId = categoryId;
   if (status) where.status = status;
 
-  // Fetch products with their seller information and ratings
+  // Fetch products
   const products = await Product.findAll({
     where,
-    // include: [
-    //   {
-    //     model: SellerProduct,
-    //     as: 'sellerProducts',
-    //     attributes: ['id', 'sellerId', 'sellerPrice', 'costPrice', 'discountedPrice', 'discountedPercent', 'rating', 'ratingCount', 'status'],
-    //     where: { status: 'ACTIVE' },
-    //     required: false, // LEFT JOIN - show products even without sellers
-    //   },
-    // ],
     limit,
     offset,
     raw: true,
     order: [['createdAt', 'DESC']],
   });
+
+  // Helper to resolve R2 image key to URL using fetchFromR2 and getR2SignedUrl
+  const resolveR2Url = async (key: string) => {
+    if (!key) return '';
+    if (key.startsWith('http://') || key.startsWith('https://')) return key;
+    // Try to fetch file from R2 (optional, for existence check)
+    try {
+      const data = await fetchFromR2(key);
+      console.log(data,'data') // If file exists, get signed URL
+      return getR2SignedUrl(key);
+    } catch (err) {
+      // If not found, fallback
+      return '';
+    }
+  };
+
+  for (const product of products) {
+    if (Array.isArray(product.images)) {
+      const resolvedImages = await Promise.all(
+        product.images.map(async (imgKey: string) => await resolveR2Url(imgKey))
+      );
+      product.images = resolvedImages;
+    }
+  }
 
   const total = await Product.count({ where });
 
