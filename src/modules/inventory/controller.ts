@@ -3,6 +3,7 @@ import {
   getInventoryService,
   updateStockService,
   checkAvailabilityService,
+  getSellerInventoryService,
 } from './service';
 
 export const getInventoryHandler = async (
@@ -44,6 +45,25 @@ export const checkAvailabilityHandler = async (
     const { quantity } = req.query;
     const available = await checkAvailabilityService(id, Number(quantity));
     res.json({ success: true, data: { available } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSellerInventoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.session?.user?.id;
+
+    if (!userId) {
+      throw new Error('Unauthorized: Please login first');
+    }
+
+    const result = await getSellerInventoryService(userId, req.query);
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

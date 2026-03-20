@@ -5,14 +5,18 @@ import {
   reserveStockRepo,
   decrementStock,
   releaseReservedStock,
+  getSellerInventory,
 } from './repository';
 import { AppError } from '../../utils/AppError';
 
-export const initializeInventoryService = async (sellerProductId: string) => {
+export const initializeInventoryService = async (
+  sellerProductId: string,
+  initialStock: number = 0
+) => {
   return await createInventory({
     sellerProductId,
-    totalStock: 0,
-    availableStock: 0,
+    totalStock: initialStock,
+    availableStock: initialStock,
     reservedStock: 0,
     soldStock: 0,
     reorderLevel: 10,
@@ -56,4 +60,8 @@ export const checkAvailabilityService = async (sellerProductId: string, quantity
   const inventory = await findBySellerProductId(sellerProductId);
   if (!inventory) return false;
   return inventory.availableStock >= quantity;
+};
+
+export const getSellerInventoryService = async (sellerId: string, filters: any = {}) => {
+  return await getSellerInventory(sellerId, filters);
 };

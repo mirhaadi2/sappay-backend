@@ -145,11 +145,12 @@ export const getSellerProducts = async (sellerId: string, filters: any) => {
       sp.discounted_price as "discountedPrice", 
       sp.discounted_percent as "discountedPercent", 
       sp.rating,
-      p.stock,
-      sp.rating_count as "ratingCount", 
+      sp.rating_count as "ratingCount",
+      i.available_stock as "availableStock", 
       sp.status
     FROM seller_products sp
     JOIN products p ON sp.product_id = p.id
+    LEFT JOIN "inventory" i ON sp.id = i.seller_product_id
     WHERE sp.seller_id = :sellerId
     ${status ? 'AND sp.status = :status' : ''}
     ORDER BY sp.created_at DESC

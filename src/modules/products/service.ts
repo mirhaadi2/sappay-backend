@@ -13,6 +13,7 @@ import {
   updateSellerProduct,
   createCategory,
 } from './repository';
+import { initializeInventoryService } from '../inventory/service';
 import { AppError } from '../../utils/AppError';
 
 export const createProductService = async (data: any) => {
@@ -40,10 +41,19 @@ export const addProductToSellerService = async (
   productId: string,
   sellerData: any
 ) => {
-  const { sellerPrice } = sellerData;
+  const { sellerPrice, stock = 0 } = sellerData;
 
   if (!sellerPrice) {
     throw new AppError('BadRequest', 400, 'Seller price is required');
+  }
+
+  // Validate stock
+  if (stock === undefined || stock === null) {
+    throw new AppError('BadRequest', 400, 'Stock is required');
+  }
+
+  if (isNaN(parseInt(stock)) || parseInt(stock) < 0) {
+    throw new AppError('BadRequest', 400, 'Stock must be a positive number');
   }
 
   // if (costPrice > sellerPrice) {
@@ -55,11 +65,20 @@ export const addProductToSellerService = async (
     throw new AppError('BadRequest', 400, 'You already have this product listed');
   }
 
-  return await createSellerProduct({
+  // Create SellerProduct
+  const sellerProduct = await createSellerProduct({
     sellerId,
     productId,
     ...sellerData,
   });
+
+  // Initialize inventory for this seller product with initial stock
+  const inventory = await initializeInventoryService(sellerProduct.id, parseInt(stock));
+
+  return {
+    sellerProduct,
+    inventory,
+  };
 };
 
 export const getProductDetailsService = async (productId: string) => {

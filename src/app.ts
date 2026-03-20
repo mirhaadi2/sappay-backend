@@ -9,6 +9,7 @@ import authRoutes from "./modules/auth/routes";
 import userRoutes from "./modules/users/routes";
 import addressRoutes from "./modules/address/routes";
 import productRoutes from "./modules/products/routes";
+import inventoryRoutes from "./modules/inventory/routes";
 import { errorHandler } from "./middleware/error.middleware";
 import { sellerRoutes } from "./modules/sellers";
 import { uploadsRoutes } from "./modules/uploads";
@@ -24,7 +25,7 @@ app.use(express.json());
 
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin"], (req, res, next) => {
+app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/inventory"], (req, res, next) => {
   // Detect portal from cookie
   const cookie = req.cookies || req.headers.cookie || '';
   let portal: Portal = Portal.WEBSITE;
@@ -42,6 +43,7 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/uploads", uploadsRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.use(errorHandler);
 
