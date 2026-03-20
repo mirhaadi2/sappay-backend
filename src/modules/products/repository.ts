@@ -3,6 +3,8 @@ import { fetchFromR2, getR2SignedUrl } from '../uploads/r2-utils';
 import { Category } from './category.model';
 import { SellerProduct } from './seller-product.model';
 import { AppError } from '../../utils/AppError';
+import { sequelize } from '../../db/sequelize';
+import { QueryTypes } from 'sequelize';
 
 export const createProduct = async (data: any) => {
   return await Product.create(data);
@@ -132,12 +134,50 @@ export const getSellerProducts = async (sellerId: string, filters: any) => {
   const { limit = 20, offset = 0, status } = filters;
   const where: any = { sellerId };
   if (status) where.status = status;
+  const query = `
+    SELECT 
+      sp.product_id as id, 
+      sp.seller_price as "sellerPrice", 
+      p.name, p.slug, 
+      p.images, 
+      p.category_id as "categoryId", 
+      sp.cost_price as "costPrice", 
+      sp.discounted_price as "discountedPrice", 
+      sp.discounted_percent as "discountedPercent", 
+      sp.rating,
+      p.stock,
+      sp.rating_count as "ratingCount", 
+      sp.status
+    FROM seller_products sp
+    JOIN products p ON sp.product_id = p.id
+    WHERE sp.seller_id = :sellerId
+    ${status ? 'AND sp.status = :status' : ''}
+    ORDER BY sp.created_at DESC
+    LIMIT :limit OFFSET :offset
+  `;
+  
+  const replacements: any = { sellerId, limit, offset };
+  if (status) replacements.status = status;
 
-  return await SellerProduct.findAndCountAll({
-    where,
-    limit,
-    offset,
+  const results : any = await sequelize?.query(query, {
+    replacements,
+    type: QueryTypes.SELECT,
+    logging(sql, timing) {
+      console.log('Executed SQL:', sql);
+      if (timing) console.log('Execution time:', timing, 'ms');
+    },
+    benchmark: true,
   });
+
+  const total = await SellerProduct.count({ where });
+
+  return {
+    products: results,
+    total,
+    page: Math.floor(offset / limit) + 1,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 };
 
 export const updateSellerProduct = async (id: string, data: any) => {

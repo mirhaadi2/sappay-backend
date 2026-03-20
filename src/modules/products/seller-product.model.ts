@@ -58,22 +58,27 @@ SellerProduct.init(
     sellerId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'seller_id',
     },
     productId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'product_id'
     },
     sellerSku: {
       type: DataTypes.STRING(100),
       allowNull: true,
+      field: 'seller_sku',
     },
     sellerPrice: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
+      field: 'seller_price',
     },
     costPrice: {
       type: DataTypes.DECIMAL(12, 2),
-      allowNull: false,
+      allowNull: true,
+      field: 'cost_price',
     },
     discountedPrice: {
       type: DataTypes.DECIMAL(12, 2),
@@ -116,6 +121,7 @@ SellerProduct.init(
       type: DataTypes.INTEGER,
       allowNull: true,
       defaultValue: 0,
+      field: 'warranty_months',
     },
     status: {
       type: DataTypes.ENUM('ACTIVE', 'INACTIVE', 'DISCONTINUED'),
@@ -126,11 +132,13 @@ SellerProduct.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'created_at',
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'updated_at',
     },
   },
   {

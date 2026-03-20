@@ -40,15 +40,15 @@ export const addProductToSellerService = async (
   productId: string,
   sellerData: any
 ) => {
-  const { sellerPrice, costPrice } = sellerData;
+  const { sellerPrice } = sellerData;
 
-  if (!sellerPrice || !costPrice) {
-    throw new AppError('BadRequest', 400, 'Price information is required');
+  if (!sellerPrice) {
+    throw new AppError('BadRequest', 400, 'Seller price is required');
   }
 
-  if (costPrice > sellerPrice) {
-    throw new AppError('BadRequest', 400, 'Selling price cannot be less than cost price');
-  }
+  // if (costPrice > sellerPrice) {
+  //   throw new AppError('BadRequest', 400, 'Selling price cannot be less than cost price');
+  // }
 
   const existing = await findBySellerAndProduct(sellerId, productId);
   if (existing) {

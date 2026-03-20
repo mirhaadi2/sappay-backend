@@ -2,6 +2,17 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
+    try {
+      // Check if table already exists
+      const tableExists = await queryInterface.tableExists('order_items');
+      if (tableExists) {
+        console.log('⚠️  Table order_items already exists, skipping creation...');
+        return;
+      }
+    } catch (err) {
+      console.log('⚠️  Could not check table existence, attempting to create anyway...');
+    }
+
     await queryInterface.createTable('order_items', {
       id: {
         type: Sequelize.UUID,
@@ -118,6 +129,14 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable('order_items');
+    try {
+      const tableExists = await queryInterface.tableExists('order_items');
+      if (tableExists) {
+        await queryInterface.dropTable('order_items');
+        console.log('✅ Dropped table order_items');
+      }
+    } catch (err) {
+      console.log('⚠️  Could not drop table order_items:', err.message);
+    }
   },
 };
