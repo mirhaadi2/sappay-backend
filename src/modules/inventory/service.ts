@@ -7,13 +7,14 @@ import {
   releaseReservedStock,
   getSellerInventory,
 } from './repository';
+import { createHistoryRecord, getInventoryHistory, getSellerInventoryHistory } from './history-repository';
 import { AppError } from '../../utils/AppError';
 
 export const initializeInventoryService = async (
   sellerProductId: string,
   initialStock: number = 0
 ) => {
-  return await createInventory({
+  const inventory = await createInventory({
     sellerProductId,
     totalStock: initialStock,
     availableStock: initialStock,
@@ -21,6 +22,21 @@ export const initializeInventoryService = async (
     soldStock: 0,
     reorderLevel: 10,
   });
+
+  // Create history record for initial stock entry
+  if (initialStock > 0) {
+    await createHistoryRecord({
+      inventoryId: inventory.id,
+      sellerProductId,
+      type: 'STOCK_ADDED',
+      quantity: initialStock,
+      previousStock: 0,
+      newStock: initialStock,
+      notes: 'Initial stock entry',
+    });
+  }
+
+  return inventory;
 };
 
 export const getInventoryService = async (inventoryId: string) => {
@@ -64,4 +80,40 @@ export const checkAvailabilityService = async (sellerProductId: string, quantity
 
 export const getSellerInventoryService = async (sellerId: string, filters: any = {}) => {
   return await getSellerInventory(sellerId, filters);
+};
+
+export const getInventoryHistoryService = async (
+  sellerProductId: string,
+  filters: any = {}
+) => {
+  return await getInventoryHistory(sellerProductId, filters);
+};
+
+export const getSellerInventoryHistoryService = async (
+  sellerId: string,
+  filters: any = {}
+) => {
+  return await getSellerInventoryHistory(sellerId, filters);
+};
+
+export const logInventoryTransaction = async (
+  inventoryId: string,
+  sellerProductId: string,
+  type: string,
+  quantity: number,
+  previousStock: number,
+  newStock: number,
+  reference?: string,
+  notes?: string
+) => {
+  return await createHistoryRecord({
+    inventoryId,
+    sellerProductId,
+    type,
+    quantity,
+    previousStock,
+    newStock,
+    reference,
+    notes,
+  });
 };

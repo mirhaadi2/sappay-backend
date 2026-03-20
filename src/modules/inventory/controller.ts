@@ -4,6 +4,8 @@ import {
   updateStockService,
   checkAvailabilityService,
   getSellerInventoryService,
+  getInventoryHistoryService,
+  getSellerInventoryHistoryService,
 } from './service';
 
 export const getInventoryHandler = async (
@@ -63,6 +65,39 @@ export const getSellerInventoryHandler = async (
     }
 
     const result = await getSellerInventoryService(userId, req.query);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getInventoryHistoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { sellerProductId } = req.params;
+    const result = await getInventoryHistoryService(sellerProductId, req.query);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSellerInventoryHistoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.session?.user?.id;
+
+    if (!userId) {
+      throw new Error('Unauthorized: Please login first');
+    }
+
+    const result = await getSellerInventoryHistoryService(userId, req.query);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
