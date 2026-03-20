@@ -144,3 +144,24 @@ export const updateSellerProductPriceService = async (
 
   return await updateSellerProduct(sellerProductId, updates);
 };
+
+export const updateSellerProductStatusService = async (
+  sellerId: string,
+  sellerProductId: string,
+  status: 'ACTIVE' | 'INACTIVE'
+) => {
+  const sp = await findSellerProductById(sellerProductId);
+  if (!sp) {
+    throw new AppError('NotFound', 404, 'Product not found');
+  }
+
+  if (sp.sellerId !== sellerId) {
+    throw new AppError('Forbidden', 403, 'Unauthorized');
+  }
+
+  if (!['ACTIVE', 'INACTIVE'].includes(status)) {
+    throw new AppError('BadRequest', 400, 'Invalid status value');
+  }
+
+  return await updateSellerProduct(sellerProductId, { status });
+};

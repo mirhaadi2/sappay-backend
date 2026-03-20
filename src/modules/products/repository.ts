@@ -136,7 +136,8 @@ export const getSellerProducts = async (sellerId: string, filters: any) => {
   if (status) where.status = status;
   const query = `
     SELECT 
-      sp.product_id as id, 
+      sp.id as "sellerProductId",
+      sp.product_id as "productId", 
       sp.seller_price as "sellerPrice", 
       p.name, p.slug, 
       p.images, 

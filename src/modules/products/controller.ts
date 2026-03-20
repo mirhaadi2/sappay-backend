@@ -8,6 +8,7 @@ import {
   addProductToSellerService,
   getSellerProductsService,
   updateSellerProductPriceService,
+  updateSellerProductStatusService,
 } from './service';
 import { findById } from '../sellers/repository';
 import { AppError } from '../../utils/AppError';
@@ -166,6 +167,36 @@ export const updateProductPriceHandler = async (
       seller.id,
       sellerProductId,
       req.body
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProductStatusHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { sellerProductId } = req.params;
+    const { status } = req.body;
+    const userId = req.session?.user?.id;
+
+    if (!userId) {
+      throw new AppError('Unauthorized', 401, 'Please login first');
+    }
+
+    const seller = await findById(userId);
+    if (!seller) {
+      throw new AppError('BadRequest', 400, 'You are not registered as a seller');
+    }
+
+    const result = await updateSellerProductStatusService(
+      seller.id,
+      sellerProductId,
+      status
     );
     res.json({ success: true, data: result });
   } catch (error) {

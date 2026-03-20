@@ -8,6 +8,7 @@ import {
   addProductToSellerHandler,
   getSellerProductsHandler,
   updateProductPriceHandler,
+  updateProductStatusHandler,
 } from './controller';
 import { requireAuth } from '../../middleware/auth.middleware';
 
@@ -29,7 +30,8 @@ router.get('/', fetchProductsHandler);
 
 // 4. Dynamic Parameter endpoints (MOVE THIS TO THE BOTTOM)
 // This is a "greedy" route. It should only run if nothing else matches.
-router.get('/:id', getProductDetailsHandler); 
+router.get('/:id', getProductDetailsHandler);
 router.post('/:productId/add-to-seller', addProductToSellerHandler);
+router.patch('/:sellerProductId/status', updateProductStatusHandler);
 
 export default router;
