@@ -6,7 +6,9 @@ import {
   getSellerInventoryService,
   getInventoryHistoryService,
   getSellerInventoryHistoryService,
+  logInventoryTransaction,
 } from './service';
+import { findById } from '../sellers/repository';
 
 export const getInventoryHandler = async (
   req: Request,
@@ -103,3 +105,58 @@ export const getSellerInventoryHistoryHandler = async (
     next(error);
   }
 };
+
+export const addInventoryStockHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { sellerProductId } = req.params;
+    const { quantity, notes } = req.body;
+    const userId = req.session?.user?.id;
+
+    if (!userId) {
+      throw new Error('Unauthorized: Please login first');
+    }
+
+    const seller = await findById(userId);
+    if (!seller) {
+      throw new Error('Not registered as seller');
+    }
+
+    if (!quantity || quantity <= 0) {
+      throw new Error('Quantity must be greater than 0');
+    }
+
+    // Get current inventory
+    const inventory = await getInventoryService(sellerProductId);
+
+    const previousStock = inventory.totalStock;
+    const newStock = previousStock + quantity;
+
+    // Update inventory
+    const updatedInventory = await updateStockService(sellerProductId, quantity);
+
+    // Log the transaction
+    await logInventoryTransaction(
+      inventory.id,
+      sellerProductId,
+      'STOCK_ADDED',
+      quantity,
+      previousStock,
+      newStock,
+      undefined,
+      notes || 'Stock added by seller'
+    );
+
+    res.json({ 
+      success: true, 
+      data: updatedInventory,
+      message: `Added ${quantity} units to inventory` 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
