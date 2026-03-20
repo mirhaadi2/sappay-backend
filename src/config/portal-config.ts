@@ -21,7 +21,7 @@ export interface PortalConfig {
 export const portalConfigs: Record<Portal, PortalConfig> = {
   [Portal.WEBSITE]: {
     name: 'Website Portal',
-    cookieName: 'sappay_token_website',
+    cookieName: 'sappey_token_website',
     tokenPrefix: 'website_token',
     sessionPrefix: 'website_session',
     allowedRoles: ['USER'],
@@ -29,7 +29,7 @@ export const portalConfigs: Record<Portal, PortalConfig> = {
   },
   [Portal.SELLER]: {
     name: 'Seller Portal',
-    cookieName: 'sappay_token_seller',
+    cookieName: 'sappey_token_seller',
     tokenPrefix: 'seller_token',
     sessionPrefix: 'seller_session',
     allowedRoles: ['SELLER'],
@@ -37,7 +37,7 @@ export const portalConfigs: Record<Portal, PortalConfig> = {
   },
   [Portal.ADMIN]: {
     name: 'Admin Portal',
-    cookieName: 'sappay_token_admin',
+    cookieName: 'sappey_token_admin',
     tokenPrefix: 'admin_token',
     sessionPrefix: 'admin_session',
     allowedRoles: ['ADMIN'],

@@ -12,7 +12,7 @@ export const config = {
   },
   session: {
     secret: process.env.SESSION_SECRET ?? "change_me",
-    cookieName: process.env.SESSION_COOKIE_NAME ?? "sappay_session",
+    cookieName: process.env.SESSION_COOKIE_NAME ?? "sappey_session",
   },
   databaseUrl: process.env.DATABASE_URL ?? "",
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",

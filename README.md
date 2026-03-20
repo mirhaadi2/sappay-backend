@@ -1,4 +1,4 @@
-# Sappay Backend
+# Sappey Backend
 
 ## Overview
 This backend is built with **Express + TypeScript** and uses **Sequelize** (PostgreSQL) for data persistence. It is structured to support modular features and scalability.
