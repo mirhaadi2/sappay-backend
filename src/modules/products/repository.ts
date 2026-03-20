@@ -46,6 +46,7 @@ export const findAllProducts = async (filters: any) => {
     // ],
     limit,
     offset,
+    raw: true,
     order: [['createdAt', 'DESC']],
   });
 
