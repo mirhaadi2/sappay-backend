@@ -13,6 +13,7 @@ import { AppError } from '../../../utils/AppError';
 import { AdminProductQuery, AdminProduct } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
+import { fetchFromR2, getR2SignedUrl } from '../../uploads/r2-utils';
 
 /**
  * List all products with seller information and inventory
@@ -57,11 +58,35 @@ export const adminListProducts = async (query: AdminProductQuery) => {
       raw: false,
     });
 
+    const resolveR2Url = async (key: string) => {
+      if (!key) return '';
+      if (key.startsWith('http://') || key.startsWith('https://')) return key;
+      // Try to fetch file from R2 (optional, for existence check)
+      try {
+        const data = await fetchFromR2(key);
+        console.log(data, 'data') // If file exists, get signed URL
+        return getR2SignedUrl(key);
+      } catch (err) {
+        // If not found, fallback
+        return '';
+      }
+    };
+
+    for (const product of rows) {
+      if (Array.isArray(product.images)) {
+        const resolvedImages = await Promise.all(
+          product.images.map(async (imgKey: string) => await resolveR2Url(imgKey))
+        );
+        product.images = resolvedImages;
+      }
+    }
+
     // Transform to admin format
     const products: AdminProduct[] = rows.map((product: any) => {
       return {
         id: product.id,
         name: product.name,
+        imageUrl: product?.images?.[0] || '',
         description: product.description || '',
         price: Number(product.basePrice || 0),
         sellerId: '',
