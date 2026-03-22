@@ -14,7 +14,9 @@ import { errorHandler } from "./middleware/error.middleware";
 import { sellerRoutes } from "./modules/sellers";
 import { uploadsRoutes } from "./modules/uploads";
 import adminAuthRoutes from "./modules/admin/auth/routes";
+import adminRoutes from "./modules/admin";
 import staffAuthRoutes from "./modules/staff/auth/routes";
+import { staffRouter } from "./modules/staff/routes";
 
 const app = express();
 
@@ -75,7 +77,9 @@ app.use("/api/sellers", sellerRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/staff/auth", staffAuthRoutes);
+app.use("/api/staff", staffRouter);
 
 app.use(errorHandler);
 

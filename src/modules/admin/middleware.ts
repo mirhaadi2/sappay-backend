@@ -22,9 +22,22 @@ export interface AuthenticatedRequest extends Request {
  * Middleware to require authentication
  */
 export const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.staff || !req.staff.id) {
+    // Extract staff OR admin from session (both can authenticate to admin portal)
+    const staff = (req.session as any)?.staff || (req.session as any)?.admin;
+    
+    console.log('[requireAuth] Session ID:', req.sessionID);
+    console.log('[requireAuth] Session admin:', (req.session as any)?.admin?.id);
+    console.log('[requireAuth] Session staff:', (req.session as any)?.staff?.id);
+    console.log('[requireAuth] Resolved staff object:', staff);
+    
+    if (!staff || !staff.id) {
+        console.log('[requireAuth] FAILED - No staff or admin in session');
         return res.status(401).json({ error: 'Unauthorized' });
     }
+    
+    // Attach staff to request for use in controllers
+    req.staff = staff;
+    console.log('[requireAuth] SUCCESS - User attached to request:', staff.id);
     next();
 };
 
@@ -32,11 +45,16 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
  * Middleware to require active staff status
  */
 export const requireActiveStaff = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.staff || !req.staff.id) {
-        return res.status(401).json({ error: 'Unauthorized' });
+    // Extract staff or admin from session if not already attached
+    if (!req.staff) {
+        const staff = (req.session as any)?.staff || (req.session as any)?.admin;
+        if (!staff || !staff.id) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        req.staff = staff;
     }
 
-    if (req.staff.status === 'suspended') {
+    if (req.staff && req.staff.status === 'suspended') {
         return res.status(403).json({ error: 'Your account has been suspended' });
     }
 
@@ -50,11 +68,26 @@ export const requireActiveStaff = (req: AuthenticatedRequest, res: Response, nex
 export const requirePermission = (requiredPermission: string) => {
     return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
-            if (!req.staff || !req.staff.id) {
-                return res.status(401).json({ error: 'Unauthorized' });
+            // Extract staff or admin from session if not already attached
+            if (!req.staff) {
+                const staff = (req.session as any)?.staff || (req.session as any)?.admin;
+                if (!staff || !staff.id) {
+                    return res.status(401).json({ error: 'Unauthorized' });
+                }
+                req.staff = staff;
             }
 
-            const staffId = req.staff.id;
+            // Admins have full permissions - skip permission check
+            if ((req.session as any)?.admin) {
+                console.log('[requirePermission] Admin user - granting full access');
+                next();
+                return;
+            }
+
+            const staffId = req.staff?.id;
+            if (!staffId) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
 
             // Check cache first
             let staffPermissions: string[];
@@ -94,11 +127,27 @@ export const requirePermission = (requiredPermission: string) => {
 export const requireAllPermissions = (permissions: string[]) => {
     return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
-            if (!req.staff || !req.staff.id) {
+            // Extract staff or admin from session if not already attached
+            if (!req.staff) {
+                const staff = (req.session as any)?.staff || (req.session as any)?.admin;
+                if (!staff || !staff.id) {
+                    return res.status(401).json({ error: 'Unauthorized' });
+                }
+                req.staff = staff;
+            }
+
+            // Admins have full permissions - skip permission check
+            if ((req.session as any)?.admin) {
+                console.log('[requireAllPermissions] Admin user - granting full access');
+                next();
+                return;
+            }
+
+            const staffId = req.staff?.id;
+            if (!staffId) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const staffId = req.staff.id;
             const cached = permissionCache.get(staffId);
             let staffPermissions: string[];
 
@@ -136,11 +185,27 @@ export const requireAllPermissions = (permissions: string[]) => {
 export const requireAnyPermission = (permissions: string[]) => {
     return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
-            if (!req.staff || !req.staff.id) {
+            // Extract staff or admin from session if not already attached
+            if (!req.staff) {
+                const staff = (req.session as any)?.staff || (req.session as any)?.admin;
+                if (!staff || !staff.id) {
+                    return res.status(401).json({ error: 'Unauthorized' });
+                }
+                req.staff = staff;
+            }
+
+            // Admins have full permissions - skip permission check
+            if ((req.session as any)?.admin) {
+                console.log('[requireAnyPermission] Admin user - granting full access');
+                next();
+                return;
+            }
+
+            const staffId = req.staff?.id;
+            if (!staffId) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const staffId = req.staff.id;
             const cached = permissionCache.get(staffId);
             let staffPermissions: string[];
 

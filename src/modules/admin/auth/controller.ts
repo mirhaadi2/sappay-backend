@@ -36,11 +36,24 @@ export const loginHandler = async (req: Request, res: Response, next: NextFuncti
       (req.session as any).user_type = 'staff';
     }
 
-    logger.info('Admin portal login successful', { userId: user.id, userType: user.user_type });
+    console.log('[loginHandler] Before save - Session ID:', req.sessionID);
+    console.log('[loginHandler] Setting user in session:', user.user_type);
 
-    res.json({
-      success: true,
-      data: { user },
+    // Explicitly save session to ensure it's persisted to Redis
+    req.session.save((err) => {
+      if (err) {
+        logger.error('Failed to save session', { error: err });
+        console.log('[loginHandler] Session save ERROR:', err);
+        return res.status(500).json({ success: false, error: 'Session save failed' });
+      }
+
+      console.log('[loginHandler] Session saved successfully');
+      logger.info('Admin portal login successful', { userId: user.id, userType: user.user_type });
+
+      res.json({
+        success: true,
+        data: { user },
+      });
     });
   } catch (error) {
     next(error);

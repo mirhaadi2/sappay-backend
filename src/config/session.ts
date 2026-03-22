@@ -4,9 +4,19 @@ import { createClient } from "redis";
 import { config } from "./index";
 import { portalConfigs, Portal } from "./portal-config";
 
-// Create Redis client
+// Create Redis client with improved connection settings
 const redisClient = createClient({
   url: config.redisUrl,
+  socket: {
+    reconnectStrategy: (retries) => {
+      if (retries > 10) {
+        console.error("Max Redis reconnection attempts reached");
+        return false; // Stop reconnecting
+      }
+      return retries * 50; // Retry with exponential backoff: 50ms, 100ms, 150ms...
+    },
+    connectTimeout: 10000, // 10 second timeout instead of default 5 seconds
+  },
 });
 
 // Initialize Redis store
@@ -15,11 +25,27 @@ const redisStore = new RedisStore({
 });
 
 // Connect to Redis
-redisClient.connect().then(() => {
-  console.log("✅ Connected to Redis - sessions will be stored in Redis");
-}).catch((err) => {
-  console.error("❌ Failed to connect to Redis:", err.message);
-  process.exit(1);
+redisClient.connect()
+  .then(() => {
+    console.log("✅ Connected to Redis - sessions will be stored in Redis");
+  })
+  .catch((err) => {
+    console.error("❌ Failed to connect to Redis:", err.message);
+    console.log("⚠️  Application will start without Redis. Restart once Redis is available.");
+    // Don't exit - let the app run with in-memory sessions temporarily
+  });
+
+// Handle Redis connection events
+redisClient.on('error', (err) => {
+  console.error('❌ Redis connection error:', err.message);
+});
+
+redisClient.on('connect', () => {
+  console.log('✅ Redis connected');
+});
+
+redisClient.on('ready', () => {
+  console.log('✅ Redis ready to serve requests');
 });
 
 
