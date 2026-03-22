@@ -38,9 +38,9 @@ if (!migrationSearch.trim()) {
   log('\nUsage: npm run migrate:specific -- add-deleted_at-column', 'yellow');
   log('\nAvailable migrations:\n', 'blue');
   
-  const migrations = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.js') || f.endsWith('.cjs'));
+  const migrations = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.ts') || f.endsWith('.js') || f.endsWith('.cjs'));
   migrations.forEach((file, i) => {
-    log(`  ${i + 1}. ${file.replace(/\.(js|cjs)$/, '')}`, 'cyan');
+    log(`  ${i + 1}. ${file.replace(/\.(ts|js|cjs)$/, '')}`, 'cyan');
   });
   
   log('\nExample:\n  npm run migrate:specific -- add-deleted_at-column', 'yellow');
@@ -52,8 +52,8 @@ try {
   log('  RUN SPECIFIC MIGRATION', 'cyan');
   log('════════════════════════════════════════════════════════════', 'cyan');
 
-  // Find migration file (supports both .js and .cjs)
-  const migrations = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.js') || f.endsWith('.cjs'));
+  // Find migration file (supports .ts, .js, and .cjs)
+  const migrations = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.ts') || f.endsWith('.js') || f.endsWith('.cjs'));
   const matchedFile = migrations.find(f => f.toLowerCase().includes(migrationSearch.toLowerCase()));
 
   if (!matchedFile) {

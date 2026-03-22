@@ -35,7 +35,7 @@ export function getSessionOptionsForPortal(portal: Portal): session.SessionOptio
       secure: config.nodeEnv === "production",
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24,
-      sameSite: "strict",
+      sameSite: config.nodeEnv === "production" ? "strict" : "lax", // Use lax for development
     },
     store: redisStore,
   };

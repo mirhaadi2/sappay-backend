@@ -1,5 +1,7 @@
+const bcrypt = require('bcrypt');
+
 module.exports = {
-  up: async (queryInterface: any, Sequelize: any) => {
+  up: async (queryInterface, Sequelize) => {
     const transaction = await queryInterface.sequelize.transaction();
 
     try {
@@ -78,7 +80,7 @@ module.exports = {
         { type: 'SELECT', transaction }
       );
 
-      const permissionMap = (allPermissions as any[]).reduce((acc: Record<string, string>, p) => {
+      const permissionMap = allPermissions.reduce((acc, p) => {
         acc[p.code] = p.id;
         return acc;
       }, {});
@@ -183,6 +185,8 @@ module.exports = {
         },
       ];
 
+      const roleIdMap = {};
+
       // Insert roles
       for (const role of systemRoles) {
         const result = await queryInterface.sequelize.query(
@@ -205,7 +209,10 @@ module.exports = {
           }
         );
 
-        const roleId = (result as any[])[0][0]?.id;
+        const roleId = result[0][0]?.id;
+        if (roleId) {
+          roleIdMap[role.code] = roleId;
+        }
 
         // Insert role-permission associations
         for (const permCode of role.permissions) {
@@ -224,6 +231,95 @@ module.exports = {
         }
       }
 
+      // Seed admin user
+      const superAdminPassword = await bcrypt.hash('SuperAdmin123!', 12);
+      await queryInterface.bulkInsert(
+        'admins',
+        [
+          {
+            id: require('uuid').v4(),
+            email: 'superadmin@example.com',
+            password: superAdminPassword,
+            name: 'Super Admin',
+            phone: null,
+            status: 'active',
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        ],
+        { transaction }
+      );
+
+      // Seed staff users
+      const staffSeed = [
+        {
+          id: require('uuid').v4(),
+          email: 'admin.manager@example.com',
+          password: await bcrypt.hash('AdminManager123!', 12),
+          name: 'Admin Manager',
+          phone: null,
+          status: 'active',
+          department: 'Management',
+          manager_id: null,
+          hire_date: new Date(),
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        {
+          id: require('uuid').v4(),
+          email: 'inventory.manager@example.com',
+          password: await bcrypt.hash('InventoryManager123!', 12),
+          name: 'Inventory Manager',
+          phone: null,
+          status: 'active',
+          department: 'Inventory',
+          manager_id: null,
+          hire_date: new Date(),
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ];
+
+      await queryInterface.bulkInsert('staff', staffSeed, { transaction });
+
+      const seededStaff = await queryInterface.sequelize.query(
+        "SELECT id, email FROM staff WHERE email IN ('admin.manager@example.com', 'inventory.manager@example.com')",
+        { type: 'SELECT', transaction }
+      );
+
+      const staffMap = seededStaff.reduce((acc, row) => {
+        acc[row.email] = row.id;
+        return acc;
+      }, {});
+
+      // Assign RBAC roles to seed staff
+      const staffRoleAssignments = [
+        { email: 'admin.manager@example.com', roleCode: 'ADMIN_MANAGER' },
+        { email: 'inventory.manager@example.com', roleCode: 'INVENTORY_MANAGER' },
+      ];
+
+      for (const assignment of staffRoleAssignments) {
+        const staffId = staffMap[assignment.email];
+        const roleId = roleIdMap[assignment.roleCode];
+        if (staffId && roleId) {
+          await queryInterface.sequelize.query(
+            `INSERT INTO staff_roles (id, staff_id, role_id, assigned_by, assigned_at)
+             VALUES ($1, $2, $3, $4, $5)`,
+            {
+              bind: [
+                require('uuid').v4(),
+                staffId,
+                roleId,
+                staffId,
+                new Date(),
+              ],
+              type: 'INSERT',
+              transaction,
+            }
+          );
+        }
+      }
+
       await transaction.commit();
     } catch (error) {
       await transaction.rollback();
@@ -231,8 +327,13 @@ module.exports = {
     }
   },
 
-  down: async (queryInterface: any, Sequelize: any) => {
+  down: async (queryInterface, Sequelize) => {
     // Clear the seeded data
+    await queryInterface.sequelize.query('DELETE FROM staff_roles WHERE id IS NOT NULL');
+    await queryInterface.sequelize.query(
+      "DELETE FROM staff WHERE email IN ('admin.manager@example.com', 'inventory.manager@example.com')"
+    );
+    await queryInterface.sequelize.query("DELETE FROM admins WHERE email = 'superadmin@example.com'");
     await queryInterface.sequelize.query('DELETE FROM role_permissions WHERE id IS NOT NULL');
     await queryInterface.sequelize.query('DELETE FROM roles WHERE is_system = true');
     await queryInterface.sequelize.query('DELETE FROM permissions WHERE id IS NOT NULL');

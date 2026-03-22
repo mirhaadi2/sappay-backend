@@ -1,7 +1,7 @@
-import { DataTypes, QueryInterface } from 'sequelize';
+const { DataTypes } = require('sequelize');
 
 module.exports = {
-  up: async (queryInterface: QueryInterface, Sequelize: any) => {
+  up: async (queryInterface, Sequelize) => {
     const transaction = await queryInterface.sequelize.transaction();
     try {
       await queryInterface.createTable(
@@ -57,7 +57,7 @@ module.exports = {
       throw error;
     }
   },
-  down: async (queryInterface: QueryInterface, Sequelize: any) => {
+  down: async (queryInterface, Sequelize) => {
     await queryInterface.dropTable('admins');
   },
 };

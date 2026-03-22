@@ -5,7 +5,7 @@ dotenv.config();
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   nodeEnv: process.env.NODE_ENV ?? "development",
-  frontendOrigin: process.env.FRONTEND_ORIGINS ? JSON.parse(process.env.FRONTEND_ORIGINS) : ["http://localhost:5173", "http://localhost:5174"],
+  frontendOrigin: process.env.FRONTEND_ORIGINS ? JSON.parse(process.env.FRONTEND_ORIGINS) : ["http://localhost:5173", "http://localhost:5174","http://localhost:5175"],
   jwt: {
     secret: process.env.JWT_SECRET ?? "change_me",
     expiresIn: process.env.JWT_EXPIRES_IN ?? "1h",
