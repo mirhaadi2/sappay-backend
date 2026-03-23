@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import session from "express-session";
+import cookieParser from "cookie-parser";
 import { config } from "./config";
 import { getSessionOptionsForPortal } from "./config/session";
 import { Portal, portalConfigs } from "./config/portal-config";
@@ -9,7 +10,6 @@ import authRoutes from "./modules/auth/routes";
 import userRoutes from "./modules/users/routes";
 import addressRoutes from "./modules/address/routes";
 import productRoutes from "./modules/products/routes";
-import inventoryRoutes from "./modules/inventory/routes";
 import { errorHandler } from "./middleware/error.middleware";
 import { sellerRoutes } from "./modules/sellers";
 import { uploadsRoutes } from "./modules/uploads";
@@ -26,6 +26,7 @@ app.use(cors({
   origin: config.frontendOrigin,
   credentials: true,
 }));
+app.use(cookieParser(config.session.secret));
 app.use(express.json());
 
 // Create session middleware instances for each portal upfront (not per-request)
@@ -34,7 +35,7 @@ const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/inventory"], (req, res, next) => {
+app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toLowerCase();
 
@@ -46,7 +47,7 @@ app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sel
     portal = Portal.ADMIN;
   } else if (effectivePath.includes('/api/admin') || effectivePath.includes('/admin')) {
     portal = Portal.ADMIN;
-  } else if (effectivePath.includes('/api/sellers') || effectivePath.includes('/sellers')) {
+  } else if (effectivePath.includes('/api/sellers') || effectivePath.includes('/sellers') || effectivePath.includes('/api/products/seller')) {
     portal = Portal.SELLER;
   } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/users') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products')) {
     portal = Portal.WEBSITE;
@@ -75,7 +76,6 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/uploads", uploadsRoutes);
-app.use("/api/inventory", inventoryRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/staff/auth", staffAuthRoutes);

@@ -4,19 +4,25 @@ import {
   updateStockHandler,
   checkAvailabilityHandler,
   getSellerInventoryHandler,
-  getInventoryHistoryHandler,
-  getSellerInventoryHistoryHandler,
   addInventoryStockHandler,
 } from './controller';
+import { authenticateSeller } from '../auth/middleware';
+import { historiesRoutes } from './histories';
 
 const router = Router();
 
-router.get('/seller/inventory', getSellerInventoryHandler);
-router.get('/seller/history', getSellerInventoryHistoryHandler);
+// All routes require seller authentication
+router.use(authenticateSeller);
+
+// Mount histories submodule
+router.use('/histories', historiesRoutes);
+
+// Seller inventory routes
+router.get('/', getSellerInventoryHandler);
 router.post('/:sellerProductId/add-stock', addInventoryStockHandler);
 router.get('/:id', getInventoryHandler);
 router.put('/:id', updateStockHandler);
 router.get('/:id/check-availability', checkAvailabilityHandler);
-router.get('/:sellerProductId/history', getInventoryHistoryHandler);
+
 
 export default router;

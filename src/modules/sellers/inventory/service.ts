@@ -7,8 +7,9 @@ import {
   releaseReservedStock,
   getSellerInventory,
 } from './repository';
-import { createHistoryRecord, getInventoryHistory, getSellerInventoryHistory } from './history-repository';
-import { AppError } from '../../utils/AppError';
+import { createHistoryRecord } from './histories';
+import { AppError } from '../../../utils/AppError';
+import { buildPaginatedResponse } from '../../shared/pagination';
 
 export const initializeInventoryService = async (
   sellerProductId: string,
@@ -79,21 +80,10 @@ export const checkAvailabilityService = async (sellerProductId: string, quantity
 };
 
 export const getSellerInventoryService = async (sellerId: string, filters: any = {}) => {
-  return await getSellerInventory(sellerId, filters);
-};
-
-export const getInventoryHistoryService = async (
-  sellerProductId: string,
-  filters: any = {}
-) => {
-  return await getInventoryHistory(sellerProductId, filters);
-};
-
-export const getSellerInventoryHistoryService = async (
-  sellerId: string,
-  filters: any = {}
-) => {
-  return await getSellerInventoryHistory(sellerId, filters);
+  const { page = 1, limit = 20 } = filters;
+  const offset = (page - 1) * limit;
+  const response = await getSellerInventory(sellerId, { ...filters, limit, page, offset });
+  return buildPaginatedResponse(response.rows, response.count, { page, limit, offset });
 };
 
 export const logInventoryTransaction = async (

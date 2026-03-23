@@ -13,7 +13,7 @@ import {
   updateSellerProduct,
   createCategory,
 } from './repository';
-import { initializeInventoryService } from '../inventory/service';
+import { initializeInventoryService } from '../sellers/inventory/service';
 import { AppError } from '../../utils/AppError';
 
 export const createProductService = async (data: any) => {

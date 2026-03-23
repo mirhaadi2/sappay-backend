@@ -21,7 +21,7 @@ router.post('/categories', createCategoryHandler);
 router.get('/categories/:category/products', getProductDetailsHandler);
 
 // 2. Seller product endpoints
-router.get('/seller/products', getSellerProductsHandler);
+router.get('/seller/products', requireAuth, getSellerProductsHandler);
 router.put('/seller/:sellerProductId/price', updateProductPriceHandler);
 
 // 3. Product endpoints

@@ -7,6 +7,8 @@ export const create = async (sellerData: {
   businessName: string;
   businessRegistrationNo: string;
   businessType: string;
+  businessIdType?: string;
+  gstNumber?: string;
   businessAddress: string;
   businessPhone: string;
   ownerName: string;
@@ -14,7 +16,7 @@ export const create = async (sellerData: {
   bankAccountName: string;
   bankAccountNumber: string;
   bankIfscCode: string;
-  businessIdType?: string;
+  status?: SellerStatus;
 }) => {
   return await Seller.create({
     ...sellerData,
@@ -41,6 +43,7 @@ export const findByEmail = async (email: string) => {
   return await Seller.findOne({
     where: { ownerEmail: email },
     paranoid: true,
+    raw: true,
   });
 };
 

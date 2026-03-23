@@ -1,5 +1,5 @@
 import { Model, DataTypes, Optional } from 'sequelize';
-import { sequelize } from '../../db/sequelize';
+import { sequelize } from '../../../db/sequelize';
 
 interface InventoryAttributes {
   id: string;

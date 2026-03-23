@@ -1,7 +1,8 @@
-import { Inventory } from './inventory.model';
-import { SellerProduct } from '../products/seller-product.model';
-import { AppError } from '../../utils/AppError';
-import { sequelize } from '../../db/sequelize';
+import { Inventory } from './model';
+import { SellerProduct } from '../../products/seller-product.model';
+import { AppError } from '../../../utils/AppError';
+import { sequelize } from '../../../db/sequelize';
+import { QueryTypes } from 'sequelize';
 
 export const createInventory = async (data: any) => {
   return await Inventory.create(data);
@@ -18,9 +19,9 @@ export const updateInventory = async (id: string, data: any) => {
 };
 
 export const getSellerInventory = async (sellerId: string, filters: any = {}) => {
-  const { limit = 20, offset = 0 } = filters;
+  const { page = 1, limit = 20, offset = 0 } = filters;
 
-  // Join Inventory with SellerProduct to get seller-specific inventory
+  // 2. Define Queries
   const query = `
     SELECT 
       i.id,
@@ -38,38 +39,42 @@ export const getSellerInventory = async (sellerId: string, filters: any = {}) =>
       sp.seller_price as "sellerPrice",
       p.name as "productName"
     FROM inventory i
-    JOIN seller_products sp ON i.seller_product_id = sp.id
-    JOIN products p ON sp.product_id = p.id
+    INNER JOIN seller_products sp ON i.seller_product_id = sp.id
+    INNER JOIN products p ON sp.product_id = p.id
     WHERE sp.seller_id = :sellerId
     ORDER BY i.created_at DESC
     LIMIT :limit OFFSET :offset
   `;
 
   const countQuery = `
-    SELECT COUNT(*) as count
+    SELECT COUNT(*)::int as count
     FROM inventory i
-    JOIN seller_products sp ON i.seller_product_id = sp.id
+    INNER JOIN seller_products sp ON i.seller_product_id = sp.id
     WHERE sp.seller_id = :sellerId
   `;
 
   try {
-    const rows = await sequelize.query(query, {
-      replacements: { sellerId, limit: parseInt(limit), offset: parseInt(offset) },
-      type: 'SELECT',
-    });
+    // 3. Parallel Execution (Professional Level)
+    const [rows, countResult] = await Promise.all([
+      sequelize.query(query, {
+        replacements: { sellerId, limit, offset },
+        type: QueryTypes.SELECT,
+      }),
+      sequelize.query(countQuery, {
+        replacements: { sellerId },
+        type: QueryTypes.SELECT,
+      })
+    ]);
 
-    const countResult: any = await sequelize.query(countQuery, {
-      replacements: { sellerId },
-      type: 'SELECT',
-    });
-
+    // 4. Return clean response
     return {
-      rows,
-      count: countResult[0]?.count || 0,
+      rows: rows as any[],
+      count: (countResult[0] as any)?.count || 0,
     };
   } catch (error) {
     console.error('Error fetching seller inventory:', error);
-    throw new AppError('InternalError', 500, 'Failed to fetch seller inventory');
+    // Assuming AppError is defined in your custom errors file
+    throw error; 
   }
 };
 

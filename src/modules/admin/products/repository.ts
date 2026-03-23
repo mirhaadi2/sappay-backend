@@ -16,7 +16,7 @@ const executeSelect = async <T>(
   query: string,
   replacements: any = []
 ): Promise<T[]> => {
-  var timing: number = 0;
+  var timing = 0;
   try {
     const result = (await sequelize.query(query, {
       replacements,
@@ -27,10 +27,10 @@ const executeSelect = async <T>(
       },
       benchmark: true,
     })) as T[];
-    logger.info('Database SELECT query completed successfully', { rowCount: result?.length || 0, timing: timing });
+    logger.info('Database SELECT query completed successfully', { rowCount: result?.length || 0 });
     return result || [];
   } catch (error: any) {
-    logger.error('Database SELECT query failed', { query, replacements, error: (error as Error)?.message, stack: (error as Error)?.stack });
+    logger.error('Database SELECT query failed', { query, replacements, error });
     throw error;
   }
 };
@@ -42,7 +42,7 @@ const executeModify = async (
   query: string,
   replacements: any = []
 ): Promise<number> => {
-  var timing: number = 0;
+  var timing = 0;
   try {
     await sequelize.query(query, { 
       replacements,
@@ -52,10 +52,10 @@ const executeModify = async (
       },
       benchmark: true,
     });
-    logger.info('Database MODIFY query completed successfully', { timing: timing });
+    logger.info('Database MODIFY query completed successfully');
     return 1;
   } catch (error: any) {
-    logger.error('Database MODIFY query failed', { query, replacements, error: (error as Error)?.message, stack: (error as Error)?.stack });
+    logger.error('Database MODIFY query failed', { query, replacements, error });
     throw error;
   }
 };
@@ -93,10 +93,13 @@ export const findProducts = async (
       p."base_price" as price, 
       p."category_id" as category,
       p.status, 
-      p.images, 
+      p.images,
       p."created_at" AS "createdAt", 
-      p."updated_at" AS "updatedAt"
+      p."updated_at" AS "updatedAt",
+      i.available_stock as "stock"
     FROM products p
+    LEFT JOIN "seller_products" sp ON sp.product_id = p.id
+    LEFT JOIN "inventory" i ON sp.id = i.seller_product_id
     WHERE ${whereClause}
     ORDER BY ${sortBy} ${sortOrder}
     LIMIT :limit OFFSET :offset

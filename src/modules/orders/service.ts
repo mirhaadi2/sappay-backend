@@ -15,7 +15,7 @@ import {
   reserveStockService,
   confirmOrderService,
   cancelOrderService as releaseStockService,
-} from '../inventory/service';
+} from '../sellers/inventory/service';
 import { findSellerProductById, findProductById } from '../products/repository';
 import { AppError } from '../../utils/AppError';
 

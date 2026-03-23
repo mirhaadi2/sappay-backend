@@ -16,6 +16,6 @@
     "rootDir": "src",
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/modules/sellers/inventory/.model.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

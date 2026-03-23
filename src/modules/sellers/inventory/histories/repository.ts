@@ -1,11 +1,13 @@
-import InventoryHistory from './inventory-history.model';
-import { AppError } from '../../utils/AppError';
-import { sequelize } from '../../db/sequelize';
+import InventoryHistory from './model';
+import { AppError } from '../../../../utils/AppError';
+import { sequelize } from '../../../../db/sequelize';
 import { QueryTypes } from 'sequelize';
+import { buildPaginatedResponse } from '../../../shared/pagination';
 
 export const createHistoryRecord = async (data: any) => {
     return await InventoryHistory.create(data);
 };
+
 
 export const getInventoryHistory = async (
     sellerProductId: string,
@@ -44,7 +46,13 @@ export const getSellerInventoryHistory = async (
     sellerId: string,
     filters: any = {}
 ) => {
-    const { limit = 50, offset = 0, type } = filters;
+    // 1. Professional Sanitization
+    const limit = Math.max(1, parseInt(filters.limit) || 10);
+    const offset = Math.max(0, parseInt(filters.offset) || 0);
+    const type = filters.type;
+
+    // 2. Base Query Logic
+    const typeFilter = type ? 'AND ih.type = :type' : '';
 
     const query = `
     SELECT 
@@ -66,42 +74,44 @@ export const getSellerInventoryHistory = async (
     JOIN seller_products sp ON ih.seller_product_id = sp.id
     JOIN products p ON sp.product_id = p.id
     WHERE sp.seller_id = :sellerId
-    ${type ? 'AND ih.type = :type' : ''}
+    ${typeFilter}
     ORDER BY ih.created_at DESC
     LIMIT :limit OFFSET :offset
   `;
 
     const countQuery = `
-    SELECT COUNT(*) as count
+    SELECT COUNT(*)::int as count
     FROM inventory_history ih
     JOIN seller_products sp ON ih.seller_product_id = sp.id
     WHERE sp.seller_id = :sellerId
-    ${type ? 'AND ih.type = :type' : ''}
+    ${typeFilter}
   `;
 
     try {
-        const replacements: any = { sellerId, limit: parseInt(limit), offset: parseInt(offset) };
+        const replacements: any = { sellerId, limit, offset };
         if (type) replacements.type = type;
 
-        const rows = await sequelize.query(query, {
-            replacements,
-            type: QueryTypes.SELECT,
-        });
+        // 3. Parallel Execution (Professional Level)
+        const [rows, countResult] = await Promise.all([
+            sequelize.query(query, {
+                replacements,
+                type: QueryTypes.SELECT,
+                benchmark: true,
+                logging: (sql, timing) => console.log(`[InventoryHistory] ${timing}ms: ${sql}`),
+            }),
+            sequelize.query(countQuery, {
+                replacements,
+                type: QueryTypes.SELECT,
+            }),
+        ]);
 
-        const countResult: any = await sequelize.query(countQuery, {
-            replacements,
-            type: QueryTypes.SELECT,
-        });
+        const total = (countResult[0] as any)?.count || 0;
 
-        return {
-            inventoryHistories: rows,
-            count: countResult[0]?.count || 0,
-            page: Math.floor(offset / limit) + 1,
-            limit,
-            totalPages: Math.ceil((countResult[0]?.count || 0) / limit),
-        };
+        // 4. Return structured response for Frontend Pagination
+        return buildPaginatedResponse(rows, total, { page: Math.floor(offset / limit) + 1, limit, offset });
     } catch (error) {
         console.error('Error fetching seller inventory history:', error);
-        throw new AppError('InternalError', 500, 'Failed to fetch inventory history');
+        // Directly rethrow or map to your custom AppError
+        throw error;
     }
 };

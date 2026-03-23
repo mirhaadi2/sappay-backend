@@ -221,18 +221,20 @@ export const loginSellerHandler = async (req: Request, res: Response, next: Next
 
     const result = await loginSeller(email, password);
 
-    // Store user in session (Redis-backed, HttpOnly cookie sent automatically)
+    // Store seller in session
+    (req.session as any).sellerId = result.seller.id;
+    (req.session as any).userType = 'SELLER';
+    (req.session as any).sellerStatus = result.seller.status;
     req.session.user = {
       id: result.seller.id,
       email: result.seller.ownerEmail,
       role: 'SELLER' as any,
     };
 
-    res.json({
-      success: true,
-      data: {
-        seller: result.seller,
-      },
+    // CRITICAL: Save session to Redis before responding
+    req.session.save((err) => {
+      if (err) return next(err);
+      res.json({ success: true, data: { seller: result.seller } });
     });
   } catch (error) {
     next(error);

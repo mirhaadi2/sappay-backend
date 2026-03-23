@@ -4,129 +4,107 @@ import {
   updateStockService,
   checkAvailabilityService,
   getSellerInventoryService,
-  getInventoryHistoryService,
-  getSellerInventoryHistoryService,
   logInventoryTransaction,
 } from './service';
-import { findById } from '../sellers/repository';
+import { findById } from '../../sellers/repository';
+import { AppError } from '../../../utils/AppError';
+import logger from '../../../utils/logger';
 
 export const getInventoryHandler = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
   try {
     const { id } = req.params;
     const inventory = await getInventoryService(id);
     res.json({ success: true, data: inventory });
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    logger.error('Get inventory error', { error });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+    });
   }
 };
 
 export const updateStockHandler = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
   try {
     const { id } = req.params;
     const { quantity } = req.body;
     const inventory = await updateStockService(id, quantity);
     res.json({ success: true, data: inventory });
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    logger.error('Update stock error', { error });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+    });
   }
 };
 
 export const checkAvailabilityHandler = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
   try {
     const { id } = req.params;
     const { quantity } = req.query;
     const available = await checkAvailabilityService(id, Number(quantity));
     res.json({ success: true, data: { available } });
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    logger.error('Check availability error', { error });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+    });
   }
 };
 
 export const getSellerInventoryHandler = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
   try {
-    const userId = req.session?.user?.id;
+    const sellerId = (req as any).sellerId;
 
-    if (!userId) {
-      throw new Error('Unauthorized: Please login first');
+    if (!sellerId) {
+      throw new AppError('Unauthorized', 401, 'Seller not authenticated');
     }
 
-    const result = await getSellerInventoryService(userId, req.query);
+    const result = await getSellerInventoryService(sellerId, req.query);
     res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getInventoryHistoryHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const { sellerProductId } = req.params;
-    const result = await getInventoryHistoryService(sellerProductId, req.query);
-    res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getSellerInventoryHistoryHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const userId = req.session?.user?.id;
-
-    if (!userId) {
-      throw new Error('Unauthorized: Please login first');
-    }
-
-    const result = await getSellerInventoryHistoryService(userId, req.query);
-    res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    logger.error('Get seller inventory error', { error });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+    });
   }
 };
 
 export const addInventoryStockHandler = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
   try {
     const { sellerProductId } = req.params;
     const { quantity, notes } = req.body;
-    const userId = req.session?.user?.id;
+    const sellerId = (req as any).sellerId;
 
-    if (!userId) {
-      throw new Error('Unauthorized: Please login first');
+    if (!sellerId) {
+      throw new AppError('Unauthorized', 401, 'Seller not authenticated');
     }
 
-    const seller = await findById(userId);
+    const seller = await findById(sellerId);
     if (!seller) {
-      throw new Error('Not registered as seller');
+      throw new AppError('NotFound', 404, 'Seller not found');
     }
 
     if (!quantity || quantity <= 0) {
-      throw new Error('Quantity must be greater than 0');
+      throw new AppError('BadRequest', 400, 'Quantity must be greater than 0');
     }
 
     // Get current inventory
@@ -150,13 +128,17 @@ export const addInventoryStockHandler = async (
       notes || 'Stock added by seller'
     );
 
-    res.json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       data: updatedInventory,
-      message: `Added ${quantity} units to inventory` 
+      message: `Added ${quantity} units to inventory`
     });
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    logger.error('Add inventory stock error', { error });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+    });
   }
 };
 
