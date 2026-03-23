@@ -13,6 +13,8 @@ export interface AdminProduct {
   name: string;
   description: string;
   price: number;
+  images: string[];
+  imageUrl: string;
   category: string;
   status: 'draft' | 'published';
   isFeatured: boolean;

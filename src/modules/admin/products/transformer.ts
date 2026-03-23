@@ -3,13 +3,42 @@
  * Handles all data transformation from database to API response
  */
 
+import { getR2SignedUrl } from '../../uploads/r2-utils';
 import { ProductRow } from './database.types';
 import { AdminProduct } from './types';
 
 /**
  * Transform database row to admin API response
  */
-export function transformProductToAdmin(row: ProductRow): AdminProduct {
+/**
+ * Resolves R2 URLs with better fallback and parallel execution support
+ */
+const resolveR2Url = async (key: string): Promise<string> => {
+  if (!key) return '';
+  if (key.startsWith('http')) return key;
+
+  try {
+    // Note: In production, consider if fetchFromR2 is necessary. 
+    // Usually, generating a Signed URL doesn't require a network check.
+    return await getR2SignedUrl(key);
+  } catch (err) {
+    console.error(`Failed to resolve R2 key: ${key}`, err);
+    return '';
+  }
+};
+
+/**
+ * Enhanced transformation that handles async image resolution
+ */
+export async function transformProductToAdmin(row: ProductRow): Promise<AdminProduct> {
+  // 1. Start resolving images immediately
+  const imagePromises = Array.isArray(row.images) 
+    ? row.images.map(img => resolveR2Url(img)) 
+    : [];
+
+  const resolvedImages = await Promise.all(imagePromises);
+
+  // 2. Map the data structure
   return {
     id: row.id,
     name: row.name,
@@ -18,17 +47,24 @@ export function transformProductToAdmin(row: ProductRow): AdminProduct {
     category: row.category || 'Uncategorized',
     status: row.status === 'ACTIVE' ? 'published' : 'draft',
     isFeatured: false,
-    stock: 0,
+    stock: Number(row.stock) || 0,
+    // Safely resolve the first image as the primary imageUrl
+    imageUrl: resolvedImages?.[0] || '/placeholder.png', 
+    images: resolvedImages,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };
 }
 
 /**
- * Transform multiple product rows to admin responses
+ * Professional batch transformation
+ * Processes all products and all their images in parallel
  */
-export function transformProductsToAdmin(rows: ProductRow[]): AdminProduct[] {
-  return rows.map(transformProductToAdmin);
+export async function transformProductsToAdmin(rows: ProductRow[]): Promise<AdminProduct[]> {
+  if (!rows || rows.length === 0) return [];
+  
+  // Use Promise.all to transform all products concurrently
+  return await Promise.all(rows.map(row => transformProductToAdmin(row)));
 }
 
 

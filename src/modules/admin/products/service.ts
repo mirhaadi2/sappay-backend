@@ -65,7 +65,7 @@ export const adminListProducts = async (
       ),
     ]);
 
-    const products = transformProductsToAdmin(rows);
+    const products = await transformProductsToAdmin(rows);
     return buildPaginatedResponse(products, total, { page, limit, offset });
   } catch (error) {
     handleServiceError(error, 'List products');
@@ -79,7 +79,7 @@ export const adminGetProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
     const product = await findById(id);
-    return transformProductToAdmin(product!);
+    return await transformProductToAdmin(product!);
   } catch (error) {
     handleServiceError(error, 'Fetch product');
   }
@@ -97,7 +97,7 @@ export const adminUpdateProduct = async (
     const updates = validateUpdateData(data);
     await updateFields(id, updates);
     logger.info('Product updated', { productId: id, updates });
-    return adminGetProduct(id);
+    return await adminGetProduct(id);
   } catch (error) {
     handleServiceError(error, 'Update product');
   }
@@ -125,7 +125,7 @@ export const adminPublishProduct = async (id: string): Promise<any> => {
     await requireProductExists(id, 'Product');
     await updateStatus(id, 'ACTIVE');
     logger.info('Product published', { productId: id });
-    return adminGetProduct(id);
+    return await adminGetProduct(id);
   } catch (error) {
     handleServiceError(error, 'Publish product');
   }
@@ -139,7 +139,7 @@ export const adminUnpublishProduct = async (id: string): Promise<any> => {
     await requireProductExists(id, 'Product');
     await updateStatus(id, 'INACTIVE');
     logger.info('Product unpublished', { productId: id });
-    return adminGetProduct(id);
+    return await adminGetProduct(id);
   } catch (error) {
     handleServiceError(error, 'Unpublish product');
   }
@@ -153,7 +153,7 @@ export const adminFeatureProduct = async (id: string): Promise<any> => {
     await requireProductExists(id, 'Product');
     await updateMetadata(id, 'featured', true);
     logger.info('Product featured', { productId: id });
-    return adminGetProduct(id);
+    return await adminGetProduct(id);
   } catch (error) {
     handleServiceError(error, 'Feature product');
   }
@@ -167,7 +167,7 @@ export const adminUnfeatureProduct = async (id: string): Promise<any> => {
     await requireProductExists(id, 'Product');
     await removeMetadata(id, 'featured');
     logger.info('Product unfeatured', { productId: id });
-    return adminGetProduct(id);
+    return await adminGetProduct(id);
   } catch (error) {
     handleServiceError(error, 'Unfeature product');
   }

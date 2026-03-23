@@ -16,9 +16,11 @@ export interface ProductRow {
   slug: string;
   description: string;
   price: number;
+  stock: string | number;
   category: string;
   status: 'ACTIVE' | 'INACTIVE';
   images: string[];
+  imageUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
