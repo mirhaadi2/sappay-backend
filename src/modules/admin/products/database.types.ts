@@ -16,6 +16,9 @@ export interface ProductRow {
   slug: string;
   description: string;
   price: number;
+  discountedPrice?: number;
+  discountedPercent?: number;
+  gst_rate?: number;
   stock: string | number;
   category: string;
   status: 'ACTIVE' | 'INACTIVE';

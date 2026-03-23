@@ -91,6 +91,9 @@ export const findProducts = async (
       p.slug, 
       p.description,
       p."base_price" as price, 
+      p."discounted_price" as "discountedPrice",
+      p."discounted_percent" as "discountedPercent",
+      p."gst_rate" as "gst_rate",
       p."category_id" as category,
       p.status, 
       p.images,
@@ -115,7 +118,11 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
   const query = `
     SELECT 
       id, name, slug, description,
-      base_price as price, category_id as category,
+      base_price as price, 
+      discounted_price as "discountedPrice",
+      discounted_percent as "discountedPercent",
+      gst_rate as "gst_rate",
+      category_id as category,
       status, images, created_at as "createdAt", updated_at as "updatedAt"
     FROM products
     WHERE id = $1 AND deleted_at IS NULL

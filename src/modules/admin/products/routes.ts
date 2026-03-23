@@ -3,6 +3,7 @@ import { requireAuth, requireActiveStaff, requirePermission } from '../middlewar
 import {
   listProductsHandler,
   getProductHandler,
+  createProductHandler,
   updateProductHandler,
   deleteProductHandler,
   publishProductHandler,
@@ -19,6 +20,14 @@ router.get(
   requireActiveStaff,
   requirePermission('admin.products.read'),
   listProductsHandler
+);
+
+router.post(
+  '/',
+  requireAuth,
+  requireActiveStaff,
+  requirePermission('admin.products.create'),
+  createProductHandler
 );
 
 router.get(

@@ -10,6 +10,8 @@ interface ProductAttributes {
   images?: string[];
   specifications?: Record<string, any>;
   basePrice?: number;
+  discountedPrice?: number;
+  discountedPercent?: number;
   hsn_code?: string;
   gst_rate: number;
   certifications?: string[];
@@ -83,6 +85,16 @@ Product.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
       field: 'base_price',
+    },
+    discountedPrice: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+      field: 'discounted_price',
+    },
+    discountedPercent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      field: 'discounted_percent',
     },
     hsn_code: {
       type: DataTypes.STRING(50),

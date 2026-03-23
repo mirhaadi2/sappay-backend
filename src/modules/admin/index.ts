@@ -11,6 +11,7 @@ import userRoutes from './users/routes';
 import sellerRoutes from './sellers/routes';
 import orderRoutes from './orders/routes';
 import productRoutes from './products/routes';
+import categoriesRoutes from './categories/routes';
 import statsRoutes from './stats/routes';
 
 const mainAdminRouter = Router();
@@ -26,6 +27,7 @@ mainAdminRouter.use('/users', userRoutes);
 mainAdminRouter.use('/sellers', sellerRoutes);
 mainAdminRouter.use('/orders', orderRoutes);
 mainAdminRouter.use('/products', productRoutes);
+mainAdminRouter.use('/categories', categoriesRoutes);
 mainAdminRouter.use('/stats', statsRoutes);
 
 export default mainAdminRouter;

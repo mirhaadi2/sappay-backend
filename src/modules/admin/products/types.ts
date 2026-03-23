@@ -13,6 +13,9 @@ export interface AdminProduct {
   name: string;
   description: string;
   price: number;
+  discountedPrice?: number;
+  discountedPercent?: number;
+  gst_rate?: number;
   images: string[];
   imageUrl: string;
   category: string;

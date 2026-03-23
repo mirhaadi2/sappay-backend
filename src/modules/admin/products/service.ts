@@ -19,6 +19,7 @@ import {
   updateMetadata,
   removeMetadata,
 } from './repository';
+import { createProductService } from '../../products/service';
 import {
   requireProductExists,
   validateUpdateData,
@@ -162,6 +163,70 @@ export const adminFeatureProduct = async (id: string): Promise<any> => {
 /**
  * Remove product from featured
  */
+export const adminCreateProduct = async (input: any): Promise<any> => {
+  try {
+    const {
+      name,
+      slug,
+      description,
+      price,
+      discountedPrice,
+      gst_rate,
+      status,
+      categoryId,
+      images,
+      sellerId,
+    } = input;
+
+    if (!name || !(categoryId || input.category)) {
+      throw new Error('Name and categoryId are required');
+    }
+
+    const finalSlug = (slug || name)
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+
+    let discountPercent: number | undefined;
+    const normalizedPrice = Number(price);
+    const normalizedDiscountedPrice =
+      discountedPrice !== undefined ? Number(discountedPrice) : undefined;
+
+    if (normalizedDiscountedPrice !== undefined && !isNaN(normalizedPrice) && normalizedPrice > 0) {
+      discountPercent = Number(
+        (((normalizedPrice - normalizedDiscountedPrice) / normalizedPrice) * 100).toFixed(2)
+      );
+    }
+
+    const productPayload = {
+      name,
+      description,
+      slug: finalSlug,
+      categoryId: categoryId || input.category,
+      basePrice: normalizedPrice,
+      discountedPrice: normalizedDiscountedPrice,
+      discountedPercent: discountPercent,
+      gst_rate: Number(gst_rate ?? 18),
+      status: status && (status === 'ACTIVE' || status === 'INACTIVE') ? status : 'ACTIVE',
+      images: images || [],
+    };
+
+    const created = await createProductService(productPayload);
+
+    // Optionally link seller product if sellerId is provided
+    if (sellerId) {
+      // Admin can attach product to seller in future; no-op here unless needed.
+    }
+
+    return created;
+  } catch (error) {
+    handleServiceError(error, 'Create product');
+  }
+};
+
 export const adminUnfeatureProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');

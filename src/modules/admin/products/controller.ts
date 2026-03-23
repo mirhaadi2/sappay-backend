@@ -2,6 +2,7 @@ import { Response } from 'express';
 import {
   adminListProducts,
   adminGetProduct,
+  adminCreateProduct,
   adminUpdateProduct,
   adminDeleteProduct,
   adminPublishProduct,
@@ -38,6 +39,42 @@ export const getProductHandler = async (req: AuthenticatedRequest, res: Response
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Get product error', { error });
+    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+  }
+};
+
+export const createProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const {
+      name,
+      slug,
+      description,
+      price,
+      discountedPrice,
+      gst_rate,
+      status,
+      categoryId,
+      category,
+      images,
+      sellerId,
+    } = req.body;
+
+    const product = await adminCreateProduct({
+      name,
+      slug,
+      description,
+      price,
+      discountedPrice,
+      gst_rate,
+      status,
+      categoryId: categoryId || category,
+      images,
+      sellerId,
+    });
+
+    res.status(201).json({ success: true, data: product });
+  } catch (error: any) {
+    logger.error('Create product error', { error });
     res.status(error.statusCode || 500).json({ success: false, error: error.message });
   }
 };
