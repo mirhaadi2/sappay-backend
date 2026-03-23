@@ -9,16 +9,7 @@
  * - Service: Pure business logic, minimal if statements
  */
 
-import {
-  getProductCount,
-  findProducts,
-  findById,
-  updateFields,
-  softDelete,
-  updateStatus,
-  updateMetadata,
-  removeMetadata,
-} from './repository';
+import { productRepository } from './repository';
 import {
   requireProductExists,
   validateUpdateData,
@@ -54,8 +45,8 @@ export const adminListProducts = async (
     const { column: sortColumn, order: sortOrder } = resolveSortColumn(query.sortBy);
 
     const [total, rows] = await Promise.all([
-      getProductCount(whereClause, whereParams),
-      findProducts(
+      productRepository.getProductCount(whereClause, whereParams),
+      productRepository.findProducts(
         whereClause,
         whereParams,
         sortColumn,
@@ -78,7 +69,7 @@ export const adminListProducts = async (
 export const adminGetProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
-    const product = await findById(id);
+    const product = await productRepository.findById(id);
     return transformProductToAdmin(product!);
   } catch (error) {
     handleServiceError(error, 'Fetch product');
@@ -95,7 +86,7 @@ export const adminUpdateProduct = async (
   try {
     await requireProductExists(id, 'Product');
     const updates = validateUpdateData(data);
-    await updateFields(id, updates);
+    await productRepository.updateFields(id, updates);
     logger.info('Product updated', { productId: id, updates });
     return adminGetProduct(id);
   } catch (error) {
@@ -109,7 +100,7 @@ export const adminUpdateProduct = async (
 export const adminDeleteProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
-    await softDelete(id);
+    await productRepository.softDelete(id);
     logger.info('Product deleted', { productId: id });
     return { success: true, message: 'Product deleted successfully' };
   } catch (error) {
@@ -123,7 +114,7 @@ export const adminDeleteProduct = async (id: string): Promise<any> => {
 export const adminPublishProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
-    await updateStatus(id, 'ACTIVE');
+    await productRepository.updateStatus(id, 'ACTIVE');
     logger.info('Product published', { productId: id });
     return adminGetProduct(id);
   } catch (error) {
@@ -137,7 +128,7 @@ export const adminPublishProduct = async (id: string): Promise<any> => {
 export const adminUnpublishProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
-    await updateStatus(id, 'INACTIVE');
+    await productRepository.updateStatus(id, 'INACTIVE');
     logger.info('Product unpublished', { productId: id });
     return adminGetProduct(id);
   } catch (error) {
@@ -151,7 +142,7 @@ export const adminUnpublishProduct = async (id: string): Promise<any> => {
 export const adminFeatureProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
-    await updateMetadata(id, 'featured', true);
+    await productRepository.updateMetadata(id, 'featured', true);
     logger.info('Product featured', { productId: id });
     return adminGetProduct(id);
   } catch (error) {
@@ -165,7 +156,7 @@ export const adminFeatureProduct = async (id: string): Promise<any> => {
 export const adminUnfeatureProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
-    await removeMetadata(id, 'featured');
+    await productRepository.removeMetadata(id, 'featured');
     logger.info('Product unfeatured', { productId: id });
     return adminGetProduct(id);
   } catch (error) {

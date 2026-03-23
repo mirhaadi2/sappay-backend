@@ -3,7 +3,7 @@
  * Replaces verbose if statements with clean, reusable guards
  */
 
-import { productRepository } from './repository';
+import { exists } from './repository';
 import { AppError } from '../../../utils/AppError';
 import logger from '../../../utils/logger';
 
@@ -15,8 +15,8 @@ export async function requireProductExists(
   productId: string,
   context: string = 'Product'
 ): Promise<void> {
-  const exists = await productRepository.exists(productId);
-  if (!exists) {
+  const productExists = await exists(productId);
+  if (!productExists) {
     throw new AppError('NotFoundError', 404, `${context} not found`);
   }
 }
