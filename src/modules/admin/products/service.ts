@@ -1,22 +1,18 @@
 /**
  * Admin Products Service
- * Real database implementation for product management
+ * High-performance raw SQL implementation for product management
  */
 
-import { Op } from 'sequelize';
-import Product from '../../products/product.model';
-import { SellerProduct } from '../../products/seller-product.model';
-import { Category } from '../../products/category.model';
-import { Seller } from '../../sellers/model';
-import { Inventory } from '../../inventory/inventory.model';
+import { sequelize } from '../../../db/sequelize';
 import { AppError } from '../../../utils/AppError';
 import { AdminProductQuery, AdminProduct } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
-import { fetchFromR2, getR2SignedUrl } from '../../uploads/r2-utils';
+import { getR2SignedUrl } from '../../uploads/r2-utils';
 
 /**
  * List all products with seller information and inventory
+ * Uses raw SQL for optimal performance
  * Supports filtering by status, category, seller, and search
  */
 export const adminListProducts = async (query: AdminProductQuery) => {
@@ -26,81 +22,85 @@ export const adminListProducts = async (query: AdminProductQuery) => {
       100
     );
 
-    const where: any = {};
+    // Build WHERE clause conditions
+    const conditions: string[] = ['p."deletedAt" IS NULL'];
+    const params: any[] = [];
 
-    // Filter by product status (ACTIVE/INACTIVE)
+    // Filter by product status
     if (query.status) {
-      where.status = query.status === 'published' ? 'ACTIVE' : 'INACTIVE';
+      conditions.push('p.status = $' + (params.length + 1));
+      params.push(query.status === 'published' ? 'ACTIVE' : 'INACTIVE');
     }
 
     // Filter by category
     if (query.category) {
-      where.categoryId = query.category;
+      conditions.push('p."categoryId" = $' + (params.length + 1));
+      params.push(query.category);
     }
 
-    // Search by product name or slug
+    // Search by product name, slug, or description
     if (query.search) {
-      where[Op.or] = [
-        { name: { [Op.iLike]: `%${query.search}%` } },
-        { slug: { [Op.iLike]: `%${query.search}%` } },
-        { description: { [Op.iLike]: `%${query.search}%` } },
-      ];
+      const searchTerm = `%${query.search}%`;
+      const searchCondition = `(p.name ILIKE $${params.length + 1} OR p.slug ILIKE $${params.length + 2} OR p.description ILIKE $${params.length + 3})`;
+      conditions.push(searchCondition);
+      params.push(searchTerm, searchTerm, searchTerm);
     }
 
-    // Query: Get products
-    const { count, rows } = await Product.findAndCountAll({
-      where,
-      offset,
-      limit,
-      order: [
-        [query.sortBy === 'price' ? 'basePrice' : 'createdAt', (query.sortOrder || 'desc').toUpperCase()],
-      ],
-      raw: false,
-    });
+    const whereClause = conditions.join(' AND ');
+    const sortBy = query.sortBy === 'price' ? 'p."basePrice"' : 'p."createdAt"';
+    const sortOrder = (query.sortOrder || 'DESC').toUpperCase();
 
-    const resolveR2Url = async (key: string) => {
-      if (!key) return '';
-      if (key.startsWith('http://') || key.startsWith('https://')) return key;
-      // Try to fetch file from R2 (optional, for existence check)
-      try {
-        const data = await fetchFromR2(key);
-        console.log(data, 'data') // If file exists, get signed URL
-        return getR2SignedUrl(key);
-      } catch (err) {
-        // If not found, fallback
-        return '';
-      }
-    };
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as count FROM products p WHERE ${whereClause}`;
+    const countResult = await sequelize.query(countQuery, { replacements: params, type: 'SELECT' });
+    const total = parseInt(countResult[0]?.count || '0', 10);
 
-    for (const product of rows) {
-      if (Array.isArray(product.images)) {
-        const resolvedImages = await Promise.all(
-          product.images.map(async (imgKey: string) => await resolveR2Url(imgKey))
-        );
-        product.images = resolvedImages;
-      }
-    }
+    // Get paginated results
+    const dataQuery = `
+      SELECT 
+        p.id,
+        p.name,
+        p.slug,
+        p.description,
+        p."basePrice" as price,
+        p."categoryId" as category,
+        p.status,
+        p.images,
+        p."createdAt",
+        p."updatedAt"
+      FROM products p
+      WHERE ${whereClause}
+      ORDER BY ${sortBy} ${sortOrder}
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
+    `;
+    params.push(limit, offset);
 
-    // Transform to admin format
+    const rows = await sequelize.query(dataQuery, { replacements: params, type: 'SELECT' });
+
+    // Transform to admin format with resolved image URLs
     const products: AdminProduct[] = rows.map((product: any) => {
+      const images = Array.isArray(product.images) ? product.images : [];
+      const imageUrl = images.length > 0 ? getR2SignedUrl(images[0]) : '';
+
       return {
         id: product.id,
         name: product.name,
-        imageUrl: product?.images?.[0] || '',
+        imageUrl,
         description: product.description || '',
-        price: Number(product.basePrice || 0),
+        price: Number(product.price || 0),
         sellerId: '',
         sellerName: 'Unknown',
-        category: product.categoryId || 'Uncategorized',
+        category: product.category || 'Uncategorized',
         status: product.status === 'ACTIVE' ? 'published' : 'draft',
         isFeatured: false,
         stock: 0,
-        createdAt: product.createdAt?.toISOString() || new Date().toISOString(),
-        updatedAt: product.updatedAt?.toISOString() || new Date().toISOString(),
+        createdAt: new Date(product.createdAt).toISOString(),
+        updatedAt: new Date(product.updatedAt).toISOString(),
       };
     });
 
-    return buildPaginatedResponse(products, count, { page, limit, offset });
+    return buildPaginatedResponse(products, total, { page, limit, offset });
   } catch (error: any) {
     logger.error('Error listing admin products', { error });
     throw new AppError('ProductError', 500, error.message || 'Failed to list products');
@@ -108,27 +108,49 @@ export const adminListProducts = async (query: AdminProductQuery) => {
 };
 
 /**
- * Get single product with all seller listings
+ * Get single product with all details
+ * Raw SQL query for single product fetch
  */
 export const adminGetProduct = async (id: string): Promise<any> => {
   try {
-    const product = await Product.findByPk(id);
+    const query = `
+      SELECT 
+        id,
+        name,
+        slug,
+        description,
+        "basePrice" as price,
+        "categoryId" as category,
+        status,
+        images,
+        "createdAt",
+        "updatedAt"
+      FROM products
+      WHERE id = $1 AND "deletedAt" IS NULL
+    `;
 
-    if (!product) {
+    const result = await sequelize.query(query, { replacements: [id], type: 'SELECT' });
+
+    if (!result || result.length === 0) {
       throw new AppError('NotFoundError', 404, 'Product not found');
     }
+
+    const product = result[0] as any;
+    const images = Array.isArray(product.images) ? product.images : [];
+    const imageUrl = images.length > 0 ? getR2SignedUrl(images[0]) : '';
 
     return {
       id: product.id,
       name: product.name,
       description: product.description || '',
-      price: Number(product.basePrice || 0),
-      category: product.categoryId || '',
+      price: Number(product.price || 0),
+      category: product.category || '',
       status: product.status === 'ACTIVE' ? 'published' : 'draft',
       isFeatured: false,
       stock: 0,
-      createdAt: product.createdAt?.toISOString() || new Date().toISOString(),
-      updatedAt: product.updatedAt?.toISOString() || new Date().toISOString(),
+      imageUrl,
+      createdAt: new Date(product.createdAt).toISOString(),
+      updatedAt: new Date(product.updatedAt).toISOString(),
       sellerListings: [],
     };
   } catch (error: any) {
@@ -139,27 +161,56 @@ export const adminGetProduct = async (id: string): Promise<any> => {
 };
 
 /**
- * Update product information (name, description, category, base price)
+ * Update product information efficiently with raw SQL
  */
 export const adminUpdateProduct = async (id: string, data: any): Promise<any> => {
   try {
-    const product = await Product.findByPk(id);
+    // Verify product exists first
+    const existsQuery = 'SELECT id FROM products WHERE id = $1 AND "deletedAt" IS NULL';
+    const existsResult = await sequelize.query(existsQuery, { replacements: [id], type: 'SELECT' });
 
-    if (!product) {
+    if (!existsResult || existsResult.length === 0) {
       throw new AppError('NotFoundError', 404, 'Product not found');
     }
 
-    const updateData: any = {};
-    if (data.name) updateData.name = data.name;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.category) updateData.categoryId = data.category;
-    if (data.basePrice !== undefined) updateData.basePrice = data.basePrice;
+    // Build update query dynamically
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
 
-    if (Object.keys(updateData).length > 0) {
-      await product.update(updateData);
+    if (data.name !== undefined) {
+      updates.push(`name = $${paramIndex++}`);
+      values.push(data.name);
+    }
+    if (data.description !== undefined) {
+      updates.push(`description = $${paramIndex++}`);
+      values.push(data.description);
+    }
+    if (data.category !== undefined) {
+      updates.push(`"categoryId" = $${paramIndex++}`);
+      values.push(data.category);
+    }
+    if (data.basePrice !== undefined) {
+      updates.push(`"basePrice" = $${paramIndex++}`);
+      values.push(data.basePrice);
     }
 
-    logger.info('Product updated by admin', { productId: id, changes: updateData });
+    if (updates.length === 0) {
+      return adminGetProduct(id);
+    }
+
+    updates.push(`"updatedAt" = $${paramIndex++}`);
+    values.push(new Date());
+    values.push(id);
+
+    const updateQuery = `
+      UPDATE products
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+    `;
+
+    await sequelize.query(updateQuery, { replacements: values });
+    logger.info('Product updated by admin', { productId: id, changes: data });
     return adminGetProduct(id);
   } catch (error: any) {
     logger.error('Error updating admin product', { productId: id, error });
@@ -169,17 +220,21 @@ export const adminUpdateProduct = async (id: string, data: any): Promise<any> =>
 };
 
 /**
- * Soft delete a product
+ * Soft delete product (set deletedAt timestamp)
  */
 export const adminDeleteProduct = async (id: string): Promise<any> => {
   try {
-    const product = await Product.findByPk(id);
+    // Verify product exists
+    const existsQuery = 'SELECT id FROM products WHERE id = $1 AND "deletedAt" IS NULL';
+    const existsResult = await sequelize.query(existsQuery, { replacements: [id], type: 'SELECT' });
 
-    if (!product) {
+    if (!existsResult || existsResult.length === 0) {
       throw new AppError('NotFoundError', 404, 'Product not found');
     }
 
-    await product.destroy(); // Soft delete due to paranoid: true
+    // Soft delete
+    const deleteQuery = 'UPDATE products SET "deletedAt" = $1 WHERE id = $2';
+    await sequelize.query(deleteQuery, { replacements: [new Date(), id] });
 
     logger.info('Product deleted by admin', { productId: id });
     return { success: true, message: 'Product deleted successfully' };
@@ -192,16 +247,25 @@ export const adminDeleteProduct = async (id: string): Promise<any> => {
 
 /**
  * Publish product (set status to ACTIVE)
+ * Single-operation atomic update
  */
 export const adminPublishProduct = async (id: string): Promise<any> => {
   try {
-    const product = await Product.findByPk(id);
+    const updateQuery = `
+      UPDATE products
+      SET status = 'ACTIVE', "updatedAt" = $1
+      WHERE id = $2 AND "deletedAt" IS NULL
+      RETURNING id
+    `;
 
-    if (!product) {
+    const result = await sequelize.query(updateQuery, {
+      replacements: [new Date(), id],
+      type: 'SELECT'
+    });
+
+    if (!result || result.length === 0) {
       throw new AppError('NotFoundError', 404, 'Product not found');
     }
-
-    await product.update({ status: 'ACTIVE' });
 
     logger.info('Product published by admin', { productId: id });
     return adminGetProduct(id);
@@ -214,16 +278,25 @@ export const adminPublishProduct = async (id: string): Promise<any> => {
 
 /**
  * Unpublish product (set status to INACTIVE)
+ * Single-operation atomic update
  */
 export const adminUnpublishProduct = async (id: string): Promise<any> => {
   try {
-    const product = await Product.findByPk(id);
+    const updateQuery = `
+      UPDATE products
+      SET status = 'INACTIVE', "updatedAt" = $1
+      WHERE id = $2 AND "deletedAt" IS NULL
+      RETURNING id
+    `;
 
-    if (!product) {
+    const result = await sequelize.query(updateQuery, {
+      replacements: [new Date(), id],
+      type: 'SELECT'
+    });
+
+    if (!result || result.length === 0) {
       throw new AppError('NotFoundError', 404, 'Product not found');
     }
-
-    await product.update({ status: 'INACTIVE' });
 
     logger.info('Product unpublished by admin', { productId: id });
     return adminGetProduct(id);
@@ -235,19 +308,27 @@ export const adminUnpublishProduct = async (id: string): Promise<any> => {
 };
 
 /**
- * Feature product (add to featured list)
- * Note: Feature flag can be added to Product model in future
+ * Feature product
+ * Metadata-based feature flag
  */
 export const adminFeatureProduct = async (id: string): Promise<any> => {
   try {
-    const product = await Product.findByPk(id);
+    const updateQuery = `
+      UPDATE products
+      SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{featured}', 'true'::jsonb), "updatedAt" = $1
+      WHERE id = $2 AND "deletedAt" IS NULL
+      RETURNING id
+    `;
 
-    if (!product) {
+    const result = await sequelize.query(updateQuery, {
+      replacements: [new Date(), id],
+      type: 'SELECT'
+    });
+
+    if (!result || result.length === 0) {
       throw new AppError('NotFoundError', 404, 'Product not found');
     }
 
-    // TODO: Add metadata field to track featured status
-    // For now, just confirm product exists
     logger.info('Product featured by admin', { productId: id });
     return adminGetProduct(id);
   } catch (error: any) {
@@ -258,17 +339,30 @@ export const adminFeatureProduct = async (id: string): Promise<any> => {
 };
 
 /**
- * Unfeature product (remove from featured list)
+ * Unfeature product
+ * Remove from featured metadata
  */
 export const adminUnfeatureProduct = async (id: string): Promise<any> => {
   try {
-    const product = await Product.findByPk(id);
+    const updateQuery = `
+      UPDATE products
+      SET metadata = CASE 
+        WHEN metadata IS NOT NULL THEN metadata - 'featured'
+        ELSE NULL
+      END, "updatedAt" = $1
+      WHERE id = $2 AND "deletedAt" IS NULL
+      RETURNING id
+    `;
 
-    if (!product) {
+    const result = await sequelize.query(updateQuery, {
+      replacements: [new Date(), id],
+      type: 'SELECT'
+    });
+
+    if (!result || result.length === 0) {
       throw new AppError('NotFoundError', 404, 'Product not found');
     }
 
-    // TODO: Remove from featured metadata
     logger.info('Product unfeatured by admin', { productId: id });
     return adminGetProduct(id);
   } catch (error: any) {

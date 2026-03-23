@@ -63,7 +63,6 @@ export const fetchProductsHandler = async (
 ) => {
   try {
     const result = await fetchProductsService(req.query);
-    console.log(result,'result');
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
