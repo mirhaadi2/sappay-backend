@@ -116,7 +116,9 @@ export const publishProductHandler = async (req: AuthenticatedRequest, res: Resp
 export const unpublishProductHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    console.log(id,'id')
     const product = await adminUnpublishProduct(id);
+    console.log(product,'product')
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Unpublish product error', { error });

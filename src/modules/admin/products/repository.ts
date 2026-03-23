@@ -125,8 +125,9 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
       category_id as category,
       status, images, created_at as "createdAt", updated_at as "updatedAt"
     FROM products
-    WHERE id = $1 AND deleted_at IS NULL
+    WHERE id = ? AND deleted_at IS NULL
   `;
+  // The 'id' in this array maps to the '?' above
   const result = await executeSelect<ProductRow>(query, [id]);
   return result[0] || null;
 };
@@ -135,7 +136,7 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
  * Check if product exists
  */
 export const exists = async (id: string): Promise<boolean> => {
-  const query = 'SELECT 1 FROM products WHERE id = $1 AND deleted_at IS NULL';
+  const query = 'SELECT 1 FROM products WHERE id = ? AND deleted_at IS NULL';
   const result = await executeSelect<{ 1: number }>(query, [id]);
   return result.length > 0;
 };
@@ -183,9 +184,11 @@ export const updateStatus = async (
 ): Promise<boolean> => {
   const query = `
     UPDATE products
-    SET status = $1, updated_at = $2
-    WHERE id = $3 AND deleted_at IS NULL
+    SET status = ?, updated_at = ?
+    WHERE id = ? AND deleted_at IS NULL
   `;
+  
+  // order: status -> ?, updated_at -> ?, id -> ?
   await executeModify(query, [status, new Date(), id]);
   return true;
 };
