@@ -14,16 +14,23 @@ import logger from '../../../utils/logger';
  */
 const executeSelect = async <T>(
   query: string,
-  replacements: any[] = []
+  replacements: any = []
 ): Promise<T[]> => {
+  var timing: number = 0;
   try {
     const result = (await sequelize.query(query, {
       replacements,
       type: QueryTypes.SELECT,
+      logging(sql, queryTiming) {
+        logger.debug('Database SELECT query executed', { sql, timing: queryTiming });
+        timing = queryTiming || 0;
+      },
+      benchmark: true,
     })) as T[];
+    logger.info('Database SELECT query completed successfully', { rowCount: result?.length || 0, timing: timing });
     return result || [];
-  } catch (error) {
-    logger.error('Database SELECT query failed', { query, error });
+  } catch (error: any) {
+    logger.error('Database SELECT query failed', { query, replacements, error: (error as Error)?.message, stack: (error as Error)?.stack });
     throw error;
   }
 };
@@ -33,13 +40,22 @@ const executeSelect = async <T>(
  */
 const executeModify = async (
   query: string,
-  replacements: any[] = []
+  replacements: any = []
 ): Promise<number> => {
+  var timing: number = 0;
   try {
-    await sequelize.query(query, { replacements });
+    await sequelize.query(query, { 
+      replacements,
+      logging(sql, queryTiming) {
+        logger.debug('Database MODIFY query executed', { sql, timing: queryTiming });
+        timing = queryTiming || 0;
+      },
+      benchmark: true,
+    });
+    logger.info('Database MODIFY query completed successfully', { timing: timing });
     return 1;
-  } catch (error) {
-    logger.error('Database MODIFY query failed', { query, error });
+  } catch (error: any) {
+    logger.error('Database MODIFY query failed', { query, replacements, error: (error as Error)?.message, stack: (error as Error)?.stack });
     throw error;
   }
 };
@@ -52,7 +68,8 @@ export const getProductCount = async (
   params: any[] = []
 ): Promise<number> => {
   const query = `SELECT COUNT(*) as count FROM products p WHERE ${whereClause}`;
-  const result = await executeSelect<CountRow>(query, params);
+  const replacements = Object.fromEntries(params.map((v, i) => [`param${i}`, v]));
+  const result = await executeSelect<CountRow>(query, replacements);
   return parseInt(result[0]?.count || '0', 10);
 };
 
@@ -69,16 +86,23 @@ export const findProducts = async (
 ): Promise<ProductRow[]> => {
   const query = `
     SELECT 
-      p.id, p.name, p.slug, p.description,
-      p."basePrice" as price, p."categoryId" as category,
-      p.status, p.images, p."createdAt", p."updatedAt"
+      p.id, 
+      p.name, 
+      p.slug, 
+      p.description,
+      p."base_price" as price, 
+      p."category_id" as category,
+      p.status, 
+      p.images, 
+      p."created_at" AS "createdAt", 
+      p."updated_at" AS "updatedAt"
     FROM products p
     WHERE ${whereClause}
     ORDER BY ${sortBy} ${sortOrder}
-    LIMIT $${params.length + 1}
-    OFFSET $${params.length + 2}
+    LIMIT :limit OFFSET :offset
   `;
-  return executeSelect<ProductRow>(query, [...params, limit, offset]);
+  const replacements = { ...Object.fromEntries(params.map((v, i) => [`param${i}`, v])), limit, offset };
+  return executeSelect<ProductRow>(query, replacements);
 };
 
 /**
@@ -88,10 +112,10 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
   const query = `
     SELECT 
       id, name, slug, description,
-      "basePrice" as price, "categoryId" as category,
-      status, images, "createdAt", "updatedAt"
+      base_price as price, category_id as category,
+      status, images, created_at as "createdAt", updated_at as "updatedAt"
     FROM products
-    WHERE id = $1 AND "deletedAt" IS NULL
+    WHERE id = $1 AND deleted_at IS NULL
   `;
   const result = await executeSelect<ProductRow>(query, [id]);
   return result[0] || null;
@@ -101,7 +125,7 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
  * Check if product exists
  */
 export const exists = async (id: string): Promise<boolean> => {
-  const query = 'SELECT 1 FROM products WHERE id = $1 AND "deletedAt" IS NULL';
+  const query = 'SELECT 1 FROM products WHERE id = $1 AND deleted_at IS NULL';
   const result = await executeSelect<{ 1: number }>(query, [id]);
   return result.length > 0;
 };
@@ -116,15 +140,24 @@ export const updateFields = async (
   const entries = Object.entries(updates);
   if (entries.length === 0) return true;
 
-  const setClauses = entries.map(
+  // Map model property names to database column names
+  const columnMapping: Record<string, string> = {
+    basePrice: 'base_price',
+    category: 'category_id',
+    // Add other mappings as needed
+  };
+
+  const mappedEntries = entries.map(([key, val]) => [columnMapping[key] || key, val]);
+
+  const setClauses = mappedEntries.map(
     ([key], idx) => `"${key}" = $${idx + 1}`
   ).join(', ');
-  const values = [...entries.map(([, val]) => val), new Date(), id];
+  const values = [...mappedEntries.map(([, val]) => val), new Date(), id];
 
   const query = `
     UPDATE products
-    SET ${setClauses}, "updatedAt" = $${entries.length + 1}
-    WHERE id = $${entries.length + 2}
+    SET ${setClauses}, updated_at = $${mappedEntries.length + 1}
+    WHERE id = $${mappedEntries.length + 2}
   `;
   
   await executeModify(query, values);
@@ -140,8 +173,8 @@ export const updateStatus = async (
 ): Promise<boolean> => {
   const query = `
     UPDATE products
-    SET status = $1, "updatedAt" = $2
-    WHERE id = $3 AND "deletedAt" IS NULL
+    SET status = $1, updated_at = $2
+    WHERE id = $3 AND deleted_at IS NULL
   `;
   await executeModify(query, [status, new Date(), id]);
   return true;
@@ -151,7 +184,7 @@ export const updateStatus = async (
  * Soft delete product
  */
 export const softDelete = async (id: string): Promise<boolean> => {
-  const query = 'UPDATE products SET "deletedAt" = $1 WHERE id = $2';
+  const query = 'UPDATE products SET deleted_at = $1 WHERE id = $2';
   await executeModify(query, [new Date(), id]);
   return true;
 };
@@ -167,8 +200,8 @@ export const updateMetadata = async (
   const query = `
     UPDATE products
     SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), $1::text[], $2::jsonb),
-        "updatedAt" = $3
-    WHERE id = $4 AND "deletedAt" IS NULL
+        updated_at = $3
+    WHERE id = $4 AND deleted_at IS NULL
   `;
   await executeModify(query, [`{${key}}`, JSON.stringify(value), new Date(), id]);
   return true;
@@ -187,8 +220,8 @@ export const removeMetadata = async (
       WHEN metadata IS NOT NULL THEN metadata - $1
       ELSE NULL
     END,
-    "updatedAt" = $2
-    WHERE id = $3 AND "deletedAt" IS NULL
+    updated_at = $2
+    WHERE id = $3 AND deleted_at IS NULL
   `;
   await executeModify(query, [key, new Date(), id]);
   return true;
