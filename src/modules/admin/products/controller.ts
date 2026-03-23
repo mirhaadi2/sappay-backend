@@ -14,14 +14,13 @@ import logger from '../../../utils/logger';
 
 export const listProductsHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { page, limit, search, status, category, sellerId, sortBy, sortOrder } = req.query;
+    const { page, limit, search, status, category, sortBy, sortOrder } = req.query;
     const result = await adminListProducts({
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 10,
       search: search as string,
       status: (status as 'draft' | 'published') || undefined,
       category: category as string,
-      sellerId: sellerId as string,
       sortBy: (sortBy as 'createdAt' | 'price') || 'createdAt',
       sortOrder: (sortOrder as 'asc' | 'desc') || 'desc',
     });
@@ -46,8 +45,8 @@ export const getProductHandler = async (req: AuthenticatedRequest, res: Response
 export const updateProductHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, price, category, stock } = req.body;
-    const product = await adminUpdateProduct(id, { name, description, price, category, stock });
+    const { name, description, basePrice, category } = req.body;
+    const product = await adminUpdateProduct(id, { name, description, basePrice, category });
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Update product error', { error });

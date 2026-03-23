@@ -5,7 +5,6 @@
 
 import { ProductRow } from './database.types';
 import { AdminProduct } from './types';
-import { getR2SignedUrl } from '../../uploads/r2-utils';
 
 /**
  * Transform database row to admin API response
@@ -16,8 +15,6 @@ export function transformProductToAdmin(row: ProductRow): AdminProduct {
     name: row.name,
     description: row.description || '',
     price: Number(row.price || 0),
-    sellerId: '',
-    sellerName: 'Unknown',
     category: row.category || 'Uncategorized',
     status: row.status === 'ACTIVE' ? 'published' : 'draft',
     isFeatured: false,

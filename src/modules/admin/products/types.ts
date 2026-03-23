@@ -4,7 +4,6 @@ export interface AdminProductQuery {
   search?: string;
   status?: 'draft' | 'published';
   category?: string;
-  sellerId?: string;
   sortBy?: 'createdAt' | 'price';
   sortOrder?: 'asc' | 'desc';
 }
@@ -14,8 +13,6 @@ export interface AdminProduct {
   name: string;
   description: string;
   price: number;
-  sellerId: string;
-  sellerName: string;
   category: string;
   status: 'draft' | 'published';
   isFeatured: boolean;
