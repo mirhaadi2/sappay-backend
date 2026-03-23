@@ -117,15 +117,26 @@ export const findProducts = async (
 export const findById = async (id: string): Promise<ProductRow | null> => {
   const query = `
     SELECT 
-      id, name, slug, description,
-      base_price as price, 
-      discounted_price as "discountedPrice",
-      discounted_percent as "discountedPercent",
-      gst_rate as "gst_rate",
-      category_id as category,
-      status, images, created_at as "createdAt", updated_at as "updatedAt"
-    FROM products
-    WHERE id = ? AND deleted_at IS NULL
+      p.id, 
+      p.name, 
+      p.slug, 
+      p.description,
+      p."base_price" as price, 
+      p."discounted_price" as "discountedPrice",
+      p."discounted_percent" as "discountedPercent",
+      p."gst_rate" as "gst_rate",
+      p.category_id as category,
+      p.status, 
+      p.images, 
+      p."created_at" AS "createdAt", 
+      p."updated_at" AS "updatedAt",
+      ct.name as "categoryName",
+      i.available_stock as "stock"
+    FROM products p
+    LEFT JOIN "categories" ct ON ct.id = p.category_id
+    LEFT JOIN "seller_products" sp ON sp.product_id = p.id
+    LEFT JOIN "inventory" i ON sp.id = i.seller_product_id
+    WHERE p.id = ? AND p.deleted_at IS NULL
   `;
   // The 'id' in this array maps to the '?' above
   const result = await executeSelect<ProductRow>(query, [id]);

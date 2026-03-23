@@ -21,6 +21,7 @@ export interface ProductRow {
   gst_rate?: number;
   stock: string | number;
   category: string;
+  categoryName?: string;
   status: 'ACTIVE' | 'INACTIVE';
   images: string[];
   imageUrl?: string;

@@ -19,6 +19,7 @@ export interface AdminProduct {
   images: string[];
   imageUrl: string;
   category: string;
+  categoryName?: string;
   status: 'draft' | 'published';
   isFeatured: boolean;
   stock: number;

@@ -48,6 +48,7 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     discountedPercent: row.discountedPercent !== undefined ? Number(row.discountedPercent) : undefined,
     gst_rate: row.gst_rate !== undefined ? Number(row.gst_rate) : undefined,
     category: row.category || 'Uncategorized',
+    categoryName: row.categoryName || 'Uncategorized',
     status: row.status === 'ACTIVE' ? 'published' : 'draft',
     isFeatured: false,
     stock: Number(row.stock) || 0,
