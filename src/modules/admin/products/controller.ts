@@ -82,8 +82,8 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
 export const updateProductHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, basePrice, category } = req.body;
-    const product = await adminUpdateProduct(id, { name, description, basePrice, category });
+    const { name, description, price, category, discountedPrice, gst_rate, status } = req.body;
+    const product = await adminUpdateProduct(id, { name, description, price, category, discountedPrice, gst_rate, status });
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Update product error', { error });

@@ -4,17 +4,17 @@
  * Functional approach for simplicity and composability
  */
 
-import { sequelize } from '../../../db/sequelize';
-import { ProductRow, CountRow } from './database.types';
-import { QueryTypes } from 'sequelize';
-import logger from '../../../utils/logger';
+import { sequelize } from "../../../db/sequelize";
+import { ProductRow, CountRow } from "./database.types";
+import { QueryTypes } from "sequelize";
+import logger from "../../../utils/logger";
 
 /**
  * Execute parameterized SELECT query with type safety
  */
 const executeSelect = async <T>(
   query: string,
-  replacements: any = []
+  replacements: any = [],
 ): Promise<T[]> => {
   var timing = 0;
   try {
@@ -22,15 +22,24 @@ const executeSelect = async <T>(
       replacements,
       type: QueryTypes.SELECT,
       logging(sql, queryTiming) {
-        logger.debug('Database SELECT query executed', { sql, timing: queryTiming });
+        logger.debug("Database SELECT query executed", {
+          sql,
+          timing: queryTiming,
+        });
         timing = queryTiming || 0;
       },
       benchmark: true,
     })) as T[];
-    logger.info('Database SELECT query completed successfully', { rowCount: result?.length || 0 });
+    logger.info("Database SELECT query completed successfully", {
+      rowCount: result?.length || 0,
+    });
     return result || [];
   } catch (error: any) {
-    logger.error('Database SELECT query failed', { query, replacements, error });
+    logger.error("Database SELECT query failed", {
+      query,
+      replacements,
+      error,
+    });
     throw error;
   }
 };
@@ -40,22 +49,29 @@ const executeSelect = async <T>(
  */
 const executeModify = async (
   query: string,
-  replacements: any = []
+  replacements: any = [],
 ): Promise<number> => {
   var timing = 0;
   try {
-    await sequelize.query(query, { 
+    await sequelize.query(query, {
       replacements,
       logging(sql, queryTiming) {
-        logger.debug('Database MODIFY query executed', { sql, timing: queryTiming });
+        logger.debug("Database MODIFY query executed", {
+          sql,
+          timing: queryTiming,
+        });
         timing = queryTiming || 0;
       },
       benchmark: true,
     });
-    logger.info('Database MODIFY query completed successfully');
+    logger.info("Database MODIFY query completed successfully");
     return 1;
   } catch (error: any) {
-    logger.error('Database MODIFY query failed', { query, replacements, error });
+    logger.error("Database MODIFY query failed", {
+      query,
+      replacements,
+      error,
+    });
     throw error;
   }
 };
@@ -65,12 +81,14 @@ const executeModify = async (
  */
 export const getProductCount = async (
   whereClause: string,
-  params: any[] = []
+  params: any[] = [],
 ): Promise<number> => {
   const query = `SELECT COUNT(*) as count FROM products p WHERE ${whereClause}`;
-  const replacements = Object.fromEntries(params.map((v, i) => [`param${i}`, v]));
+  const replacements = Object.fromEntries(
+    params.map((v, i) => [`param${i}`, v]),
+  );
   const result = await executeSelect<CountRow>(query, replacements);
-  return parseInt(result[0]?.count || '0', 10);
+  return parseInt(result[0]?.count || "0", 10);
 };
 
 /**
@@ -82,7 +100,7 @@ export const findProducts = async (
   sortBy: string,
   sortOrder: string,
   limit: number,
-  offset: number
+  offset: number,
 ): Promise<ProductRow[]> => {
   const query = `
     SELECT 
@@ -107,7 +125,11 @@ export const findProducts = async (
     ORDER BY ${sortBy} ${sortOrder}
     LIMIT :limit OFFSET :offset
   `;
-  const replacements = { ...Object.fromEntries(params.map((v, i) => [`param${i}`, v])), limit, offset };
+  const replacements = {
+    ...Object.fromEntries(params.map((v, i) => [`param${i}`, v])),
+    limit,
+    offset,
+  };
   return executeSelect<ProductRow>(query, replacements);
 };
 
@@ -147,7 +169,7 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
  * Check if product exists
  */
 export const exists = async (id: string): Promise<boolean> => {
-  const query = 'SELECT 1 FROM products WHERE id = ? AND deleted_at IS NULL';
+  const query = "SELECT 1 FROM products WHERE id = ? AND deleted_at IS NULL";
   const result = await executeSelect<{ 1: number }>(query, [id]);
   return result.length > 0;
 };
@@ -157,31 +179,47 @@ export const exists = async (id: string): Promise<boolean> => {
  */
 export const updateFields = async (
   id: string,
-  updates: Record<string, any>
+  updates: Record<string, any>,
 ): Promise<boolean> => {
   const entries = Object.entries(updates);
   if (entries.length === 0) return true;
 
   // Map model property names to database column names
+  // Updated Mapping: Front-end Key -> Database Column Name
   const columnMapping: Record<string, string> = {
-    basePrice: 'base_price',
-    category: 'category_id',
-    // Add other mappings as needed
+    price: "base_price", // Added
+    discountedPrice: "discounted_price", // Added
+    discountedPercent: "discounted_percent", // Added
+    category: "category_id",
+    gst_rate: "gst_rate",
+    // 'name', 'description', 'status' map 1:1, so fallback handles them
   };
 
-  const mappedEntries = entries.map(([key, val]) => [columnMapping[key] || key, val]);
+  // Inside updateFields function
+  const mappedEntries = entries.map(([key, val]) => {
+    const dbColumn = columnMapping[key] || key;
+    let finalValue = val;
 
-  const setClauses = mappedEntries.map(
-    ([key], idx) => `"${key}" = $${idx + 1}`
-  ).join(', ');
+    // Fix: Convert number to string for the ENUM column
+    if (dbColumn === "gst_rate" && typeof val === "number") {
+      finalValue = String(val);
+    }
+
+    return [dbColumn, finalValue];
+  });
+
+  // Rest of your logic remains the same...
+
   const values = [...mappedEntries.map(([, val]) => val), new Date(), id];
+
+  const setClauses = mappedEntries.map(([key]) => `"${key}" = ?`).join(", ");
 
   const query = `
     UPDATE products
-    SET ${setClauses}, updated_at = $${mappedEntries.length + 1}
-    WHERE id = $${mappedEntries.length + 2}
+    SET ${setClauses}, updated_at = ?
+    WHERE id = ?
   `;
-  
+
   await executeModify(query, values);
   return true;
 };
@@ -191,14 +229,14 @@ export const updateFields = async (
  */
 export const updateStatus = async (
   id: string,
-  status: 'ACTIVE' | 'INACTIVE'
+  status: "ACTIVE" | "INACTIVE",
 ): Promise<boolean> => {
   const query = `
     UPDATE products
     SET status = ?, updated_at = ?
     WHERE id = ? AND deleted_at IS NULL
   `;
-  
+
   // order: status -> ?, updated_at -> ?, id -> ?
   await executeModify(query, [status, new Date(), id]);
   return true;
@@ -208,7 +246,7 @@ export const updateStatus = async (
  * Soft delete product
  */
 export const softDelete = async (id: string): Promise<boolean> => {
-  const query = 'UPDATE products SET deleted_at = $1 WHERE id = $2';
+  const query = "UPDATE products SET deleted_at = $1 WHERE id = $2";
   await executeModify(query, [new Date(), id]);
   return true;
 };
@@ -219,7 +257,7 @@ export const softDelete = async (id: string): Promise<boolean> => {
 export const updateMetadata = async (
   id: string,
   key: string,
-  value: any
+  value: any,
 ): Promise<boolean> => {
   const query = `
     UPDATE products
@@ -227,7 +265,12 @@ export const updateMetadata = async (
         updated_at = $3
     WHERE id = $4 AND deleted_at IS NULL
   `;
-  await executeModify(query, [`{${key}}`, JSON.stringify(value), new Date(), id]);
+  await executeModify(query, [
+    `{${key}}`,
+    JSON.stringify(value),
+    new Date(),
+    id,
+  ]);
   return true;
 };
 
@@ -236,7 +279,7 @@ export const updateMetadata = async (
  */
 export const removeMetadata = async (
   id: string,
-  key: string
+  key: string,
 ): Promise<boolean> => {
   const query = `
     UPDATE products

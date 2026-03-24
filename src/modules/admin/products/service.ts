@@ -20,6 +20,15 @@ import {
   removeMetadata,
 } from './repository';
 import { createProductService } from '../../products/service';
+
+const calculateDiscountedPercent = (
+  price: number | undefined,
+  discountedPrice: number | undefined
+): number | undefined => {
+  if (price === undefined || discountedPrice === undefined) return undefined;
+  if (Number.isNaN(price) || Number.isNaN(discountedPrice) || price <= 0) return undefined;
+  return Number((((price - discountedPrice) / price) * 100).toFixed(2));
+};
 import {
   requireProductExists,
   validateUpdateData,
@@ -96,6 +105,32 @@ export const adminUpdateProduct = async (
   try {
     await requireProductExists(id, 'Product');
     const updates = validateUpdateData(data);
+
+    // Ensure discountedPercent is auto-calculated if discountedPrice or price updates are provided
+    const existingProduct = await findById(id);
+    if (!existingProduct) {
+      throw new Error('Product not found after exists check');
+    }
+
+    const currentPrice = typeof existingProduct.price === 'number' ? existingProduct.price : Number(existingProduct.price);
+    const currentDiscountedPrice =
+      existingProduct.discountedPrice === undefined || existingProduct.discountedPrice === null
+        ? undefined
+        : Number(existingProduct.discountedPrice);
+
+    const newPrice = updates.price !== undefined ? Number(updates.price) : currentPrice;
+    const newDiscountedPrice =
+      updates.discountedPrice !== undefined ? Number(updates.discountedPrice) : currentDiscountedPrice;
+
+    const newDiscountPercent = calculateDiscountedPercent(newPrice, newDiscountedPrice);
+
+    if (newDiscountPercent !== undefined) {
+      updates.discountedPercent = newDiscountPercent;
+    } else if (updates.discountedPrice !== undefined && updates.discountedPrice === null) {
+      // removed discounted price should reset discount percent
+      updates.discountedPercent = null;
+    }
+
     await updateFields(id, updates);
     logger.info('Product updated', { productId: id, updates });
     return await adminGetProduct(id);

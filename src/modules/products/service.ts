@@ -13,11 +13,20 @@ import {
   updateSellerProduct,
   createCategory,
 } from './repository';
+
+const calculateDiscountedPercent = (
+  price: number | undefined,
+  discountedPrice: number | undefined
+): number | undefined => {
+  if (price === undefined || discountedPrice === undefined) return undefined;
+  if (Number.isNaN(price) || Number.isNaN(discountedPrice) || price <= 0) return undefined;
+  return Number((((price - discountedPrice) / price) * 100).toFixed(2));
+};
 import { initializeInventoryService } from '../sellers/inventory/service';
 import { AppError } from '../../utils/AppError';
 
 export const createProductService = async (data: any) => {
-  const { name, slug, categoryId } = data;
+  const { name, slug, categoryId, price, discountedPrice, discountedPercent } = data;
 
   if (!name || !slug || !categoryId) {
     throw new AppError('BadRequest', 400, 'Missing required fields');
@@ -32,6 +41,21 @@ export const createProductService = async (data: any) => {
   if (existingProduct) {
     throw new AppError('BadRequest', 400, 'Product slug already exists');
   }
+
+  const normalizedPrice = price !== undefined ? Number(price) : undefined;
+  const normalizedDiscountedPrice = discountedPrice !== undefined ? Number(discountedPrice) : undefined;
+
+  if (normalizedDiscountedPrice !== undefined && normalizedPrice !== undefined) {
+    data.discountedPercent = calculateDiscountedPercent(normalizedPrice, normalizedDiscountedPrice);
+  } else if (data.discountedPrice === null) {
+    data.discountedPercent = null;
+  } else if (discountedPercent !== undefined) {
+    data.discountedPercent = Number(discountedPercent);
+  }
+
+  // ensure numeric fields are normalized where needed.
+  if (normalizedPrice !== undefined) data.price = normalizedPrice;
+  if (normalizedDiscountedPrice !== undefined) data.discountedPrice = normalizedDiscountedPrice;
 
   return await createProduct(data);
 };
