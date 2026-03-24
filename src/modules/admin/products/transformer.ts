@@ -86,7 +86,14 @@ export function buildWhereClause(filters: {
 
   if (filters.status && filters.status !== 'all') {
     conditions.push(`p.status = :param${params.length}`);
-    params.push(filters.status === 'published' ? 'ACTIVE' : 'INACTIVE');
+    const normalized = String(filters.status).toLowerCase();
+    if (normalized === 'published' || normalized === 'active') {
+      params.push('ACTIVE');
+    } else if (normalized === 'draft' || normalized === 'inactive') {
+      params.push('INACTIVE');
+    } else {
+      params.push(filters.status);
+    }
   }
 
   if (filters.category) {

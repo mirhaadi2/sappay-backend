@@ -71,8 +71,19 @@ export function validateFilterParams(params: any): {
 } {
   const result: any = {};
 
-  if (params.status && ['ACTIVE', 'INACTIVE', 'all'].includes(params.status)) {
-    result.status = params.status;
+  if (params.status) {
+    const normalizedStatus = String(params.status).toLowerCase();
+    if (['active', 'inactive', 'published', 'draft', 'all'].includes(normalizedStatus)) {
+      if (normalizedStatus === 'published') {
+        result.status = 'ACTIVE';
+      } else if (normalizedStatus === 'draft') {
+        result.status = 'INACTIVE';
+      } else if (normalizedStatus === 'all') {
+        result.status = 'all';
+      } else {
+        result.status = normalizedStatus.toUpperCase();
+      }
+    }
   }
 
   if (params.category && typeof params.category === 'string') {

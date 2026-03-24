@@ -246,7 +246,7 @@ export const updateStatus = async (
  * Soft delete product
  */
 export const softDelete = async (id: string): Promise<boolean> => {
-  const query = "UPDATE products SET deleted_at = $1 WHERE id = $2";
+  const query = "UPDATE products SET deleted_at = ? WHERE id = ?";
   await executeModify(query, [new Date(), id]);
   return true;
 };
