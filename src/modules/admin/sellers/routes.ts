@@ -9,6 +9,7 @@ import {
   rejectSellerHandler,
   suspendSellerHandler,
   restoreSellerHandler,
+  createSellerHandler,
 } from './controller';
 
 const router = Router();
@@ -19,6 +20,14 @@ router.get(
   requireActiveStaff,
   requirePermission('admin.sellers.read'),
   listSellersHandler
+);
+
+router.post(
+  '/',
+  requireAuth,
+  requireActiveStaff,
+  requirePermission('admin.sellers.create'),
+  createSellerHandler
 );
 
 router.get(

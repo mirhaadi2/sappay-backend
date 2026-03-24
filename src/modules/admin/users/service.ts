@@ -4,11 +4,13 @@
  */
 
 import { Op } from 'sequelize';
-import { User } from '../../users/models';
+import { User, UserRole } from '../../users/models';
 import { AppError } from '../../../utils/AppError';
 import { AdminUserQuery, AdminUser } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
+import { hashPassword, generateRandomPassword } from '../../../utils/password';
+import { sendEmail } from '../../../utils/sendEmail';
 
 export const adminListUsers = async (query: AdminUserQuery) => {
   try {
@@ -51,6 +53,39 @@ export const adminListUsers = async (query: AdminUserQuery) => {
   } catch (error: any) {
     logger.error('Error listing admin users', { error });
     throw new AppError('UserError', 500, error.message || 'Failed to list users');
+  }
+};
+
+export const adminCreateUser = async (data: { email: string; name?: string; phone?: string }) => {
+  try {
+    // Check if user already exists
+    const existingUser = await User.findOne({ where: { email: data.email } });
+    if (existingUser) {
+      throw new AppError('ValidationError', 400, 'User with this email already exists');
+    }
+
+    // Generate random password
+    const plainPassword = generateRandomPassword();
+    const hashedPassword = await hashPassword(plainPassword);
+
+    // Create user
+    const user = await User.create({
+      email: data.email,
+      password: hashedPassword,
+      name: data.name,
+      phone: data.phone,
+      role: 'USER' as UserRole
+    });
+
+    logger.info('User created by admin', { userId: user.id, email: data.email });
+    return {
+      ...(await adminGetUser(user.id)),
+      password: plainPassword
+    };
+  } catch (error: any) {
+    logger.error('Error creating admin user', { email: data.email, error });
+    if (error instanceof AppError) throw error;
+    throw new AppError('UserError', 500, error.message || 'Failed to create user');
   }
 };
 

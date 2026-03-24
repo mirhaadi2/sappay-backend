@@ -8,6 +8,7 @@ import {
   adminRejectSeller,
   adminSuspendSeller,
   adminRestoreSeller,
+  adminCreateSeller,
 } from './service';
 import { AuthenticatedRequest } from '../middleware';
 import logger from '../../../utils/logger';
@@ -28,6 +29,17 @@ export const listSellersHandler = async (req: AuthenticatedRequest, res: Respons
   } catch (error: any) {
     logger.error('List sellers error', { error });
     res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+};
+
+export const createSellerHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { email, name, businessName, businessLicense, phone } = req.body;
+    const seller = await adminCreateSeller({ email, name, businessName, businessLicense, phone });
+    res.status(201).json({ success: true, data: seller });
+  } catch (error: any) {
+    logger.error('Create seller error', { error });
+    res.status(error.statusCode || 500).json({ success: false, error: error.message });
   }
 };
 

@@ -9,6 +9,8 @@ import { AppError } from '../../../utils/AppError';
 import { AdminSellerQuery, AdminSeller } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
+import { hashPassword, generateRandomPassword } from '../../../utils/password';
+import { sendEmail } from '../../../utils/sendEmail';
 
 export const adminListSellers = async (query: AdminSellerQuery) => {
   try {
@@ -63,6 +65,84 @@ export const adminListSellers = async (query: AdminSellerQuery) => {
   } catch (error: any) {
     logger.error('Error listing admin sellers', { error });
     throw new AppError('SellerError', 500, error.message || 'Failed to list sellers');
+  }
+};
+
+export const adminCreateSeller = async (data: {
+  email: string;
+  name: string;
+  businessName: string;
+  businessLicense: string;
+  phone: string;
+}) => {
+  try {
+    // Check if seller already exists
+    const existingSeller = await Seller.findOne({
+      where: {
+        [Op.or]: [
+          { ownerEmail: data.email },
+          { businessRegistrationNo: data.businessLicense }
+        ]
+      }
+    });
+    if (existingSeller) {
+      throw new AppError('ValidationError', 400, 'Seller with this email or business license already exists');
+    }
+
+    // Generate random password
+    const plainPassword = generateRandomPassword();
+    const hashedPassword = await hashPassword(plainPassword);
+
+    // Create seller
+    const seller = await Seller.create({
+      businessName: data.businessName,
+      businessRegistrationNo: data.businessLicense,
+      businessType: 'INDIVIDUAL', // Default business type
+      businessAddress: '', // Will be filled later
+      businessPhone: data.phone,
+      ownerName: data.name,
+      ownerEmail: data.email,
+      password: hashedPassword,
+      bankAccountName: '', // Will be filled later
+      bankAccountNumber: '', // Will be filled later
+      bankIfscCode: '', // Will be filled later
+      commissionRate: 5.0, // Default commission
+      status: SellerStatus.PENDING,
+      onboardingStep: 0,
+      metadata: {},
+    });
+
+    // Send welcome email with password
+    try {
+      await sendEmail({
+        to: data.email,
+        subject: 'Welcome to Sappey Seller Program - Your Account Details',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+            <h2 style="color: #4b3832;">Welcome to Sappey Seller Program!</h2>
+            <p>Your seller account has been created successfully. Here are your login details:</p>
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p><strong>Email:</strong> ${data.email}</p>
+              <p><strong>Password:</strong> ${plainPassword}</p>
+            </div>
+            <p style="color: #d32f2f; font-weight: bold;">⚠️ Please change your password after first login for security.</p>
+            <p>Your account is currently under review. You will receive an email once your account is approved and you can start selling.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="color: #666; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      logger.error('Failed to send welcome email to seller', { sellerId: seller.id, email: data.email, error: emailError });
+      // Don't fail the seller creation if email fails
+    }
+
+    logger.info('Seller created by admin', { sellerId: seller.id, email: data.email });
+    return adminGetSeller(seller.id);
+  } catch (error: any) {
+    logger.error('Error creating admin seller', { email: data.email, error });
+    if (error instanceof AppError) throw error;
+    throw new AppError('SellerError', 500, error.message || 'Failed to create seller');
   }
 };
 

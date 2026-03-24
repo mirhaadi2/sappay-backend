@@ -7,6 +7,7 @@ import {
   deleteUserHandler,
   banUserHandler,
   unbanUserHandler,
+  createUserHandler,
 } from './controller';
 
 const router = Router();
@@ -17,6 +18,14 @@ router.get(
   requireActiveStaff,
   requirePermission('admin.users.read'),
   listUsersHandler
+);
+
+router.post(
+  '/',
+  requireAuth,
+  requireActiveStaff,
+  requirePermission('admin.users.create'),
+  createUserHandler
 );
 
 router.get(
