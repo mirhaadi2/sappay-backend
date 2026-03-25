@@ -111,6 +111,8 @@ export const findProducts = async (
       p."base_price" as price, 
       p."discounted_price" as "discountedPrice",
       p."discounted_percent" as "discountedPercent",
+      p.sku,
+      p.weight,
       p."gst_rate" as "gst_rate",
       p."category_id" as category,
       p.status, 
@@ -146,6 +148,8 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
       p."base_price" as price, 
       p."discounted_price" as "discountedPrice",
       p."discounted_percent" as "discountedPercent",
+      p.sku,
+      p.weight,
       p."gst_rate" as "gst_rate",
       p.category_id as category,
       p.status, 
@@ -163,6 +167,48 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
   // The 'id' in this array maps to the '?' above
   const result = await executeSelect<ProductRow>(query, [id]);
   return result[0] || null;
+};
+
+export const getProductVariants = async (productId: string) => {
+  const query = `
+    SELECT id, product_id as "productId", sku, price, weight, status
+    FROM product_variants
+    WHERE product_id = ?
+    ORDER BY created_at ASC
+  `;
+  return await executeSelect<any>(query, [productId]);
+};
+
+export const deleteProductVariantsByProduct = async (productId: string) => {
+  const query = `DELETE FROM product_variants WHERE product_id = ?`;
+  await executeModify(query, [productId]);
+  return true;
+};
+
+export const createProductVariants = async (productId: string, variants: any[]) => {
+  if (!Array.isArray(variants) || variants.length === 0) return [];
+
+  const values = variants
+    .filter((v) => v && v.name && v.price !== undefined && v.price !== null)
+    .map((v) => [
+      productId,
+      v.name,
+      v.sku || null,
+      Number(v.price),
+      v.status || 'ACTIVE',
+      new Date(),
+      new Date(),
+    ]);
+
+  const query = `
+    INSERT INTO product_variants
+      (product_id, name, sku, price, status, created_at, updated_at)
+    VALUES
+      ${values.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}
+  `;
+
+  await executeModify(query, values.flat());
+  return getProductVariants(productId);
 };
 
 /**

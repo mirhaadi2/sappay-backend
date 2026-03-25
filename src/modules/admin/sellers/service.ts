@@ -4,7 +4,7 @@
  */
 
 import { Op } from 'sequelize';
-import { Seller, SellerStatus } from '../../sellers/model';
+import { Seller, SellerStatus, BusinessType } from '../../sellers/model';
 import { AppError } from '../../../utils/AppError';
 import { AdminSellerQuery, AdminSeller } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
@@ -97,7 +97,7 @@ export const adminCreateSeller = async (data: {
     const seller = await Seller.create({
       businessName: data.businessName,
       businessRegistrationNo: data.businessLicense,
-      businessType: 'INDIVIDUAL', // Default business type
+      businessType: BusinessType.SOLE_PROPRIETOR, // Default business type
       businessAddress: '', // Will be filled later
       businessPhone: data.phone,
       ownerName: data.name,

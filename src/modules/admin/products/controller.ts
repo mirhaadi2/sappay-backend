@@ -51,12 +51,15 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       description,
       price,
       discountedPrice,
+      sku,
+      weight,
       gst_rate,
       status,
       categoryId,
       category,
       images,
       sellerId,
+      variants,
     } = req.body;
 
     const product = await adminCreateProduct({
@@ -65,11 +68,14 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       description,
       price,
       discountedPrice,
+      sku,
+      weight,
       gst_rate,
       status,
       categoryId: categoryId || category,
       images,
       sellerId,
+      variants,
     });
 
     res.status(201).json({ success: true, data: product });
@@ -82,8 +88,8 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
 export const updateProductHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, price, category, discountedPrice, gst_rate, status } = req.body;
-    const product = await adminUpdateProduct(id, { name, description, price, category, discountedPrice, gst_rate, status });
+    const { name, description, price, category, discountedPrice, sku, weight, gst_rate, status, variants } = req.body;
+    const product = await adminUpdateProduct(id, { name, description, price, category, discountedPrice, sku, weight, gst_rate, status, variants });
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Update product error', { error });

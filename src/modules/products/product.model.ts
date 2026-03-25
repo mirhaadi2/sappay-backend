@@ -12,6 +12,8 @@ interface ProductAttributes {
   basePrice?: number;
   discountedPrice?: number;
   discountedPercent?: number;
+  sku?: string;
+  weight?: number;
   hsn_code?: string;
   gst_rate: number;
   certifications?: string[];
@@ -36,6 +38,8 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   public specifications?: Record<string, any>;
   public basePrice?: number;
   public hsn_code?: string;
+  public sku?: string;
+  public weight?: number;
   public gst_rate!: number;
   public certifications?: string[];
   public status!: 'ACTIVE' | 'INACTIVE';
@@ -95,6 +99,14 @@ Product.init(
       type: DataTypes.DECIMAL(5, 2),
       allowNull: true,
       field: 'discounted_percent',
+    },
+    sku: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    weight: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
     },
     hsn_code: {
       type: DataTypes.STRING(50),

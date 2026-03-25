@@ -15,6 +15,8 @@ export interface AdminProduct {
   price: number;
   discountedPrice?: number;
   discountedPercent?: number;
+  sku?: string;
+  weight?: number;
   gst_rate?: number;
   images: string[];
   imageUrl: string;
@@ -23,6 +25,7 @@ export interface AdminProduct {
   status: 'draft' | 'published';
   isFeatured: boolean;
   stock: number;
+  variants?: Array<{ id?: string; sku?: string; price: number; weight?: number; status?: 'ACTIVE' | 'INACTIVE' }>;
   createdAt: string;
   updatedAt: string;
 }

@@ -27,7 +27,7 @@ export async function requireProductExists(
  */
 export function validateUpdateData(
   data: any,
-  allowedFields: string[] = ['name', 'description', 'category', 'price', 'discountedPrice', 'gst_rate', 'status']
+  allowedFields: string[] = ['name', 'description', 'category', 'price', 'discountedPrice', 'sku', 'weight', 'gst_rate', 'status', 'variants']
 ): Record<string, any> {
   const updates: Record<string, any> = {};
 

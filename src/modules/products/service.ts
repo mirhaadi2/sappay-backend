@@ -2,6 +2,8 @@ import {
   findProductById,
   findCategoryById,
   findProductBySlug,
+  findProductBySku,
+  findProductVariantBySku,
   createProduct,
   findBySellerAndProduct,
   createSellerProduct,
@@ -12,7 +14,9 @@ import {
   findSellerProductById,
   updateSellerProduct,
   createCategory,
+  createProductVariants,
 } from './repository';
+import { generateSku, normalizeSku } from '../../utils/sku';
 
 const calculateDiscountedPercent = (
   price: number | undefined,
@@ -57,7 +61,77 @@ export const createProductService = async (data: any) => {
   if (normalizedPrice !== undefined) data.price = normalizedPrice;
   if (normalizedDiscountedPrice !== undefined) data.discountedPrice = normalizedDiscountedPrice;
 
-  return await createProduct(data);
+  // SKU handling
+  if (data.sku) {
+    data.sku = normalizeSku(String(data.sku));
+    const existingProduct = await findProductBySku(data.sku);
+    if (existingProduct) {
+      throw new AppError('BadRequest', 400, 'Product SKU already exists');
+    }
+    const existingVariant = await findProductVariantBySku(data.sku);
+    if (existingVariant) {
+      throw new AppError('BadRequest', 400, 'SKU conflicts with existing variant');
+    }
+  } else {
+    let attempt = 0;
+    do {
+      data.sku = generateSku(data.name, data.weight);
+      const existingProduct = await findProductBySku(data.sku);
+      const existingVariant = await findProductVariantBySku(data.sku);
+      if (!existingProduct && !existingVariant) break;
+      attempt += 1;
+    } while (attempt < 10);
+
+    if (!data.sku) {
+      throw new AppError('Conflict', 409, 'Could not generate unique SKU');
+    }
+  }
+
+  const variants = Array.isArray(data.variants) ? data.variants : [];
+  delete data.variants;
+
+  const product = await createProduct(data);
+
+  if (variants.length > 0) {
+    const finalVariants = await generateProductVariantsWithSku(data.name, variants);
+    await createProductVariants(product.id, finalVariants);
+  }
+
+  return product;
+};
+
+export const generateProductVariantsWithSku = async (
+  productName: string,
+  variants: any[]
+) => {
+  const finalVariants: any[] = [];
+
+  for (const variant of variants) {
+    if (variant.price === undefined || variant.price === null) continue;
+
+    const v: any = {
+      price: Number(variant.price),
+      weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
+      status: variant.status || 'ACTIVE',
+    };
+
+    let attempt = 0;
+    do {
+      v.sku = generateSku(productName, v.weight);
+      const existingProduct = await findProductBySku(v.sku);
+      const existingVariant = await findProductVariantBySku(v.sku);
+      if (!existingProduct && !existingVariant) break;
+      attempt += 1;
+    } while (attempt < 10);
+
+    if (!v.sku) {
+      throw new AppError('Conflict', 409, 'Could not generate unique SKU for variant');
+    }
+
+    finalVariants.push(v);
+  }
+
+  return finalVariants;
 };
 
 export const addProductToSellerService = async (

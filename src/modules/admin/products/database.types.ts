@@ -18,6 +18,8 @@ export interface ProductRow {
   price: number;
   discountedPrice?: number;
   discountedPercent?: number;
+  sku?: string;
+  weight?: number;
   gst_rate?: number;
   stock: string | number;
   category: string;
@@ -25,6 +27,7 @@ export interface ProductRow {
   status: 'ACTIVE' | 'INACTIVE';
   images: string[];
   imageUrl?: string;
+  variants?: Array<{ id: string; sku?: string; price: number; weight?: number; status?: 'ACTIVE' | 'INACTIVE' }>;
   createdAt: Date;
   updatedAt: Date;
 }

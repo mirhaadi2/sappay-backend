@@ -46,6 +46,8 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     price: Number(row.price || 0),
     discountedPrice: row.discountedPrice !== undefined ? Number(row.discountedPrice) : undefined,
     discountedPercent: row.discountedPercent !== undefined ? Number(row.discountedPercent) : undefined,
+    sku: row.sku,
+    weight: row.weight !== undefined ? Number(row.weight) : undefined,
     gst_rate: row.gst_rate !== undefined ? Number(row.gst_rate) : undefined,
     category: row.category || 'Uncategorized',
     categoryName: row.categoryName || 'Uncategorized',
@@ -55,6 +57,13 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     // Safely resolve the first image as the primary imageUrl
     imageUrl: resolvedImages?.[0] || '/placeholder.png', 
     images: resolvedImages,
+    variants: Array.isArray(row.variants) ? row.variants.map((v: any) => ({
+      id: v.id,
+      sku: v.sku,
+      price: Number(v.price),
+      weight: v.weight !== undefined ? Number(v.weight) : undefined,
+      status: v.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
+    })) : [],
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };

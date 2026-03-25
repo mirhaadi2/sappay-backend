@@ -18,8 +18,15 @@ import {
   updateStatus,
   updateMetadata,
   removeMetadata,
+  getProductVariants,
+  deleteProductVariantsByProduct,
+  createProductVariants,
 } from './repository';
-import { createProductService } from '../../products/service';
+import {
+  createProductService,
+  generateProductVariantsWithSku,
+} from '../../products/service';
+import { findProductBySku, findProductVariantBySku } from '../../products/repository';
 
 const calculateDiscountedPercent = (
   price: number | undefined,
@@ -89,7 +96,17 @@ export const adminGetProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
     const product = await findById(id);
-    return await transformProductToAdmin(product!);
+    if (!product) {
+      throw new Error('Product not found after exists check');
+    }
+
+    const variants = await getProductVariants(id);
+    const rowWithVariants = {
+      ...product,
+      variants: variants || [],
+    };
+
+    return await transformProductToAdmin(rowWithVariants as any);
   } catch (error) {
     handleServiceError(error, 'Fetch product');
   }
@@ -105,6 +122,20 @@ export const adminUpdateProduct = async (
   try {
     await requireProductExists(id, 'Product');
     const updates = validateUpdateData(data);
+
+    // Ensure SKU is unique if being updated
+    if (updates.sku) {
+      const normalizedSku = updates.sku.trim().toUpperCase();
+      const existingBySku = await findProductBySku(normalizedSku);
+      if (existingBySku && existingBySku.id !== id) {
+        throw new Error('SKU already exists');
+      }
+      const existingVariant = await findProductVariantBySku(normalizedSku);
+      if (existingVariant) {
+        throw new Error('SKU conflicts with existing variant');
+      }
+      updates.sku = normalizedSku;
+    }
 
     // Ensure discountedPercent is auto-calculated if discountedPrice or price updates are provided
     const existingProduct = await findById(id);
@@ -131,7 +162,22 @@ export const adminUpdateProduct = async (
       updates.discountedPercent = null;
     }
 
+    const variantUpdateData = updates.variants;
+    delete updates.variants;
+
     await updateFields(id, updates);
+
+    if (Array.isArray(variantUpdateData)) {
+      const productName = updates.name || existingProduct.name;
+      const finalVariants = await generateProductVariantsWithSku(
+        productName,
+        variantUpdateData
+      );
+
+      await deleteProductVariantsByProduct(id);
+      await createProductVariants(id, finalVariants);
+    }
+
     logger.info('Product updated', { productId: id, updates });
     return await adminGetProduct(id);
   } catch (error) {
@@ -206,6 +252,8 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       description,
       price,
       discountedPrice,
+      sku,
+      weight,
       gst_rate,
       status,
       categoryId,
@@ -244,9 +292,12 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       basePrice: normalizedPrice,
       discountedPrice: normalizedDiscountedPrice,
       discountedPercent: discountPercent,
+      sku,
+      weight: weight !== undefined ? Number(weight) : undefined,
       gst_rate: Number(gst_rate ?? 18),
       status: status && (status === 'ACTIVE' || status === 'INACTIVE') ? status : 'ACTIVE',
       images: images || [],
+      variants: Array.isArray(input.variants) ? input.variants : [],
     };
 
     const created = await createProductService(productPayload);

@@ -1,4 +1,5 @@
 import Product from './product.model';
+import { ProductVariant } from './product-variant.model';
 import { fetchFromR2, getR2SignedUrl } from '../uploads/r2-utils';
 import { Category } from './category.model';
 import { SellerProduct } from './seller-product.model';
@@ -8,6 +9,14 @@ import { QueryTypes } from 'sequelize';
 
 export const createProduct = async (data: any) => {
   return await Product.create(data);
+};
+
+export const findVariantsByProductId = async (productId: string) => {
+  return await ProductVariant.findAll({
+    where: {productId},
+    order: [['createdAt', 'ASC']],
+    raw: true,
+  });
 };
 
 export const findProductById = async (id: string) => {
@@ -20,12 +29,26 @@ export const findProductById = async (id: string) => {
         where: { status: 'ACTIVE' },
         required: false,
       },
+      {
+        model: ProductVariant,
+        as: 'variants',
+      },
     ],
   });
 };
 
 export const findProductBySlug = async (slug: string) => {
   return await Product.findOne({ where: { slug } });
+};
+
+export const findProductBySku = async (sku: string) => {
+  if (!sku) return null;
+  return await Product.findOne({ where: { sku } });
+};
+
+export const findProductVariantBySku = async (sku: string) => {
+  if (!sku) return null;
+  return await ProductVariant.findOne({ where: { sku } });
 };
 
 export const findAllProducts = async (filters: any) => {
@@ -77,6 +100,43 @@ export const findAllProducts = async (filters: any) => {
     limit,
     totalPages: Math.ceil(total / limit),
   };
+};
+
+export const createProductVariant = async (productId: string, variant: any) => {
+  return await ProductVariant.create({
+    productId,
+    sku: variant.sku,
+    price: Number(variant.price),
+    weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
+    status: variant.status || 'ACTIVE',
+  });
+};
+
+export const createProductVariants = async (productId: string, variants: any[]) => {
+  if (!Array.isArray(variants)) return [];
+  const sanitized = variants
+    .filter((v) => v && v.price !== undefined)
+    .map((v) => ({
+      productId,
+      sku: v.sku,
+      price: Number(v.price),
+      weight: v.weight !== undefined ? Number(v.weight) : undefined,
+      status: v.status || 'ACTIVE',
+    }));
+  return await ProductVariant.bulkCreate(sanitized);
+};
+
+export const getProductVariants = async (productId: string) => {
+  return await ProductVariant.findAll({
+    where: { productId },
+    order: [['createdAt', 'ASC']],
+  });
+};
+
+export const deleteProductVariantsByProduct = async (productId: string) => {
+  return await ProductVariant.destroy({
+    where: { productId },
+  });
 };
 
 export const updateProduct = async (id: string, data: any) => {
