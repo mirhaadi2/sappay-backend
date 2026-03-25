@@ -147,6 +147,6 @@ export function resolveSortColumn(
   sortBy: string = 'created_at'
 ): { column: string; order: string } {
   const sortOrder = 'DESC';
-  const column = sortBy === 'price' ? 'p."base_price"' : 'p."created_at"';
+  const column = 'p."created_at"';
   return { column, order: sortOrder };
 }

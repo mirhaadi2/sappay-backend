@@ -29,14 +29,6 @@ import {
 } from '../../website/products/service';
 import { findProductBySku, findProductVariantBySku } from '../../website/products/repository';
 
-const calculateDiscountedPercent = (
-  price: number | undefined,
-  discountedPrice: number | undefined
-): number | undefined => {
-  if (price === undefined || discountedPrice === undefined) return undefined;
-  if (Number.isNaN(price) || Number.isNaN(discountedPrice) || price <= 0) return undefined;
-  return Number((((price - discountedPrice) / price) * 100).toFixed(2));
-};
 import {
   requireProductExists,
   validateUpdateData,
@@ -138,30 +130,11 @@ export const adminUpdateProduct = async (
       updates.sku = normalizedSku;
     }
 
-    // Ensure discountedPercent is auto-calculated if discountedPrice or price updates are provided
-    const existingProduct = await findById(id);
-    if (!existingProduct) {
-      throw new Error('Product not found after exists check');
-    }
-
-    const currentPrice = typeof existingProduct.price === 'number' ? existingProduct.price : Number(existingProduct.price);
-    const currentDiscountedPrice =
-      existingProduct.discountedPrice === undefined || existingProduct.discountedPrice === null
-        ? undefined
-        : Number(existingProduct.discountedPrice);
-
-    const newPrice = updates.price !== undefined ? Number(updates.price) : currentPrice;
-    const newDiscountedPrice =
-      updates.discountedPrice !== undefined ? Number(updates.discountedPrice) : currentDiscountedPrice;
-
-    const newDiscountPercent = calculateDiscountedPercent(newPrice, newDiscountedPrice);
-
-    if (newDiscountPercent !== undefined) {
-      updates.discountedPercent = newDiscountPercent;
-    } else if (updates.discountedPrice !== undefined && updates.discountedPrice === null) {
-      // removed discounted price should reset discount percent
-      updates.discountedPercent = null;
-    }
+    // Remove price/discount fields from main product since they're now handled by variants
+    delete updates.price;
+    delete updates.discountedPrice;
+    delete updates.discountedPercent;
+    delete updates.weight;
 
     const variantUpdateData = updates.variants;
     delete updates.variants;
@@ -245,9 +218,6 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       name,
       slug,
       description,
-      price,
-      discountedPrice,
-      sku,
       weight,
       gst_rate,
       status,
@@ -268,26 +238,11 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
 
-    let discountPercent: number | undefined;
-    const normalizedPrice = Number(price);
-    const normalizedDiscountedPrice =
-      discountedPrice !== undefined ? Number(discountedPrice) : undefined;
-
-    if (normalizedDiscountedPrice !== undefined && !isNaN(normalizedPrice) && normalizedPrice > 0) {
-      discountPercent = Number(
-        (((normalizedPrice - normalizedDiscountedPrice) / normalizedPrice) * 100).toFixed(2)
-      );
-    }
-
     const productPayload = {
       name,
       description,
       slug: finalSlug,
       categoryId: categoryId || input.category,
-      basePrice: normalizedPrice,
-      discountedPrice: normalizedDiscountedPrice,
-      discountedPercent: discountPercent,
-      sku,
       weight: weight !== undefined ? Number(weight) : undefined,
       gst_rate: Number(gst_rate ?? 18),
       status: status && (status === 'ACTIVE' || status === 'INACTIVE') ? status : 'ACTIVE',

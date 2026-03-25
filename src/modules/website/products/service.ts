@@ -26,11 +26,12 @@ const calculateDiscountedPercent = (
   if (Number.isNaN(price) || Number.isNaN(discountedPrice) || price <= 0) return undefined;
   return Number((((price - discountedPrice) / price) * 100).toFixed(2));
 };
+
 import { initializeInventoryService } from '../../sellers/inventory/service';
 import { AppError } from '../../../utils/AppError';
 
 export const createProductService = async (data: any) => {
-  const { name, slug, categoryId, price, discountedPrice, discountedPercent } = data;
+  const { name, slug, categoryId } = data;
 
   if (!name || !slug || !categoryId) {
     throw new AppError('BadRequest', 400, 'Missing required fields');
@@ -46,22 +47,13 @@ export const createProductService = async (data: any) => {
     throw new AppError('BadRequest', 400, 'Product slug already exists');
   }
 
-  const normalizedPrice = price !== undefined ? Number(price) : undefined;
-  const normalizedDiscountedPrice = discountedPrice !== undefined ? Number(discountedPrice) : undefined;
+  // Remove price/discount fields from main product since they're now handled by variants
+  delete data.price;
+  delete data.discountedPrice;
+  delete data.discountedPercent;
+  delete data.weight;
 
-  if (normalizedDiscountedPrice !== undefined && normalizedPrice !== undefined) {
-    data.discountedPercent = calculateDiscountedPercent(normalizedPrice, normalizedDiscountedPrice);
-  } else if (data.discountedPrice === null) {
-    data.discountedPercent = null;
-  } else if (discountedPercent !== undefined) {
-    data.discountedPercent = Number(discountedPercent);
-  }
-
-  // ensure numeric fields are normalized where needed.
-  if (normalizedPrice !== undefined) data.price = normalizedPrice;
-  if (normalizedDiscountedPrice !== undefined) data.discountedPrice = normalizedDiscountedPrice;
-
-  // SKU handling
+  // SKU handling - generate SKU for main product
   if (data.sku) {
     data.sku = normalizeSku(String(data.sku));
     const existingProduct = await findProductBySku(data.sku);
@@ -75,7 +67,7 @@ export const createProductService = async (data: any) => {
   } else {
     let attempt = 0;
     do {
-      data.sku = generateSku(data.name, data.weight);
+      data.sku = generateSku(data.name);
       const existingProduct = await findProductBySku(data.sku);
       const existingVariant = await findProductVariantBySku(data.sku);
       if (!existingProduct && !existingVariant) break;
@@ -113,6 +105,11 @@ export const generateProductVariantsWithSku = async (
       price: Number(variant.price),
       weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
       status: variant.status || 'ACTIVE',
+      weightUnit: variant.weightUnit || 'G',
+      discountedPrice: variant.discountedPrice !== undefined ? Number(variant.discountedPrice) : undefined,
+      discountedPercent: variant.discountedPercent !== undefined
+        ? Number(variant.discountedPercent)
+        : calculateDiscountedPercent(variant.price, variant.discountedPrice),
     };
 
     let attempt = 0;
@@ -185,18 +182,32 @@ export const getProductDetailsService = async (productId: string) => {
     throw new AppError('NotFound', 404, 'Product not found');
   }
 
-  // const sellers = await getAllSellersForProduct(productId);
+  const productJson: any = product.toJSON();
+  const variantPrices = (productJson.variants || []).map((v: any) => Number(v.price));
+  const variantMinPrice = variantPrices.length ? Math.min(...variantPrices) : undefined;
 
-  return {
-    ...product.toJSON(),
-    // sellers: sellers.map((sp: any) => ({
-    //   id: sp.id,
-    //   sellerId: sp.sellerId,
-    //   price: sp.sellerPrice,
-    //   rating: 4.5,
-    //   sellers: 150,
-    // })),
-  };
+  productJson.variantCount = (productJson.variants || []).length;
+  
+  // For weight-based products, display price is the minimum weight variant price
+  if (productJson.variantCount > 0) {
+    productJson.price = variantMinPrice;
+    // Set originalPrice to basePrice if it exists and is different from variant price
+    if (productJson.basePrice && Number(productJson.basePrice) !== variantMinPrice) {
+      productJson.originalPrice = Number(productJson.basePrice);
+    }
+  } else {
+    productJson.price = Number(productJson.basePrice ?? productJson.price ?? 0);
+  }
+
+  // Ensure main product discount fields are included
+  if (productJson.discountedPrice) {
+    productJson.discountedPrice = Number(productJson.discountedPrice);
+  }
+  if (productJson.discountedPercent) {
+    productJson.discountedPercent = Number(productJson.discountedPercent);
+  }
+
+  return productJson;
 };
 
 export const fetchProductsService = async (filters: any) => {

@@ -23,13 +23,6 @@ export const findProductById = async (id: string) => {
   return await Product.findByPk(id, {
     include: [
       {
-        model: SellerProduct,
-        as: 'sellerProducts',
-        attributes: ['id', 'sellerId', 'sellerPrice', 'costPrice', 'discountedPrice', 'discountedPercent', 'rating', 'ratingCount', 'status'],
-        where: { status: 'ACTIVE' },
-        required: false,
-      },
-      {
         model: ProductVariant,
         as: 'variants',
       },
@@ -58,13 +51,18 @@ export const findAllProducts = async (filters: any) => {
   if (categoryId) where.categoryId = categoryId;
   if (status) where.status = status;
 
-  // Fetch products
+  // Fetch products with variants and seller pricing
   const products = await Product.findAll({
     where,
     limit,
     offset,
-    raw: true,
     order: [['createdAt', 'DESC']],
+    include: [
+      {
+        model: ProductVariant,
+        as: 'variants',
+      },
+    ],
   });
 
   // Helper to resolve R2 image key to URL using fetchFromR2 and getR2SignedUrl
@@ -82,19 +80,53 @@ export const findAllProducts = async (filters: any) => {
     }
   };
 
+  const formattedProducts: any[] = [];
+
   for (const product of products) {
-    if (Array.isArray(product.images)) {
+    const category = await Category.findByPk(product.categoryId);
+
+    const productJson: any = product.toJSON ? product.toJSON() : product;
+    productJson.category = category?.name || null;
+
+    if (Array.isArray(productJson.images)) {
       const resolvedImages = await Promise.all(
-        product.images.map(async (imgKey: string) => await resolveR2Url(imgKey))
+        productJson.images.map(async (imgKey: string) => await resolveR2Url(imgKey))
       );
-      product.images = resolvedImages;
+      productJson.images = resolvedImages;
     }
+
+    const variantPrices = (productJson.variants || []).map((v: any) => Number(v.price));
+    const variantMinPrice = variantPrices.length ? Math.min(...variantPrices) : undefined;
+
+    productJson.variantCount = (productJson.variants || []).length;
+    
+    // For weight-based products, display price is the minimum weight variant price
+    // Product basePrice is used only if no variants exist
+    if (productJson.variantCount > 0) {
+      productJson.price = variantMinPrice;
+      // Set originalPrice to basePrice if it exists and is different from variant price
+      if (productJson.basePrice && Number(productJson.basePrice) !== variantMinPrice) {
+        productJson.originalPrice = Number(productJson.basePrice);
+      }
+    } else {
+      productJson.price = Number(productJson.basePrice ?? productJson.price ?? 0);
+    }
+
+    // Ensure main product discount fields are included
+    if (productJson.discountedPrice) {
+      productJson.discountedPrice = Number(productJson.discountedPrice);
+    }
+    if (productJson.discountedPercent) {
+      productJson.discountedPercent = Number(productJson.discountedPercent);
+    }
+
+    formattedProducts.push(productJson);
   }
 
   const total = await Product.count({ where });
 
   return {
-    products,
+    products: formattedProducts,
     total,
     page: Math.floor(offset / limit) + 1,
     limit,
@@ -120,7 +152,10 @@ export const createProductVariants = async (productId: string, variants: any[]) 
       productId,
       sku: v.sku,
       price: Number(v.price),
+      discountedPrice: v.discountedPrice !== undefined ? Number(v.discountedPrice) : undefined,
+      discountedPercent: v.discountedPercent !== undefined ? Number(v.discountedPercent) : undefined,
       weight: v.weight !== undefined ? Number(v.weight) : undefined,
+      weightUnit: v.weightUnit || 'G',
       status: v.status || 'ACTIVE',
     }));
   return await ProductVariant.bulkCreate(sanitized);

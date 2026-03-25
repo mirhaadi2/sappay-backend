@@ -130,21 +130,19 @@ export const findProducts = async (
       p.id, 
       p.name, 
       p.slug, 
-      p.description,
-      p.base_price as "price", 
-      p.discounted_price as "discountedPrice",
+      p.description, 
+      COALESCE(vs.min_price, 0) as "price",
       p.gst_rate,
       p.category_id as "categoryId",
       c.name as "categoryName",
       p.status, 
       p.images, -- Full array for detail views, or use p.images[1] for list
-      p.sku,
       p.weight,
       -- Aggregated Stock from CTE
       COALESCE(inv.total_stock, 0) as "stock",
       -- Aggregated Variant Info from CTE
       COALESCE(vs.variants_count, 0) as "variantsCount",
-      COALESCE(vs.min_price, p.base_price) as "minPriceAt",
+      COALESCE(vs.min_price, 0) as "minPriceAt",
       -- Timestamps
       p.created_at AS "createdAt", 
       p.updated_at AS "updatedAt"
@@ -174,7 +172,6 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
       p.name, 
       p.slug, 
       p.description,
-      p."base_price" as price, 
       p."discounted_price" as "discountedPrice",
       p."discounted_percent" as "discountedPercent",
       p.sku,
@@ -205,7 +202,10 @@ export const getProductVariants = async (productId: string) => {
       product_id as "productId", 
       sku, 
       price, 
+      discounted_price as "discountedPrice",
+      discounted_percent as "discountedPercent",
       weight, 
+      weight_unit as "weightUnit",
       status,
       created_at as "createdAt",
       updated_at as "updatedAt"
@@ -246,7 +246,10 @@ export const createProductVariants = async (productId: string, productName: stri
       productId,
       v.sku || generateSku(productName, v.weight), // Auto-generate SKU if not provided
       Number(v.price),
+      v.discountedPrice !== undefined ? Number(v.discountedPrice) : null,
+      v.discountedPercent !== undefined ? Number(v.discountedPercent) : null,
       v.weight !== undefined ? Number(v.weight) : null,
+      v.weightUnit || 'G',
       v.status || 'ACTIVE',
       new Date(),
       new Date(),
@@ -256,9 +259,9 @@ export const createProductVariants = async (productId: string, productName: stri
 
   const query = `
     INSERT INTO product_variants
-      (id, product_id, sku, price, weight, status, created_at, updated_at)
+      (id, product_id, sku, price, discounted_price, discounted_percent, weight, weight_unit, status, created_at, updated_at)
     VALUES
-      ${values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}
+      ${values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}
   `;
 
   await executeModify(query, values.flat());
@@ -275,6 +278,12 @@ export const updateProductVariant = async (variantId: string, updates: any) => {
   const mappedEntries = entries.map(([key, val]) => {
     let finalValue = val;
     if (key === 'price' && typeof val === 'string') {
+      finalValue = Number(val);
+    }
+    if (key === 'discountedPrice' && typeof val === 'string') {
+      finalValue = Number(val);
+    }
+    if (key === 'discountedPercent' && typeof val === 'string') {
       finalValue = Number(val);
     }
     if (key === 'weight' && typeof val === 'string') {
@@ -321,7 +330,10 @@ export const upsertProductVariants = async (productId: string, variants: any[]) 
       const updates: any = {};
       if (variant.sku !== undefined) updates.sku = variant.sku;
       if (variant.price !== undefined) updates.price = variant.price;
+      if (variant.discountedPrice !== undefined) updates.discountedPrice = variant.discountedPrice;
+      if (variant.discountedPercent !== undefined) updates.discountedPercent = variant.discountedPercent;
       if (variant.weight !== undefined) updates.weight = variant.weight;
+      if (variant.weightUnit !== undefined) updates.weightUnit = variant.weightUnit;
       if (variant.status !== undefined) updates.status = variant.status;
 
       await updateProductVariant(variant.id, updates);
@@ -330,7 +342,8 @@ export const upsertProductVariants = async (productId: string, variants: any[]) 
       // Create new variant - remove ID if present and auto-generate SKU if needed
       const { id, createdAt, updatedAt, ...variantData } = variant;
       if (!variantData.sku) {
-        variantData.sku = generateSku(productName, variantData.weight);
+        const weightInfo = variantData.weight ? `${variantData.weight}${variantData.weightUnit || 'G'}` : '';
+        variantData.sku = generateSku(productName, weightInfo);
       }
       const newVariants = await createProductVariants(productId, productName, [variantData]);
       results.push(...newVariants);
@@ -361,8 +374,7 @@ export const updateFields = async (
 
   // Map model property names to database column names
   // Updated Mapping: Front-end Key -> Database Column Name
-  const columnMapping: Record<string, string> = {
-    price: "base_price", // Added
+  const columnMapping: Record<string, string> = { // Added
     discountedPrice: "discounted_price", // Added
     discountedPercent: "discounted_percent", // Added
     category: "category_id",

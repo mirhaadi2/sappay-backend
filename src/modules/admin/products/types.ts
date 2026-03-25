@@ -39,9 +39,6 @@ export interface AdminProduct {
   name: string;
   description: string;
   price: number;
-  discountedPrice?: number;
-  discountedPercent?: number;
-  sku?: string;
   weight?: number;
   gst_rate?: number;
   images: string[];

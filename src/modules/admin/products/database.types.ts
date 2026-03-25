@@ -26,9 +26,6 @@ export interface ProductRow {
   slug: string;
   description: string;
   price: number;
-  discountedPrice?: number;
-  discountedPercent?: number;
-  sku?: string;
   weight?: number;
   gst_rate?: number;
   stock: string | number;

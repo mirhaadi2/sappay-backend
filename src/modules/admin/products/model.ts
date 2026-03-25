@@ -9,10 +9,6 @@ interface ProductAttributes {
   description?: string;
   images?: string[];
   specifications?: Record<string, any>;
-  basePrice?: number;
-  discountedPrice?: number;
-  discountedPercent?: number;
-  sku?: string;
   weight?: number;
   hsn_code?: string;
   gst_rate: number;
@@ -36,9 +32,7 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   public description?: string;
   public images?: string[];
   public specifications?: Record<string, any>;
-  public basePrice?: number;
   public hsn_code?: string;
-  public sku?: string;
   public weight?: number;
   public gst_rate!: number;
   public certifications?: string[];
@@ -84,25 +78,6 @@ Product.init(
       type: DataTypes.JSON,
       allowNull: true,
       defaultValue: {},
-    },
-    basePrice: {
-      type: DataTypes.DECIMAL(12, 2),
-      allowNull: true,
-      field: 'base_price',
-    },
-    discountedPrice: {
-      type: DataTypes.DECIMAL(12, 2),
-      allowNull: true,
-      field: 'discounted_price',
-    },
-    discountedPercent: {
-      type: DataTypes.DECIMAL(5, 2),
-      allowNull: true,
-      field: 'discounted_percent',
-    },
-    sku: {
-      type: DataTypes.STRING(100),
-      allowNull: true,
     },
     weight: {
       type: DataTypes.DECIMAL(10, 2),

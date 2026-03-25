@@ -7,7 +7,10 @@ export interface ProductVariantAttributes {
   productId: string;
   sku?: string;
   price: number;
+  discountedPrice?: number;
+  discountedPercent?: number;
   weight?: number;
+  weightUnit?: 'G' | 'KG' | 'L' | 'ML';
   status: 'ACTIVE' | 'INACTIVE';
   createdAt: Date;
   updatedAt: Date;
@@ -15,7 +18,7 @@ export interface ProductVariantAttributes {
 
 type ProductVariantCreationAttributes = Optional<
   ProductVariantAttributes,
-  'id' | 'sku' | 'weight' | 'status' | 'createdAt' | 'updatedAt'
+  'id' | 'sku' | 'discountedPrice' | 'discountedPercent' | 'weight' | 'weightUnit' | 'status' | 'createdAt' | 'updatedAt'
 >;
 
 export class ProductVariant extends Model<ProductVariantAttributes, ProductVariantCreationAttributes>
@@ -24,7 +27,10 @@ export class ProductVariant extends Model<ProductVariantAttributes, ProductVaria
   public productId!: string;
   public sku?: string;
   public price!: number;
+  public discountedPrice?: number;
+  public discountedPercent?: number;
   public weight?: number;
+  public weightUnit?: 'G' | 'KG' | 'L' | 'ML';
   public status!: 'ACTIVE' | 'INACTIVE';
 
   public readonly createdAt!: Date;
@@ -53,9 +59,25 @@ ProductVariant.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
     },
+    discountedPrice: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+      field: 'discounted_price',
+    },
+    discountedPercent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      field: 'discounted_percent',
+    },
     weight: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
+    },
+    weightUnit: {
+      type: DataTypes.ENUM('G', 'KG'),
+      allowNull: true,
+      defaultValue: 'G',
+      field: 'weight_unit',
     },
     status: {
       type: DataTypes.ENUM('ACTIVE', 'INACTIVE'),

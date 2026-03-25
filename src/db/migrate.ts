@@ -2,7 +2,7 @@ import path from "path";
 import { Umzug, SequelizeStorage } from "umzug";
 import { sequelize } from "./sequelize";
 
-const migrationsPath = path.join(__dirname, "migrations", "*.ts");
+const migrationsPath = path.join(__dirname, "migrations", "*.{ts,cjs}");
 
 const umzug = new Umzug({
   migrations: { glob: migrationsPath },
