@@ -10,6 +10,16 @@ export interface QueryResult<T> {
   count: number;
 }
 
+export interface ProductVariantRow {
+  id: string;
+  sku?: string;
+  price: number;
+  weight?: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ProductRow {
   id: string;
   name: string;
@@ -27,7 +37,7 @@ export interface ProductRow {
   status: 'ACTIVE' | 'INACTIVE';
   images: string[];
   imageUrl?: string;
-  variants?: Array<{ id: string; sku?: string; price: number; weight?: number; status?: 'ACTIVE' | 'INACTIVE' }>;
+  variants?: ProductVariantRow[];
   createdAt: Date;
   updatedAt: Date;
 }

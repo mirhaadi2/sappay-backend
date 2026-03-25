@@ -7,6 +7,8 @@
 import { sequelize } from "../../../db/sequelize";
 import { ProductRow, CountRow } from "./database.types";
 import { QueryTypes } from "sequelize";
+import { randomUUID } from "crypto";
+import { generateSku } from "../../../utils/sku";
 import logger from "../../../utils/logger";
 
 /**
@@ -171,12 +173,34 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
 
 export const getProductVariants = async (productId: string) => {
   const query = `
-    SELECT id, product_id as "productId", sku, price, weight, status
+    SELECT 
+      id, 
+      product_id as "productId", 
+      sku, 
+      price, 
+      weight, 
+      status,
+      created_at as "createdAt",
+      updated_at as "updatedAt"
     FROM product_variants
     WHERE product_id = ?
     ORDER BY created_at ASC
   `;
   return await executeSelect<any>(query, [productId]);
+};
+
+/**
+ * Get product variants count
+ * Enterprise-grade optimization for list views
+ */
+export const getProductVariantsCount = async (productId: string): Promise<number> => {
+  const query = `
+    SELECT COUNT(*) as count
+    FROM product_variants
+    WHERE product_id = ?
+  `;
+  const result = await executeSelect<{ count: string }>(query, [productId]);
+  return parseInt(result[0]?.count || '0', 10);
 };
 
 export const deleteProductVariantsByProduct = async (productId: string) => {
@@ -185,30 +209,108 @@ export const deleteProductVariantsByProduct = async (productId: string) => {
   return true;
 };
 
-export const createProductVariants = async (productId: string, variants: any[]) => {
+export const createProductVariants = async (productId: string, productName: string, variants: any[]) => {
   if (!Array.isArray(variants) || variants.length === 0) return [];
 
   const values = variants
-    .filter((v) => v && v.name && v.price !== undefined && v.price !== null)
+    .filter((v) => v && v.price !== undefined && v.price !== null)
     .map((v) => [
+      randomUUID(), // Generate UUID for id
       productId,
-      v.name,
-      v.sku || null,
+      v.sku || generateSku(productName, v.weight), // Auto-generate SKU if not provided
       Number(v.price),
+      v.weight !== undefined ? Number(v.weight) : null,
       v.status || 'ACTIVE',
       new Date(),
       new Date(),
     ]);
 
+  if (values.length === 0) return [];
+
   const query = `
     INSERT INTO product_variants
-      (product_id, name, sku, price, status, created_at, updated_at)
+      (id, product_id, sku, price, weight, status, created_at, updated_at)
     VALUES
-      ${values.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}
+      ${values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}
   `;
 
   await executeModify(query, values.flat());
   return getProductVariants(productId);
+};
+
+/**
+ * Update existing product variant
+ */
+export const updateProductVariant = async (variantId: string, updates: any) => {
+  const entries = Object.entries(updates);
+  if (entries.length === 0) return true;
+
+  const mappedEntries = entries.map(([key, val]) => {
+    let finalValue = val;
+    if (key === 'price' && typeof val === 'string') {
+      finalValue = Number(val);
+    }
+    if (key === 'weight' && typeof val === 'string') {
+      finalValue = Number(val);
+    }
+    return [key, finalValue];
+  });
+
+  const setClauses = mappedEntries.map(([key]) => `"${key}" = ?`).join(", ");
+  const values = [...mappedEntries.map(([, val]) => val), new Date(), variantId];
+
+  const query = `
+    UPDATE product_variants
+    SET ${setClauses}, updated_at = ?
+    WHERE id = ?
+  `;
+
+  await executeModify(query, values);
+  return true;
+};
+
+/**
+ * Create or update product variants intelligently
+ * This is the professional way to handle variant updates
+ */
+export const upsertProductVariants = async (productId: string, variants: any[]) => {
+  if (!Array.isArray(variants) || variants.length === 0) return [];
+
+  // Get product name for SKU generation
+  const product = await findById(productId);
+  if (!product) {
+    throw new Error('Product not found');
+  }
+  const productName = product.name;
+
+  const existingVariants = await getProductVariants(productId);
+  const existingVariantMap = new Map(existingVariants.map(v => [v.id, v]));
+
+  const results = [];
+
+  for (const variant of variants) {
+    if (variant.id && existingVariantMap.has(variant.id)) {
+      // Update existing variant
+      const updates: any = {};
+      if (variant.sku !== undefined) updates.sku = variant.sku;
+      if (variant.price !== undefined) updates.price = variant.price;
+      if (variant.weight !== undefined) updates.weight = variant.weight;
+      if (variant.status !== undefined) updates.status = variant.status;
+
+      await updateProductVariant(variant.id, updates);
+      results.push({ ...existingVariantMap.get(variant.id), ...updates });
+    } else {
+      // Create new variant - remove ID if present and auto-generate SKU if needed
+      const { id, createdAt, updatedAt, ...variantData } = variant;
+      if (!variantData.sku) {
+        variantData.sku = generateSku(productName, variantData.weight);
+      }
+      const newVariants = await createProductVariants(productId, productName, [variantData]);
+      results.push(...newVariants);
+    }
+  }
+
+  return results;
 };
 
 /**

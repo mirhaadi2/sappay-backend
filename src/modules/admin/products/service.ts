@@ -21,6 +21,7 @@ import {
   getProductVariants,
   deleteProductVariantsByProduct,
   createProductVariants,
+  upsertProductVariants,
 } from './repository';
 import {
   createProductService,
@@ -167,15 +168,9 @@ export const adminUpdateProduct = async (
 
     await updateFields(id, updates);
 
-    if (Array.isArray(variantUpdateData)) {
-      const productName = updates.name || existingProduct.name;
-      const finalVariants = await generateProductVariantsWithSku(
-        productName,
-        variantUpdateData
-      );
-
-      await deleteProductVariantsByProduct(id);
-      await createProductVariants(id, finalVariants);
+    // Handle variant updates intelligently - only update/create what's provided
+    if (Array.isArray(variantUpdateData) && variantUpdateData.length > 0) {
+      await upsertProductVariants(id, variantUpdateData);
     }
 
     logger.info('Product updated', { productId: id, updates });

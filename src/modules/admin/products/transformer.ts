@@ -1,15 +1,13 @@
 /**
  * Product Response Transformer
  * Handles all data transformation from database to API response
+ * Enterprise-grade with performance optimization
  */
 
 import { getR2SignedUrl } from '../../uploads/r2-utils';
 import { ProductRow } from './database.types';
-import { AdminProduct } from './types';
+import { AdminProduct, AdminProductVariantDetail } from './types';
 
-/**
- * Transform database row to admin API response
- */
 /**
  * Resolves R2 URLs with better fallback and parallel execution support
  */
@@ -28,7 +26,21 @@ const resolveR2Url = async (key: string): Promise<string> => {
 };
 
 /**
+ * Transform variant to API response format
+ */
+const transformVariant = (variant: any): AdminProductVariantDetail => ({
+  id: variant.id,
+  sku: variant.sku,
+  price: Number(variant.price),
+  weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
+  status: variant.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
+  createdAt: new Date(variant.createdAt).toISOString(),
+  updatedAt: new Date(variant.updatedAt).toISOString(),
+});
+
+/**
  * Enhanced transformation that handles async image resolution
+ * Includes variants count and detailed variant information
  */
 export async function transformProductToAdmin(row: ProductRow): Promise<AdminProduct> {
   // 1. Start resolving images immediately
@@ -38,7 +50,12 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
 
   const resolvedImages = await Promise.all(imagePromises);
 
-  // 2. Map the data structure
+  // 2. Transform variants to detailed format
+  const transformedVariants: AdminProductVariantDetail[] = Array.isArray(row.variants) 
+    ? row.variants.map(transformVariant)
+    : [];
+
+  // 3. Map the data structure
   return {
     id: row.id,
     name: row.name,
@@ -57,13 +74,9 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     // Safely resolve the first image as the primary imageUrl
     imageUrl: resolvedImages?.[0] || '/placeholder.png', 
     images: resolvedImages,
-    variants: Array.isArray(row.variants) ? row.variants.map((v: any) => ({
-      id: v.id,
-      sku: v.sku,
-      price: Number(v.price),
-      weight: v.weight !== undefined ? Number(v.weight) : undefined,
-      status: v.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
-    })) : [],
+    // Include detailed variants and count
+    variantsCount: transformedVariants.length,
+    variants: transformedVariants.length > 0 ? transformedVariants : undefined,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };
