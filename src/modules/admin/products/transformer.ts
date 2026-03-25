@@ -75,7 +75,7 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     imageUrl: resolvedImages?.[0] || '/placeholder.png', 
     images: resolvedImages,
     // Include detailed variants and count
-    variantsCount: transformedVariants.length,
+    variantsCount: row?.variantsCount || transformedVariants.length ||0,
     variants: transformedVariants.length > 0 ? transformedVariants : undefined,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),

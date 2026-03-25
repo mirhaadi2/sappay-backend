@@ -37,6 +37,7 @@ export interface ProductRow {
   status: 'ACTIVE' | 'INACTIVE';
   images: string[];
   imageUrl?: string;
+  variantsCount?: number;
   variants?: ProductVariantRow[];
   createdAt: Date;
   updatedAt: Date;

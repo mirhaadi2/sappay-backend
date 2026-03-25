@@ -105,26 +105,53 @@ export const findProducts = async (
   offset: number,
 ): Promise<ProductRow[]> => {
   const query = `
+    WITH InventoryStats AS (
+        -- Aggregate inventory at the product level first
+        -- This avoids multiple subqueries in the main select
+      SELECT 
+        sp.product_id,
+        SUM(COALESCE(i.available_stock, 0)) as total_stock,
+        COUNT(DISTINCT i.id) as inventory_records_count
+      FROM seller_products sp
+      LEFT JOIN inventory i ON sp.id = i.seller_product_id
+      GROUP BY sp.product_id
+    ),
+    VariantStats AS (
+      -- Get price ranges and variant counts
+      SELECT 
+        product_id,
+        COUNT(*) as variants_count,
+        MIN(price) as min_price,
+        MAX(price) as max_price
+      FROM product_variants
+      GROUP BY product_id
+    )
     SELECT 
       p.id, 
       p.name, 
       p.slug, 
       p.description,
-      p."base_price" as price, 
-      p."discounted_price" as "discountedPrice",
-      p."discounted_percent" as "discountedPercent",
+      p.base_price as "price", 
+      p.discounted_price as "discountedPrice",
+      p.gst_rate,
+      p.category_id as "categoryId",
+      c.name as "categoryName",
+      p.status, 
+      p.images, -- Full array for detail views, or use p.images[1] for list
       p.sku,
       p.weight,
-      p."gst_rate" as "gst_rate",
-      p."category_id" as category,
-      p.status, 
-      p.images,
-      p."created_at" AS "createdAt", 
-      p."updated_at" AS "updatedAt",
-      i.available_stock as "stock"
+      -- Aggregated Stock from CTE
+      COALESCE(inv.total_stock, 0) as "stock",
+      -- Aggregated Variant Info from CTE
+      COALESCE(vs.variants_count, 0) as "variantsCount",
+      COALESCE(vs.min_price, p.base_price) as "minPriceAt",
+      -- Timestamps
+      p.created_at AS "createdAt", 
+      p.updated_at AS "updatedAt"
     FROM products p
-    LEFT JOIN "seller_products" sp ON sp.product_id = p.id
-    LEFT JOIN "inventory" i ON sp.id = i.seller_product_id
+    LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN InventoryStats inv ON p.id = inv.product_id
+    LEFT JOIN VariantStats vs ON p.id = vs.product_id
     WHERE ${whereClause}
     ORDER BY ${sortBy} ${sortOrder}
     LIMIT :limit OFFSET :offset
