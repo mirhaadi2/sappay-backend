@@ -1,8 +1,8 @@
-import Product from '../../admin/products/product.model';
-import { ProductVariant } from '../../admin/products/product-variant.model';
+import Product from '../../admin/products/model';
+import { ProductVariant } from '../../admin/products/product-variant/model';
 import { fetchFromR2, getR2SignedUrl } from '../../uploads/r2-utils';
-import { Category } from '../../admin/products/category.model';
-import { SellerProduct } from '../../admin/products/seller-product.model';
+import { Category } from '../../admin/products/category/model';
+import { SellerProduct } from '../../admin/products/seller-product/model';
 import { AppError } from '../../../utils/AppError';
 import { sequelize } from '../../../db/sequelize';
 import { QueryTypes } from 'sequelize';

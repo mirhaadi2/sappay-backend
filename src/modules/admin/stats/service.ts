@@ -8,7 +8,7 @@ import { Op, fn, col, literal } from 'sequelize';
 import { User } from '../../../models';
 import { Seller, SellerStatus } from '../../sellers/model';
 import Order from '../../admin/orders/order.model';
-import Product from '../../admin/products/product.model';
+import Product from '../products/model';
 import { PlatformStats, ChartDataPoint, StatsQueryParams } from './types';
 import logger from '../../../utils/logger';
 import { AppError } from '../../../utils/AppError';

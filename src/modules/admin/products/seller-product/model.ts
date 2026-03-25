@@ -1,6 +1,6 @@
 import { Model, DataTypes, Optional } from 'sequelize';
-import { sequelize } from '../../../db/sequelize';
-import Product from './product.model';
+import Product from '../model';
+import { sequelize } from '../../../../db/sequelize';
 
 interface SellerProductAttributes {
   id: string;
