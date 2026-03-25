@@ -3,9 +3,9 @@
  * Centralized data access layer with type safety
  */
 
-import { sequelize } from '../../../db/sequelize';
+import { sequelize } from '../../../../db/sequelize';
 import { QueryTypes } from 'sequelize';
-import logger from '../../../utils/logger';
+import logger from '../../../../utils/logger';
 
 interface CategoryRow {
   id: string;

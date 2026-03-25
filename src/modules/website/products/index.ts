@@ -1,5 +1,5 @@
 export { default as Product } from '../../admin/products/model';
-export { Category } from '../../admin/products/category/model';
+export { Category } from '../../admin/products/categories/model';
 export { SellerProduct } from '../../admin/products/seller-product/model';
 export * from './repository';
 export * from './service';

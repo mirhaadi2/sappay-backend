@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthenticatedRequest } from '../middleware';
+import { AuthenticatedRequest } from '../../middleware';
 import {
   adminListCategories,
   adminGetCategory,
@@ -7,7 +7,7 @@ import {
   adminUpdateCategory,
   adminDeleteCategory,
 } from './service';
-import logger from '../../../utils/logger';
+import logger from '../../../../utils/logger';
 
 export const listCategoriesHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {

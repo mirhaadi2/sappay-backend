@@ -11,8 +11,12 @@ import {
   featureProductHandler,
   unfeatureProductHandler,
 } from './controller';
+import categoriesRoutes from './categories/routes';
 
 const router = Router();
+
+// Mount categories routes under products
+router.use('/categories', categoriesRoutes);
 
 router.get(
   '/',

@@ -6,7 +6,7 @@ import {
   updateCategoryHandler,
   deleteCategoryHandler,
 } from './controller';
-import { requireAuth, requireActiveStaff, requirePermission } from '../middleware';
+import { requireAuth, requireActiveStaff, requirePermission } from '../../middleware';
 
 const router = Router();
 
