@@ -168,7 +168,7 @@ export const findProducts = async (
 export const findById = async (id: string): Promise<ProductRow | null> => {
   const query = `
     SELECT 
-      p.id, 
+        p.id, 
       p.name, 
       p.slug, 
       p.description,
@@ -183,14 +183,17 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
       p."created_at" AS "createdAt", 
       p."updated_at" AS "updatedAt",
       ct.name as "categoryName",
-      i.available_stock as "stock"
+      -- Use SUM to get overall stock across all sellers/inventory entries
+      COALESCE(SUM(i2.available_stock), 0) AS "stock"
     FROM products p
     LEFT JOIN "categories" ct ON ct.id = p.category_id
     LEFT JOIN "seller_products" sp ON sp.product_id = p.id
-    LEFT JOIN "inventory" i ON sp.id = i.seller_product_id
+    LEFT JOIN "inventory" i2 ON i2.product_id = p.id
     WHERE p.id = ? AND p.deleted_at IS NULL
+    GROUP BY 
+      p.id, ct.name
   `;
-  // The 'id' in this array maps to the '?' above
+
   const result = await executeSelect<ProductRow>(query, [id]);
   return result[0] || null;
 };

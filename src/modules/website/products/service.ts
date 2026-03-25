@@ -27,11 +27,11 @@ const calculateDiscountedPercent = (
   return Number((((price - discountedPrice) / price) * 100).toFixed(2));
 };
 
-import { initializeInventoryService } from '../../sellers/inventory/service';
+import { initializeInventoryService, initializeAdminProductStockService } from '../../sellers/inventory/service';
 import { AppError } from '../../../utils/AppError';
 
 export const createProductService = async (data: any) => {
-  const { name, slug, categoryId } = data;
+  const { name, slug, categoryId, stock = 0 } = data;
 
   if (!name || !slug || !categoryId) {
     throw new AppError('BadRequest', 400, 'Missing required fields');
@@ -52,6 +52,7 @@ export const createProductService = async (data: any) => {
   delete data.discountedPrice;
   delete data.discountedPercent;
   delete data.weight;
+  delete data.stock;
 
   // SKU handling - generate SKU for main product
   if (data.sku) {
@@ -87,6 +88,11 @@ export const createProductService = async (data: any) => {
   if (variants.length > 0) {
     const finalVariants = await generateProductVariantsWithSku(data.name, variants);
     await createProductVariants(product.id, finalVariants);
+  }
+
+  // Initialize stock for admin-created products
+  if (stock && parseInt(stock) > 0) {
+    await initializeAdminProductStockService(product.id, parseInt(stock), data?.addedBy);
   }
 
   return product;

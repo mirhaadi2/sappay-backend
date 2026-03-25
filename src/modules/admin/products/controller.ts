@@ -44,6 +44,7 @@ export const getProductHandler = async (req: AuthenticatedRequest, res: Response
 };
 
 export const createProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+  const addedBy = req?.session?.admin?.id || req?.session?.staff?.id;
   try {
     const {
       name,
@@ -56,6 +57,7 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       images,
       sellerId,
       variants,
+      stock = 0,
     } = req.body;
 
     const product = await adminCreateProduct({
@@ -68,6 +70,8 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       images,
       sellerId,
       variants,
+      addedBy,
+      stock,
     });
 
     res.status(201).json({ success: true, data: product });

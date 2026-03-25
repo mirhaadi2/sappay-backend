@@ -35,8 +35,9 @@ export const findProductBySlug = async (slug: string) => {
 };
 
 export const findProductBySku = async (sku: string) => {
-  if (!sku) return null;
-  return await Product.findOne({ where: { sku } });
+  // SKU is no longer stored in main product table
+  // It's now only in ProductVariant
+  return null;
 };
 
 export const findProductVariantBySku = async (sku: string) => {

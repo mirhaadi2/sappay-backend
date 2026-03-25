@@ -3,7 +3,8 @@ import { sequelize } from '../../../db/sequelize';
 
 interface InventoryAttributes {
   id: string;
-  sellerProductId: string;
+  sellerProductId?: string;
+  productId?: string;
   totalStock: number;
   availableStock: number;
   reservedStock: number;
@@ -16,12 +17,13 @@ interface InventoryAttributes {
 
 type InventoryCreationAttributes = Optional<
   InventoryAttributes,
-  'id' | 'totalStock' | 'availableStock' | 'reservedStock' | 'soldStock' | 'reorderLevel' | 'createdAt' | 'updatedAt'
+  'id' | 'totalStock' | 'sellerProductId' | 'productId' | 'availableStock' | 'reservedStock' | 'soldStock' | 'reorderLevel' | 'createdAt' | 'updatedAt'
 >;
 
 export class Inventory extends Model<InventoryAttributes, InventoryCreationAttributes> implements InventoryAttributes {
   public id!: string;
-  public sellerProductId!: string;
+  public sellerProductId?: string;
+  public productId?: string;
   public totalStock!: number;
   public availableStock!: number;
   public reservedStock!: number;
@@ -43,9 +45,15 @@ Inventory.init(
     },
     sellerProductId: {
       type: DataTypes.UUID,
-      allowNull: false,
-      unique: true,
+      allowNull: true,
+      // unique: true,
       field: 'seller_product_id',
+    },
+    productId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      // unique: true,
+      field: 'product_id',
     },
     totalStock: {
       type: DataTypes.INTEGER,

@@ -4,7 +4,8 @@ import { sequelize } from '../../../../db/sequelize';
 interface InventoryHistoryAttributes {
   id: string;
   inventoryId: string;
-  sellerProductId: string;
+  sellerProductId?: string;
+  productId?: string;
   type: 'STOCK_ADDED' | 'STOCK_REMOVED' | 'ORDER_PLACED' | 'ORDER_COMPLETED' | 'STOCK_RETURNED' | 'STOCK_RESERVED' | 'RESERVED_RELEASED' | 'ADJUSTMENT';
   quantity: number;
   previousStock: number;
@@ -12,24 +13,27 @@ interface InventoryHistoryAttributes {
   reference?: string; // orderId, adjustmentId, etc.
   notes?: string;
   createdAt: Date;
+  addedBy?: string; // userId of the person/system that made the change
 }
 
 type InventoryHistoryCreationAttributes = Optional<
   InventoryHistoryAttributes,
-  'id' | 'createdAt'
+  'id' | 'createdAt' | 'addedBy'| 'sellerProductId' | 'productId'
 >;
 
 export class InventoryHistory extends Model<InventoryHistoryAttributes, InventoryHistoryCreationAttributes>
   implements InventoryHistoryAttributes {
   public id!: string;
   public inventoryId!: string;
-  public sellerProductId!: string;
+  public sellerProductId?: string;
+  public productId?: string;
   public type!: 'STOCK_ADDED' | 'STOCK_REMOVED' | 'ORDER_PLACED' | 'ORDER_COMPLETED' | 'STOCK_RETURNED' | 'STOCK_RESERVED' | 'RESERVED_RELEASED' | 'ADJUSTMENT';
   public quantity!: number;
   public previousStock!: number;
   public newStock!: number;
   public reference?: string;
   public notes?: string;
+  public addedBy?: string;
   public readonly createdAt!: Date;
 }
 
@@ -48,8 +52,18 @@ InventoryHistory.init(
     },
     sellerProductId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       field: 'seller_product_id',
+    },
+    productId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: 'product_id',
+    },
+    addedBy: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: 'added_by',
     },
     type: {
       type: DataTypes.ENUM('STOCK_ADDED', 'STOCK_REMOVED', 'ORDER_PLACED', 'ORDER_COMPLETED', 'STOCK_RETURNED', 'STOCK_RESERVED', 'RESERVED_RELEASED', 'ADJUSTMENT'),

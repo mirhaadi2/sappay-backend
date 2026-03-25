@@ -89,6 +89,7 @@ export const adminGetProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, 'Product');
     const product = await findById(id);
+    console.log(product,'roduct')
     if (!product) {
       throw new Error('Product not found after exists check');
     }
@@ -116,18 +117,14 @@ export const adminUpdateProduct = async (
     await requireProductExists(id, 'Product');
     const updates = validateUpdateData(data);
 
-    // Ensure SKU is unique if being updated
+    // Remove unused fields - SKU and pricing now handled at variant level
     if (updates.sku) {
-      const normalizedSku = updates.sku.trim().toUpperCase();
-      const existingBySku = await findProductBySku(normalizedSku);
-      if (existingBySku && existingBySku.id !== id) {
-        throw new Error('SKU already exists');
-      }
-      const existingVariant = await findProductVariantBySku(normalizedSku);
-      if (existingVariant) {
-        throw new Error('SKU conflicts with existing variant');
-      }
-      updates.sku = normalizedSku;
+      delete updates.sku;
+    }
+
+    const existingVariant = await findProductVariantBySku(updates.sku);
+    if (existingVariant) {
+      throw new Error('SKU conflicts with existing variant');
     }
 
     // Remove price/discount fields from main product since they're now handled by variants
@@ -223,7 +220,8 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       status,
       categoryId,
       images,
-      sellerId,
+      stock = 0,
+      addedBy
     } = input;
 
     if (!name || !(categoryId || input.category)) {
@@ -248,14 +246,11 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       status: status && (status === 'ACTIVE' || status === 'INACTIVE') ? status : 'ACTIVE',
       images: images || [],
       variants: Array.isArray(input.variants) ? input.variants : [],
+      stock: parseInt(stock) || 0,
+      addedBy: addedBy || null,
     };
 
     const created = await createProductService(productPayload);
-
-    // Optionally link seller product if sellerId is provided
-    if (sellerId) {
-      // Admin can attach product to seller in future; no-op here unless needed.
-    }
 
     return created;
   } catch (error) {
