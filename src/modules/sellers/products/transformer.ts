@@ -3,7 +3,7 @@
  * Response formatting utilities for seller product operations
  */
 
-import { SellerProduct } from '../../products/seller-product.model';
+import { SellerProduct } from '../../admin/products/seller-product.model';
 import { SellerProductListItem } from './types';
 
 /**

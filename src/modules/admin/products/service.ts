@@ -25,8 +25,8 @@ import {
 import {
   createProductService,
   generateProductVariantsWithSku,
-} from '../../products/service';
-import { findProductBySku, findProductVariantBySku } from '../../products/repository';
+} from '../../website/products/service';
+import { findProductBySku, findProductVariantBySku } from '../../website/products/repository';
 
 const calculateDiscountedPercent = (
   price: number | undefined,

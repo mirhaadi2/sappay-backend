@@ -4,13 +4,12 @@
  */
 
 import { Op } from 'sequelize';
-import { User, UserRole } from '../../users/models';
+import { User, UserRole } from '../../admin/users/models';
 import { AppError } from '../../../utils/AppError';
 import { AdminUserQuery, AdminUser } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
 import { hashPassword, generateRandomPassword } from '../../../utils/password';
-import { sendEmail } from '../../../utils/sendEmail';
 
 export const adminListUsers = async (query: AdminUserQuery) => {
   try {

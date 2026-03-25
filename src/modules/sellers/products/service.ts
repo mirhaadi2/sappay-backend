@@ -10,7 +10,7 @@ import {
   findSellerProductById,
   updateSellerProduct,
   findProductById,
-} from '../../products/repository';
+} from '../../website/products/repository';
 import { initializeInventoryService } from '../inventory/service';
 import { AppError } from '../../../utils/AppError';
 import { SellerProductCreateInput, SellerProductUpdateInput, SellerProductsListParams, SellerProductsListResponse } from './types';

@@ -7,5 +7,5 @@ export const sequelize = new Sequelize(config.databaseUrl, {
 });
 
 // Import models - they will self-initialize with the sequelize instance
-import "../modules/users/models";
-import "../modules/users/otp.model";
+import "../modules/admin/users/models";
+import "../modules/admin/users/otp.model";

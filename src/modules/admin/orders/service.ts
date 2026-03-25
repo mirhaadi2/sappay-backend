@@ -4,12 +4,12 @@
  */
 
 import { Op } from 'sequelize';
-import Order from '../../orders/order.model';
-import { OrderItem } from '../../orders/order-item.model';
+import Order from '../../admin/orders/order.model';
+import { OrderItem } from '../../admin/orders/order-item.model';
 import { User } from '../../../models';
 import { Seller } from '../../sellers/model';
-import { SellerProduct } from '../../products/seller-product.model';
-import Product from '../../products/product.model';
+import { SellerProduct } from '../../admin/products/seller-product.model';
+import Product from '../../admin/products/product.model';
 import { AppError } from '../../../utils/AppError';
 import { AdminOrderQuery, AdminOrder } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
