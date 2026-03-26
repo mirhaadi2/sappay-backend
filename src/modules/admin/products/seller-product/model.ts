@@ -8,11 +8,13 @@ interface SellerProductAttributes {
   productId: string;
   sellerSku?: string;
   sellerPrice: number;
-  costPrice: number;
+  costPrice?: number;
   discountedPrice?: number;
   discountedPercent?: number;
   rating?: number;
   ratingCount?: number;
+  description?: string;
+  images?: string[];
   weight?: number;
   dimensions?: Record<string, any>;
   warrantyMonths?: number;
@@ -33,11 +35,13 @@ export class SellerProduct extends Model<SellerProductAttributes, SellerProductC
   public productId!: string;
   public sellerSku?: string;
   public sellerPrice!: number;
-  public costPrice!: number;
+  public costPrice?: number;
   public discountedPrice?: number;
   public discountedPercent?: number;
   public rating?: number;
   public ratingCount?: number;
+  public description?: string;
+  public images?: string[];
   public weight?: number;
   public dimensions?: Record<string, any>;
   public warrantyMonths?: number;
@@ -122,6 +126,15 @@ SellerProduct.init(
       allowNull: true,
       defaultValue: 0,
       field: 'warranty_months',
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    images: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
     },
     status: {
       type: DataTypes.ENUM('ACTIVE', 'INACTIVE', 'DISCONTINUED'),

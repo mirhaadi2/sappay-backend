@@ -7,29 +7,23 @@ import { PaginatedResponse } from '../../shared/pagination';
 
 export interface SellerProductCreateInput {
   sellerPrice: number;
-  costPrice?: number;
-  discountedPrice?: number;
-  discountedPercent?: number;
-  rating?: number;
-  ratingCount?: number;
+  stock: number;
+  description?: string;
+  images?: string[];
   status: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface SellerProductUpdateInput {
   sellerPrice?: number;
-  costPrice?: number;
-  discountedPrice?: number;
-  discountedPercent?: number;
-  rating?: number;
-  ratingCount?: number;
+  stock?: number;
+  description?: string;
+  images?: string[];
   status?: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface SellerProductPriceUpdate {
   sellerPrice: number;
-  costPrice?: number;
-  discountedPrice?: number;
-  discountedPercent?: number;
+  stock?: number;
 }
 
 export interface SellerProductsListParams {

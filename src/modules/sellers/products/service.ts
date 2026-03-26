@@ -26,10 +26,14 @@ export const addProductToSellerService = async (
   productId: string,
   sellerData: SellerProductCreateInput
 ) => {
-  const { sellerPrice, costPrice, discountedPrice, discountedPercent, rating, ratingCount, status } = sellerData;
+  const { sellerPrice, stock, description, images, status } = sellerData;
 
   if (!sellerPrice) {
     throw new AppError('BadRequest', 400, 'Seller price is required');
+  }
+
+  if (stock === undefined || stock < 0) {
+    throw new AppError('BadRequest', 400, 'Stock must be a valid positive number');
   }
 
   // Validate product exists
@@ -44,26 +48,18 @@ export const addProductToSellerService = async (
     throw new AppError('BadRequest', 400, 'You already have this product listed');
   }
 
-  // Validate price logic
-  if (costPrice && costPrice > sellerPrice) {
-    throw new AppError('BadRequest', 400, 'Selling price cannot be less than cost price');
-  }
-
   // Create SellerProduct
   const sellerProduct = await createSellerProduct({
     sellerId,
     productId,
     sellerPrice,
-    costPrice,
-    discountedPrice,
-    discountedPercent,
-    rating,
-    ratingCount,
+    description,
+    images,
     status,
   });
 
-  // Initialize inventory for this seller product
-  const inventory = await initializeInventoryService(sellerProduct.id, 0);
+  // Initialize inventory for this seller product with the provided stock
+  const inventory = await initializeInventoryService(sellerProduct.id, stock);
 
   return {
     sellerProduct,
@@ -124,13 +120,8 @@ export const updateSellerProductPriceService = async (
     throw new AppError('Forbidden', 403, 'Unauthorized');
   }
 
-  const { sellerPrice, costPrice } = updates;
-  if (sellerPrice && costPrice && costPrice > sellerPrice) {
-    throw new AppError('BadRequest', 400, 'Selling price cannot be less than cost price');
-  }
-
   return await updateSellerProduct(sellerProductId, updates);
-};
+}
 
 /**
  * Update seller product status
