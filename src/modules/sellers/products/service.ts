@@ -10,6 +10,7 @@ import {
   findSellerProductById,
   updateSellerProduct,
   findProductById,
+  findAllProductsCatalog,
 } from '../../website/products/repository';
 import { initializeInventoryService } from '../inventory/service';
 import { AppError } from '../../../utils/AppError';
@@ -153,6 +154,14 @@ export const updateSellerProductStatusService = async (
   }
 
   return await updateSellerProduct(sellerProductId, { status });
+};
+
+/**
+ * Get catalog products (lightweight) for seller UI
+ */
+export const getCatalogProductsService = async (query: any) => {
+  const products = await findAllProductsCatalog(query || {});
+  return products;
 };
 
 /**

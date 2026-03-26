@@ -1,11 +1,11 @@
-import Product from '../../admin/products/model';
-import { ProductVariant } from '../../admin/products/product-variant/model';
-import { fetchFromR2, getR2SignedUrl } from '../../uploads/r2-utils';
-import { Category } from '../../admin/products/categories/model';
-import { SellerProduct } from '../../admin/products/seller-product/model';
-import { AppError } from '../../../utils/AppError';
-import { sequelize } from '../../../db/sequelize';
-import { QueryTypes } from 'sequelize';
+import Product from "../../admin/products/model";
+import { ProductVariant } from "../../admin/products/product-variant/model";
+import { fetchFromR2, getR2SignedUrl } from "../../uploads/r2-utils";
+import { Category } from "../../admin/products/categories/model";
+import { SellerProduct } from "../../admin/products/seller-product/model";
+import { AppError } from "../../../utils/AppError";
+import { sequelize } from "../../../db/sequelize";
+import { QueryTypes, Op } from "sequelize";
 
 export const createProduct = async (data: any) => {
   return await Product.create(data);
@@ -13,8 +13,8 @@ export const createProduct = async (data: any) => {
 
 export const findVariantsByProductId = async (productId: string) => {
   return await ProductVariant.findAll({
-    where: {productId},
-    order: [['createdAt', 'ASC']],
+    where: { productId },
+    order: [["createdAt", "ASC"]],
     raw: true,
   });
 };
@@ -24,7 +24,7 @@ export const findProductById = async (id: string) => {
     include: [
       {
         model: ProductVariant,
-        as: 'variants',
+        as: "variants",
       },
     ],
   });
@@ -57,27 +57,27 @@ export const findAllProducts = async (filters: any) => {
     where,
     limit,
     offset,
-    order: [['createdAt', 'DESC']],
+    order: [["createdAt", "DESC"]],
     include: [
       {
         model: ProductVariant,
-        as: 'variants',
+        as: "variants",
       },
     ],
   });
 
   // Helper to resolve R2 image key to URL using fetchFromR2 and getR2SignedUrl
   const resolveR2Url = async (key: string) => {
-    if (!key) return '';
-    if (key.startsWith('http://') || key.startsWith('https://')) return key;
+    if (!key) return "";
+    if (key.startsWith("http://") || key.startsWith("https://")) return key;
     // Try to fetch file from R2 (optional, for existence check)
     try {
       const data = await fetchFromR2(key);
-      console.log(data,'data') // If file exists, get signed URL
+      console.log(data, "data"); // If file exists, get signed URL
       return getR2SignedUrl(key);
     } catch (err) {
       // If not found, fallback
-      return '';
+      return "";
     }
   };
 
@@ -91,26 +91,37 @@ export const findAllProducts = async (filters: any) => {
 
     if (Array.isArray(productJson.images)) {
       const resolvedImages = await Promise.all(
-        productJson.images.map(async (imgKey: string) => await resolveR2Url(imgKey))
+        productJson.images.map(
+          async (imgKey: string) => await resolveR2Url(imgKey),
+        ),
       );
       productJson.images = resolvedImages;
     }
 
-    const variantPrices = (productJson.variants || []).map((v: any) => Number(v.price));
-    const variantMinPrice = variantPrices.length ? Math.min(...variantPrices) : undefined;
+    const variantPrices = (productJson.variants || []).map((v: any) =>
+      Number(v.price),
+    );
+    const variantMinPrice = variantPrices.length
+      ? Math.min(...variantPrices)
+      : undefined;
 
     productJson.variantCount = (productJson.variants || []).length;
-    
+
     // For weight-based products, display price is the minimum weight variant price
     // Product basePrice is used only if no variants exist
     if (productJson.variantCount > 0) {
       productJson.price = variantMinPrice;
       // Set originalPrice to basePrice if it exists and is different from variant price
-      if (productJson.basePrice && Number(productJson.basePrice) !== variantMinPrice) {
+      if (
+        productJson.basePrice &&
+        Number(productJson.basePrice) !== variantMinPrice
+      ) {
         productJson.originalPrice = Number(productJson.basePrice);
       }
     } else {
-      productJson.price = Number(productJson.basePrice ?? productJson.price ?? 0);
+      productJson.price = Number(
+        productJson.basePrice ?? productJson.price ?? 0,
+      );
     }
 
     // Ensure main product discount fields are included
@@ -135,17 +146,67 @@ export const findAllProducts = async (filters: any) => {
   };
 };
 
+export const findAllProductsCatalog = async (filters: any) => {
+  const {
+    limit = 100,
+    offset = 0,
+    search,
+    categoryId,
+    status = "ACTIVE",
+  } = filters;
+  const where: any = {};
+  if (categoryId) where.categoryId = categoryId;
+  if (status) where.status = status;
+  if (search) where.name = { [Op.iLike]: `%${search}%` };
+
+  const products = await Product.findAll({
+    where,
+    attributes: [
+      "id",
+      "name",
+      "slug",
+      "categoryId",
+      "base_price",
+      "images",
+      "status",
+      "createdAt",
+    ],
+    limit,
+    offset,
+    order: [["createdAt", "DESC"]],
+    raw: true,
+  });
+
+  return await Promise.all(
+    products.map(async (product: any) => {
+      const category = await Category.findByPk(product.categoryId, {
+        raw: true,
+        attributes: ["name"],
+      });
+
+      return {
+        ...product,
+        category: category?.name || null,
+        price: Number(product.basePrice ?? product.price ?? 0),
+      };
+    }),
+  );
+};
+
 export const createProductVariant = async (productId: string, variant: any) => {
   return await ProductVariant.create({
     productId,
     sku: variant.sku,
     price: Number(variant.price),
     weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
-    status: variant.status || 'ACTIVE',
+    status: variant.status || "ACTIVE",
   });
 };
 
-export const createProductVariants = async (productId: string, variants: any[]) => {
+export const createProductVariants = async (
+  productId: string,
+  variants: any[],
+) => {
   if (!Array.isArray(variants)) return [];
   const sanitized = variants
     .filter((v) => v && v.price !== undefined)
@@ -153,11 +214,15 @@ export const createProductVariants = async (productId: string, variants: any[]) 
       productId,
       sku: v.sku,
       price: Number(v.price),
-      discountedPrice: v.discountedPrice !== undefined ? Number(v.discountedPrice) : undefined,
-      discountedPercent: v.discountedPercent !== undefined ? Number(v.discountedPercent) : undefined,
+      discountedPrice:
+        v.discountedPrice !== undefined ? Number(v.discountedPrice) : undefined,
+      discountedPercent:
+        v.discountedPercent !== undefined
+          ? Number(v.discountedPercent)
+          : undefined,
       weight: v.weight !== undefined ? Number(v.weight) : undefined,
-      weightUnit: v.weightUnit || 'G',
-      status: v.status || 'ACTIVE',
+      weightUnit: v.weightUnit || "G",
+      status: v.status || "ACTIVE",
     }));
   return await ProductVariant.bulkCreate(sanitized);
 };
@@ -165,7 +230,7 @@ export const createProductVariants = async (productId: string, variants: any[]) 
 export const getProductVariants = async (productId: string) => {
   return await ProductVariant.findAll({
     where: { productId },
-    order: [['createdAt', 'ASC']],
+    order: [["createdAt", "ASC"]],
   });
 };
 
@@ -177,7 +242,7 @@ export const deleteProductVariantsByProduct = async (productId: string) => {
 
 export const updateProduct = async (id: string, data: any) => {
   const product = await findProductById(id);
-  if (!product) throw new AppError('NotFound', 404, 'Product not found');
+  if (!product) throw new AppError("NotFound", 404, "Product not found");
   return await product.update(data);
 };
 
@@ -195,7 +260,7 @@ export const findAllCategories = async (filters: any) => {
     where: { isActive },
     limit,
     offset,
-    order: [['displayOrder', 'ASC']],
+    order: [["displayOrder", "ASC"]],
   });
 };
 
@@ -203,7 +268,10 @@ export const createSellerProduct = async (data: any) => {
   return await SellerProduct.create(data);
 };
 
-export const findSellerProduct = async (sellerId: string, productId: string) => {
+export const findSellerProduct = async (
+  sellerId: string,
+  productId: string,
+) => {
   return await SellerProduct.findOne({
     where: { sellerId, productId },
   });
@@ -213,7 +281,10 @@ export const findSellerProductById = async (id: string) => {
   return await SellerProduct.findByPk(id);
 };
 
-export const findBySellerAndProduct = async (sellerId: string, productId: string) => {
+export const findBySellerAndProduct = async (
+  sellerId: string,
+  productId: string,
+) => {
   return await SellerProduct.findOne({
     where: { sellerId, productId },
   });
@@ -221,8 +292,8 @@ export const findBySellerAndProduct = async (sellerId: string, productId: string
 
 export const getAllSellersForProduct = async (productId: string) => {
   return await SellerProduct.findAll({
-    where: { productId, status: 'ACTIVE' },
-    order: [['sellerPrice', 'ASC']],
+    where: { productId, status: "ACTIVE" },
+    order: [["sellerPrice", "ASC"]],
   });
 };
 
@@ -249,20 +320,20 @@ export const getSellerProducts = async (sellerId: string, filters: any) => {
     JOIN products p ON sp.product_id = p.id
     LEFT JOIN "inventory" i ON sp.id = i.seller_product_id
     WHERE sp.seller_id = :sellerId
-    ${status ? 'AND sp.status = :status' : ''}
+    ${status ? "AND sp.status = :status" : ""}
     ORDER BY sp.created_at DESC
     LIMIT :limit OFFSET :offset
   `;
-  
+
   const replacements: any = { sellerId, limit, offset };
   if (status) replacements.status = status;
 
-  const results : any = await sequelize?.query(query, {
+  const results: any = await sequelize?.query(query, {
     replacements,
     type: QueryTypes.SELECT,
     logging(sql, timing) {
-      console.log('Executed SQL:', sql);
-      if (timing) console.log('Execution time:', timing, 'ms');
+      console.log("Executed SQL:", sql);
+      if (timing) console.log("Execution time:", timing, "ms");
     },
     benchmark: true,
   });
@@ -280,6 +351,6 @@ export const getSellerProducts = async (sellerId: string, filters: any) => {
 
 export const updateSellerProduct = async (id: string, data: any) => {
   const sp = await findSellerProductById(id);
-  if (!sp) throw new AppError('NotFound', 404, 'Seller product not found');
+  if (!sp) throw new AppError("NotFound", 404, "Seller product not found");
   return await sp.update(data);
 };

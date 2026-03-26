@@ -11,6 +11,7 @@ import {
   updateSellerProductPriceService,
   updateSellerProductStatusService,
   getSellerProductDetailsService,
+  getCatalogProductsService,
 } from './service';
 import { SellerProductCreateInput, SellerProductUpdateInput, SellerProductsListParams } from './types';
 import logger from '../../../utils/logger';
@@ -155,6 +156,22 @@ export const getSellerProductDetails = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     logger.error('Get seller product details error', { error });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+    });
+  }
+};
+
+/**
+ * Get all catalog products (seller selection list)
+ */
+export const getCatalogProducts = async (req: Request, res: Response) => {
+  try {
+    const products = await getCatalogProductsService(req.query);
+    res.json({ success: true, data: products });
+  } catch (error: any) {
+    logger.error('Get catalog products error', { error });
     res.status(error.statusCode || 500).json({
       success: false,
       error: error.message || 'Internal server error',

@@ -10,6 +10,7 @@ import {
   updateSellerProductPrice,
   updateSellerProductStatus,
   getSellerProductDetails,
+  getCatalogProducts,
 } from './controller';
 import { authenticateSeller } from '../auth/middleware';
 
@@ -31,6 +32,13 @@ router.post('/:productId', addProductToSeller);
  * @access Private (Seller)
  */
 router.get('/', getSellerProducts);
+
+/**
+ * @route GET /api/sellers/products/catalog
+ * @desc Get all catalog products for seller product selection
+ * @access Private (Seller)
+ */
+router.get('/catalog', getCatalogProducts);
 
 /**
  * @route GET /api/sellers/products/:sellerProductId
