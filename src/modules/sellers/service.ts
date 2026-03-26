@@ -1,5 +1,5 @@
 import { AppError } from '../../utils/AppError';
-import { comparePassword } from '../../utils/password';
+import { comparePassword, hashPassword } from '../../utils/password';
 import { signJwt } from '../../config/jwt';
 import {
   findById,
@@ -313,4 +313,88 @@ export const getCurrentSellerProfile = async (sellerId: string) => {
     approvedAt: seller.approvedAt,
     createdAt: seller.createdAt,
   };
+};
+
+/**
+ * Change Seller Password
+ * Updates seller password after validating current password
+ */
+export const changeSellerPassword = async (
+  sellerId: string,
+  currentPassword: string,
+  newPassword: string
+) => {
+  const seller = await findById(sellerId);
+  if (!seller) {
+    throw new AppError('NotFound', 404, 'Seller not found');
+  }
+
+  // Verify current password
+  const isValidPassword = await comparePassword(currentPassword, seller.password);
+  if (!isValidPassword) {
+    throw new AppError('Unauthorized', 401, 'Current password is incorrect');
+  }
+
+  // Hash and update new password
+  const hashedPassword = await hashPassword(newPassword);
+  const updated = await update(sellerId, { password: hashedPassword });
+
+  return {
+    id: updated.id,
+    message: 'Password changed successfully',
+  };
+};
+
+/**
+ * Get Seller Notification Preferences
+ * Returns seller's notification preference settings
+ */
+export const getSellerNotificationPreferences = async (sellerId: string) => {
+  const seller = await findById(sellerId);
+  if (!seller) {
+    throw new AppError('NotFound', 404, 'Seller not found');
+  }
+
+  const preferences = seller.metadata?.notificationPreferences || {
+    emailOrders: true,
+    emailProducts: true,
+    emailPromotions: false,
+    smsAlerts: false,
+  };
+
+  return preferences;
+};
+
+/**
+ * Update Seller Notification Preferences
+ * Updates seller's notification preference settings
+ */
+export const updateSellerNotificationPreferences = async (
+  sellerId: string,
+  preferences: {
+    emailOrders?: boolean;
+    emailProducts?: boolean;
+    emailPromotions?: boolean;
+    smsAlerts?: boolean;
+  }
+) => {
+  const seller = await findById(sellerId);
+  if (!seller) {
+    throw new AppError('NotFound', 404, 'Seller not found');
+  }
+
+  const currentMetadata = seller.metadata || {};
+  const updatedMetadata = {
+    ...currentMetadata,
+    notificationPreferences: {
+      emailOrders: preferences.emailOrders ?? true,
+      emailProducts: preferences.emailProducts ?? true,
+      emailPromotions: preferences.emailPromotions ?? false,
+      smsAlerts: preferences.smsAlerts ?? false,
+    },
+  };
+
+  const updated = await update(sellerId, { metadata: updatedMetadata });
+
+  return updatedMetadata.notificationPreferences;
 };

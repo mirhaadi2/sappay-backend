@@ -7,10 +7,15 @@ import {
   listSellers,
   approveSeller,
   rejectSeller,
-  suspendSeller,  loginSeller,
-  getCurrentSellerProfile,} from './service';
+  suspendSeller,
+  loginSeller,
+  getCurrentSellerProfile,
+  changeSellerPassword,
+  getSellerNotificationPreferences,
+  updateSellerNotificationPreferences,
+} from './service';
 import { AppError } from '../../utils/AppError';
-import { hashPassword } from '../../utils/password';
+import { hashPassword, comparePassword } from '../../utils/password';
 import { sendWelcomeEmail } from '../../utils/sendEmail';
 import { findById } from './repository';
 
@@ -278,6 +283,79 @@ export const logoutSellerHandler = async (req: Request, res: Response, next: Nex
       res.clearCookie('connect.sid'); // Default session cookie name
       res.json({ success: true, message: 'Logged out successfully' });
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Change Password Handler
+ * Updates seller's password with validation
+ */
+export const changePasswordHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sellerId = (req as any).user?.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!sellerId) {
+      throw new AppError('Unauthorized', 401, 'Please authenticate first');
+    }
+
+    if (!currentPassword || !newPassword) {
+      throw new AppError('BadRequest', 400, 'Current and new passwords are required');
+    }
+
+    if (newPassword.length < 8) {
+      throw new AppError('BadRequest', 400, 'New password must be at least 8 characters');
+    }
+
+    const result = await changeSellerPassword(sellerId, currentPassword, newPassword);
+    res.json({ success: true, data: result, message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Notification Preferences Handler
+ * Returns seller's notification preferences
+ */
+export const getNotificationPreferencesHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sellerId = (req as any).user?.id;
+
+    if (!sellerId) {
+      throw new AppError('Unauthorized', 401, 'Please authenticate first');
+    }
+
+    const preferences = await getSellerNotificationPreferences(sellerId);
+    res.json({ success: true, data: preferences });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Notification Preferences Handler
+ * Updates seller's notification preferences
+ */
+export const updateNotificationPreferencesHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sellerId = (req as any).user?.id;
+    const { emailOrders, emailProducts, emailPromotions, smsAlerts } = req.body;
+
+    if (!sellerId) {
+      throw new AppError('Unauthorized', 401, 'Please authenticate first');
+    }
+
+    const result = await updateSellerNotificationPreferences(sellerId, {
+      emailOrders,
+      emailProducts,
+      emailPromotions,
+      smsAlerts,
+    });
+
+    res.json({ success: true, data: result, message: 'Preferences updated successfully' });
   } catch (error) {
     next(error);
   }
