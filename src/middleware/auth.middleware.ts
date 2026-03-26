@@ -14,6 +14,8 @@ declare module "express-session" {
     sellerId?: string;
     userType?: string;
     sellerStatus?: string;
+    admin?: any;
+    staff?: any;
   }
 }
 

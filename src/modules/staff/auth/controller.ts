@@ -70,14 +70,7 @@ export const logoutHandler = async (req: Request, res: Response, next: NextFunct
  */
 export const meHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const staffId = (req.session as any).staff?.id;
-
-    if (!staffId) {
-      return res.json({
-        success: true,
-        data: { staff: null },
-      });
-    }
+    const staffId = (req as any).staff?.id;
 
     const staff = await getStaffDetails(staffId);
 

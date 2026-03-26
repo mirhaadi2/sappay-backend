@@ -93,16 +93,9 @@ export const logoutHandler = async (req: Request, res: Response, next: NextFunct
  */
 export const meHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const adminId = (req.session as any).admin?.id;
-    const staffId = (req.session as any).staff?.id;
-    const userType = (req.session as any).user_type;
-
-    if (!adminId && !staffId) {
-      return res.json({
-        success: true,
-        data: { user: null },
-      });
-    }
+    const adminId = (req as any).admin?.id;
+    const staffId = (req as any).staff?.id;
+    const userType = (req as any).userType;
 
     let user: any;
     if (userType === 'admin' && adminId) {

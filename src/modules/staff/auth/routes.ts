@@ -24,6 +24,6 @@ router.post('/logout', requireStaffAuth, logoutHandler);
  * GET /api/staff/auth/me
  * Get current staff details
  */
-router.get('/me', meHandler);
+router.get('/me', requireStaffAuth, meHandler);
 
 export default router;

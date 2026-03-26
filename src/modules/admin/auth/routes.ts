@@ -26,6 +26,6 @@ router.post('/logout', requireAdminPortalAuth, logoutHandler);
  * GET /api/admin/auth/me
  * Get current admin portal user (admin or staff)
  */
-router.get('/me', meHandler);
+router.get('/me', requireAdminPortalAuth, meHandler);
 
 export default router;
