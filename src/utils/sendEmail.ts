@@ -141,3 +141,19 @@ export const sendSellerRejectionEmail = async (email: string, name: string, reas
     `,
   });
 };
+
+export const sendSellerReapplyConfirmationEmail = async (email: string, name: string) => {
+  return sendEmail({
+    to: email,
+    subject: 'Sappey Seller Reapplication Received',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2 style="color: #4b3832;">Hi ${name},</h2>
+        <p>Your reapplication has been received and is now pending admin review.</p>
+        <p>We will notify you once your application is approved or rejected.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>
+      </div>
+    `,
+  });
+};

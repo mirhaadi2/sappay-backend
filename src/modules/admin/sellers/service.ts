@@ -146,34 +146,48 @@ export const adminCreateSeller = async (data: {
   }
 };
 
-export const adminGetSeller = async (id: string): Promise<AdminSeller> => {
+export const adminGetSeller = async (id: string): Promise<any> => {
   try {
     const seller = await Seller.findByPk(id, {
       attributes: { exclude: ['password'] },
+      raw: true,
     });
 
     if (!seller) {
       throw new AppError('NotFoundError', 404, 'Seller not found');
     }
 
-    // Map seller status to verification status (lowercase for type compatibility)
-    const verificationStatusMap: { [key: string]: 'pending' | 'approved' | 'rejected' } = {
-      'PENDING': 'pending',
-      'APPROVED': 'approved',
-      'REJECTED': 'rejected',
-    };
-
+    // Return full seller details for admin view
     return {
       id: seller.id,
-      email: seller.ownerEmail,
-      name: seller.ownerName,
       businessName: seller.businessName,
-      businessLicense: seller.businessRegistrationNo,
-      verificationStatus: verificationStatusMap[seller.status] || 'pending',
-      status: 'active' as const,
-      phone: seller.businessPhone,
+      businessRegistrationNo: seller.businessRegistrationNo,
+      businessType: seller.businessType,
+      businessIdType: seller.businessIdType,
+      gstNumber: seller.gstNumber,
+      businessAddress: seller.businessAddress,
+      businessPhone: seller.businessPhone,
+      ownerName: seller.ownerName,
+      ownerEmail: seller.ownerEmail,
+      bankAccountName: seller.bankAccountName,
+      bankAccountNumber: seller.bankAccountNumber,
+      bankIfscCode: seller.bankIfscCode,
+      commissionRate: seller.commissionRate,
+      status: seller.status,
+      approvedAt: seller.approvedAt,
+      rejectedReason: seller.rejectedReason,
+      onboardingStep: seller.onboardingStep,
+      metadata: seller.metadata,
       createdAt: seller.createdAt?.toISOString() || new Date().toISOString(),
       updatedAt: seller.updatedAt?.toISOString() || new Date().toISOString(),
+      // Additional computed fields for admin view
+      verificationStatus: seller.status.toLowerCase(),
+      email: seller.ownerEmail,
+      name: seller.ownerName,
+      phone: seller.businessPhone,
+      products: 0, // TODO: Calculate from products table
+      orders: 0, // TODO: Calculate from orders table
+      revenue: 0, // TODO: Calculate from orders table
     };
   } catch (error: any) {
     logger.error('Error fetching admin seller', { sellerId: id, error });
@@ -272,8 +286,9 @@ export const adminRejectSeller = async (id: string, reason?: string) => {
     });
 
     logger.info('Seller rejected by admin', { sellerId: id, reason });
+    const sellerData = await adminGetSeller(id);
     return {
-      ...adminGetSeller(id),
+      ...sellerData,
       reason: reason || 'Rejected by admin',
     };
   } catch (error: any) {

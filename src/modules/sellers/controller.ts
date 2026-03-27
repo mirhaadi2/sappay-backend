@@ -8,11 +8,14 @@ import {
   approveSeller,
   rejectSeller,
   suspendSeller,
+  reapplySeller,
   loginSeller,
   getCurrentSellerProfile,
   changeSellerPassword,
   getSellerNotificationPreferences,
   updateSellerNotificationPreferences,
+  getSellerForReapply,
+  updateSellerForReapply,
 } from './service';
 import { AppError } from '../../utils/AppError';
 import { hashPassword, comparePassword } from '../../utils/password';
@@ -211,6 +214,16 @@ export const suspendSellerHandler = async (req: Request, res: Response, next: Ne
   }
 };
 
+export const reapplySellerHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const result = await reapplySeller(id);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Seller Login Handler
  * Authenticates seller by email and password
@@ -356,6 +369,45 @@ export const updateNotificationPreferencesHandler = async (req: Request, res: Re
     });
 
     res.json({ success: true, data: result, message: 'Preferences updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Seller for Reapply Handler
+ * Returns seller data for reapply form (public endpoint)
+ */
+export const getSellerForReapplyHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.query;
+
+    if (!email || typeof email !== 'string') {
+      throw new AppError('BadRequest', 400, 'Email is required');
+    }
+
+    const seller = await getSellerForReapply(email);
+    res.json({ success: true, data: seller });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Seller for Reapply Handler
+ * Updates seller information for reapply (public endpoint)
+ */
+export const updateSellerForReapplyHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    if (!id) {
+      throw new AppError('BadRequest', 400, 'Seller ID is required');
+    }
+
+    const result = await updateSellerForReapply(id, updateData);
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

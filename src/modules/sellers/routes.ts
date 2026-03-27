@@ -11,12 +11,15 @@ import {
   listSellersHandler,
   approveSellerHandler,
   rejectSellerHandler,
+  reapplySellerHandler,
   suspendSellerHandler,
   sellerProfileHandler,
   getSellerMeHandler,
   changePasswordHandler,
   getNotificationPreferencesHandler,
   updateNotificationPreferencesHandler,
+  getSellerForReapplyHandler,
+  updateSellerForReapplyHandler,
 } from './controller';
 import { requireAuth } from '../../middleware/auth.middleware';
 
@@ -36,6 +39,8 @@ router.use('/products', sellerProductsRoutes);
 // Mount inventory submodule
 router.use('/inventory', sellerInventoryRoutes);
 
+router.get('/reapply', getSellerForReapplyHandler);
+
 // Protected routes (auth required)
 router.get('/me', requireAuth, getSellerMeHandler);
 router.get('/profile', requireAuth, sellerProfileHandler);
@@ -48,10 +53,14 @@ router.post('/password/change', requireAuth, changePasswordHandler);
 router.get('/preferences/notifications', requireAuth, getNotificationPreferencesHandler);
 router.put('/preferences/notifications', requireAuth, updateNotificationPreferencesHandler);
 
+// Public routes (no auth required for reapply)
+router.put('/:id/reapply', updateSellerForReapplyHandler);
+
 // Admin routes
 router.get('/', listSellersHandler);
 router.post('/:id/approve', approveSellerHandler);
 router.post('/:id/reject', rejectSellerHandler);
+router.post('/:id/reapply', reapplySellerHandler);
 router.post('/:id/suspend', suspendSellerHandler);
 
 export default router;

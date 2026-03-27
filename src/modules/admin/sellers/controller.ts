@@ -142,7 +142,7 @@ export const rejectSellerHandler = async (
 ) => {
   try {
     const { id } = req.params;
-    const seller: any = await adminRejectSeller(id);
+    const seller: any = await adminRejectSeller(id, req.body.reason);
     res.json({ success: true, data: seller });
 
     sendSellerRejectionEmail(seller.email, seller.name, seller?.reason).catch(

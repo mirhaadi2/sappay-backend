@@ -12,7 +12,7 @@ import {
   findAll,
   getSellerStats,
 } from './repository';
-import { sendSellerApprovalEmail, sendSellerRejectionEmail } from '../../utils/sendEmail';
+import { sendSellerApprovalEmail, sendSellerRejectionEmail, sendSellerReapplyConfirmationEmail } from '../../utils/sendEmail';
 
 export const registerSeller = async (
   sellerData: {
@@ -177,10 +177,114 @@ export const rejectSeller = async (sellerId: string, reason: string) => {
 
   const updated = await updateStatus(sellerId, 'REJECTED', { reason });
 
+  // Notify seller
+  sendSellerRejectionEmail(seller.ownerEmail, seller.ownerName, reason || 'Rejected by admin')
+    .catch((err) => console.error('Failed to send rejection email:', err));
+
   return {
     id: updated.id,
     status: updated.status,
     message: 'Seller registration has been rejected',
+  };
+};
+
+export const reapplySeller = async (sellerId: string) => {
+  const seller = await findById(sellerId);
+  if (!seller) {
+    throw new AppError('NotFound', 404, 'Seller not found');
+  }
+
+  if (seller.status !== 'REJECTED') {
+    throw new AppError('BadRequest', 400, 'Only rejected sellers can reapply');
+  }
+
+  const metadata = seller.metadata || {};
+  metadata.rejectionReason = null;
+  metadata.rejectedAt = null;
+  metadata.reappliedAt = new Date().toISOString();
+
+  const updated = await updateStatus(sellerId, 'PENDING', {
+    rejectedReason: null,
+    metadata,
+  });
+
+  sendSellerReapplyConfirmationEmail(seller.ownerEmail, seller.ownerName)
+    .catch((err) => console.error('Failed to send reapply confirmation email:', err));
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    message: 'Reapplication submitted. Your account is now pending review.',
+  };
+};
+
+export const getSellerForReapply = async (email: string) => {
+  const seller = await findByEmail(email);
+  if (!seller) {
+    throw new AppError('NotFound', 404, 'Seller not found with this email');
+  }
+
+  if (seller.status === 'APPROVED') {
+    throw new AppError('BadRequest', 400, 'This seller account is already approved');
+  }
+
+  if (seller.status === 'SUSPENDED') {
+    throw new AppError('BadRequest', 400, 'This seller account is suspended');
+  }
+
+  // Return seller data for reapply form
+  return {
+    id: seller.id,
+    email: seller.ownerEmail,
+    ownerName: seller.ownerName,
+    businessName: seller.businessName,
+    businessRegistrationNo: seller.businessRegistrationNo,
+    businessType: seller.businessType,
+    businessIdType: seller.businessIdType,
+    gstNumber: seller.gstNumber,
+    businessAddress: seller.businessAddress,
+    businessPhone: seller.businessPhone,
+    bankAccountName: seller.bankAccountName,
+    bankAccountNumber: seller.bankAccountNumber,
+    bankIfscCode: seller.bankIfscCode,
+    status: seller.status,
+    rejectionReason: seller.rejectedReason,
+  };
+};
+
+export const updateSellerForReapply = async (sellerId: string, updateData: any) => {
+  const seller = await findById(sellerId);
+  if (!seller) {
+    throw new AppError('NotFound', 404, 'Seller not found');
+  }
+
+  if (seller.status === 'APPROVED') {
+    throw new AppError('BadRequest', 400, 'Cannot update approved seller');
+  }
+
+  if (seller.status === 'SUSPENDED') {
+    throw new AppError('BadRequest', 400, 'Cannot update suspended seller');
+  }
+
+  // Update seller data
+  const updated = await update(sellerId, updateData);
+
+  // If status was REJECTED, change to PENDING for reapply
+  if (seller.status === 'REJECTED') {
+    await updateStatus(sellerId, 'PENDING', {
+      rejectedReason: null,
+      metadata: { ...seller.metadata, reappliedAt: new Date().toISOString() },
+    });
+
+    // Send reapply confirmation email
+    sendSellerReapplyConfirmationEmail(seller.ownerEmail, seller.ownerName)
+      .catch((err) => console.error('Failed to send reapply confirmation email:', err));
+  }
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    message: seller.status === 'REJECTED' ? 'Reapplication submitted successfully' : 'Information updated successfully',
   };
 };
 
@@ -245,8 +349,12 @@ export const loginSeller = async (email: string, password: string) => {
   }
 
   // Check seller status
+  if (seller.status === 'PENDING') {
+    throw new AppError('Forbidden', 403, 'Your seller account is pending approval. Please check your email for updates or reapply.');
+  }
+
   if (seller.status === 'REJECTED') {
-    throw new AppError('Forbidden', 403, 'Your seller account has been rejected');
+    throw new AppError('Forbidden', 403, 'Your seller account has been rejected. You can reapply with updated information.');
   }
 
   if (seller.status === 'SUSPENDED') {
