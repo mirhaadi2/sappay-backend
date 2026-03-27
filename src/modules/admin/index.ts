@@ -12,6 +12,7 @@ import sellerRoutes from './sellers/routes';
 import orderRoutes from './orders/routes';
 import productRoutes from './products/routes';
 import statsRoutes from './stats/routes';
+import dashboardRoutes from './dashboard/routes';
 
 const mainAdminRouter = Router();
 
@@ -27,5 +28,6 @@ mainAdminRouter.use('/sellers', sellerRoutes);
 mainAdminRouter.use('/orders', orderRoutes);
 mainAdminRouter.use('/products', productRoutes);
 mainAdminRouter.use('/stats', statsRoutes);
+mainAdminRouter.use('/dashboard', dashboardRoutes);
 
 export default mainAdminRouter;
