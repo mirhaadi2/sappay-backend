@@ -94,6 +94,12 @@ export interface AdminProduct {
    * All sellers offering this product with pricing and stock details
    */
   sellerOfferings?: AdminProductSellerOffering[];
+  sellerOfferingsPagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
   createdAt: string;
   updatedAt: string;
 }

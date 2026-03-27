@@ -139,7 +139,11 @@ const sellerOfferingsQuery = `
   ORDER BY sp.created_at DESC
 `;
 
-export const adminGetProduct = async (id: string): Promise<any> => {
+export const adminGetProduct = async (
+  id: string,
+  sellerOfferingsPage: number = 1,
+  sellerOfferingsLimit: number = 10
+): Promise<any> => {
   try {
     await requireProductExists(id, "Product");
     const product = await findById(id);
@@ -149,17 +153,39 @@ export const adminGetProduct = async (id: string): Promise<any> => {
 
     const variants = await getProductVariants(id);
 
-    // Fetch all sellers offering this product with pricing and stock information
+    // Get total count of seller offerings
+    const totalSellerOfferings = await sequelize.query(
+      `SELECT COUNT(*) as count FROM seller_products WHERE product_id = :productId`,
+      {
+        replacements: { productId: id },
+        type: QueryTypes.SELECT,
+      }
+    );
 
-    const sellerOfferings = await sequelize.query(sellerOfferingsQuery, {
-      replacements: { productId: id },
-      type: QueryTypes.SELECT,
-    });
+    const total = (totalSellerOfferings[0] as any).count;
+    const offset = (sellerOfferingsPage - 1) * sellerOfferingsLimit;
+
+    // Fetch paginated seller offerings
+    const sellerOfferings = await sequelize.query(
+      `${sellerOfferingsQuery} LIMIT :limit OFFSET :offset`,
+      {
+        replacements: { productId: id, limit: sellerOfferingsLimit, offset },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const totalPages = Math.ceil(total / sellerOfferingsLimit);
 
     const rowWithVariants = {
       ...product,
       variants: variants || [],
       sellerOfferings: sellerOfferings || [],
+      sellerOfferingsPagination: {
+        total,
+        page: sellerOfferingsPage,
+        limit: sellerOfferingsLimit,
+        totalPages,
+      },
     };
 
     return await transformProductToAdmin(rowWithVariants as any);

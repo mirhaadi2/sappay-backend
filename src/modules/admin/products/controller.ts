@@ -35,7 +35,18 @@ export const listProductsHandler = async (req: AuthenticatedRequest, res: Respon
 export const getProductHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const product = await adminGetProduct(id);
+    const sellerOfferingsPage = parseInt(req.query.sellerOfferingsPage as string) || 1;
+    const sellerOfferingsLimit = parseInt(req.query.sellerOfferingsLimit as string) || 10;
+
+    // Validate pagination params
+    if (sellerOfferingsPage < 1 || sellerOfferingsLimit < 1 || sellerOfferingsLimit > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid pagination parameters. Page must be >= 1, limit must be 1-100'
+      });
+    }
+
+    const product = await adminGetProduct(id, sellerOfferingsPage, sellerOfferingsLimit);
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Get product error', { error });
