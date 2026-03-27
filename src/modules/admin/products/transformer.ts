@@ -6,7 +6,7 @@
 
 import { getR2SignedUrl } from '../../uploads/r2-utils';
 import { ProductRow } from './database.types';
-import { AdminProduct, AdminProductVariantDetail } from './types';
+import { AdminProduct, AdminProductVariantDetail, AdminProductSellerOffering } from './types';
 
 /**
  * Resolves R2 URLs with better fallback and parallel execution support
@@ -39,6 +39,42 @@ const transformVariant = (variant: any): AdminProductVariantDetail => ({
 });
 
 /**
+ * Transform seller offering to API response format
+ */
+const transformSellerOffering = (offering: any): AdminProductSellerOffering => ({
+  sellerProductId: offering.sellerProductId,
+  sellerId: offering.sellerId,
+  sellerBusinessName: offering.sellerBusinessName,
+  sellerOwnerName: offering.sellerOwnerName,
+  sellerOwnerEmail: offering.sellerOwnerEmail,
+  sellerBusinessPhone: offering.sellerBusinessPhone,
+  sellerCommissionRate: offering.sellerCommissionRate ? Number(offering.sellerCommissionRate) : undefined,
+  sellerStatus: offering.sellerStatus,
+  sellerSku: offering.sellerSku,
+  sellerPrice: Number(offering.sellerPrice),
+  costPrice: offering.costPrice ? Number(offering.costPrice) : undefined,
+  discountedPrice: offering.discountedPrice ? Number(offering.discountedPrice) : undefined,
+  discountedPercent: offering.discountedPercent ? Number(offering.discountedPercent) : undefined,
+  rating: offering.rating ? Number(offering.rating) : undefined,
+  ratingCount: offering.ratingCount ? Number(offering.ratingCount) : undefined,
+  sellerDescription: offering.sellerDescription,
+  sellerImages: offering.sellerImages,
+  sellerWeight: offering.sellerWeight ? Number(offering.sellerWeight) : undefined,
+  sellerDimensions: offering.sellerDimensions,
+  warrantyMonths: offering.warrantyMonths ? Number(offering.warrantyMonths) : undefined,
+  sellerProductStatus: offering.sellerProductStatus,
+  sellerProductCreatedAt: new Date(offering.sellerProductCreatedAt).toISOString(),
+  sellerProductUpdatedAt: new Date(offering.sellerProductUpdatedAt).toISOString(),
+  inventoryId: offering.inventoryId,
+  totalStock: Number(offering.totalStock) || 0,
+  availableStock: Number(offering.availableStock) || 0,
+  reservedStock: Number(offering.reservedStock) || 0,
+  soldStock: Number(offering.soldStock) || 0,
+  reorderLevel: Number(offering.reorderLevel) || 0,
+  lastRestockedAt: offering.lastRestockedAt ? new Date(offering.lastRestockedAt).toISOString() : undefined,
+});
+
+/**
  * Enhanced transformation that handles async image resolution
  * Includes variants count and detailed variant information
  */
@@ -55,7 +91,12 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     ? row.variants.map(transformVariant)
     : [];
 
-  // 3. Map the data structure
+  // 3. Transform seller offerings
+  const transformedSellerOfferings: AdminProductSellerOffering[] = Array.isArray(row.sellerOfferings)
+    ? row.sellerOfferings.map(transformSellerOffering)
+    : [];
+
+  // 4. Map the data structure
   return {
     id: row.id,
     name: row.name,
@@ -74,6 +115,8 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     // Include detailed variants and count
     variantsCount: row?.variantsCount || transformedVariants.length ||0,
     variants: transformedVariants.length > 0 ? transformedVariants : undefined,
+    // Include seller offerings
+    sellerOfferings: transformedSellerOfferings.length > 0 ? transformedSellerOfferings : undefined,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };

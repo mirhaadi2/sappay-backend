@@ -34,6 +34,43 @@ export interface AdminProductVariantSummary {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
+/**
+ * Seller offering information for a product
+ * Includes seller details, pricing, and stock information
+ */
+export interface AdminProductSellerOffering {
+  sellerProductId: string;
+  sellerId: string;
+  sellerBusinessName: string;
+  sellerOwnerName: string;
+  sellerOwnerEmail: string;
+  sellerBusinessPhone: string;
+  sellerCommissionRate?: number;
+  sellerStatus: string;
+  sellerSku?: string;
+  sellerPrice: number;
+  costPrice?: number;
+  discountedPrice?: number;
+  discountedPercent?: number;
+  rating?: number;
+  ratingCount?: number;
+  sellerDescription?: string;
+  sellerImages?: string[];
+  sellerWeight?: number;
+  sellerDimensions?: Record<string, any>;
+  warrantyMonths?: number;
+  sellerProductStatus: string;
+  sellerProductCreatedAt: string;
+  sellerProductUpdatedAt: string;
+  inventoryId?: string;
+  totalStock: number;
+  availableStock: number;
+  reservedStock: number;
+  soldStock: number;
+  reorderLevel: number;
+  lastRestockedAt?: string;
+}
+
 export interface AdminProduct {
   id: string;
   name: string;
@@ -53,6 +90,10 @@ export interface AdminProduct {
    */
   variantsCount: number;
   variants?: AdminProductVariantDetail[];
+  /**
+   * All sellers offering this product with pricing and stock details
+   */
+  sellerOfferings?: AdminProductSellerOffering[];
   createdAt: string;
   updatedAt: string;
 }

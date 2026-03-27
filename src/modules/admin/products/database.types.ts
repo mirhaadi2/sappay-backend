@@ -36,6 +36,7 @@ export interface ProductRow {
   imageUrl?: string;
   variantsCount?: number;
   variants?: ProductVariantRow[];
+  sellerOfferings?: any[];
   createdAt: Date;
   updatedAt: Date;
 }
