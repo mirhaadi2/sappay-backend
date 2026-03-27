@@ -272,7 +272,10 @@ export const adminRejectSeller = async (id: string, reason?: string) => {
     });
 
     logger.info('Seller rejected by admin', { sellerId: id, reason });
-    return adminGetSeller(id);
+    return {
+      ...adminGetSeller(id),
+      reason: reason || 'Rejected by admin',
+    };
   } catch (error: any) {
     logger.error('Error rejecting admin seller', { sellerId: id, error });
     if (error instanceof AppError) throw error;

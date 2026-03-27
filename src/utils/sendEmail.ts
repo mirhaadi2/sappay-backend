@@ -83,14 +83,57 @@ export const sendPasswordResetEmail = async (email: string, resetLink: string) =
 export const sendWelcomeEmail = async (email: string, name: string) => {
   return sendEmail({
     to: email,
-    subject: "Welcome to Sappey!",
+    subject: "Welcome to Sappey! Registration Received",
     html: `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
         <h2 style="color: #4b3832;">Welcome to Sappey, ${name}!</h2>
-        <p>Your account has been successfully created.</p>
-        <p>You can now log in and start using all our features.</p>
-        <a href="${process.env.FRONTEND_URL || 'https://local.host'}" style="display: inline-block; padding: 10px 20px; background-color: #4b3832; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
-          Go to Dashboard
+        <p>Thank you for registering as a Sappey seller. Your application has been received successfully.</p>
+        <p>It will now be reviewed by our admin team. Once approved, you can log in and start using all features.</p>
+        <p style="font-weight: 700; margin-top: 16px;">What happens next?</p>
+        <ul style="padding-left: 16px; margin: 6px 0 16px 0; color: #555;">
+          <li>Admin reviews your business and KYC details.</li>
+          <li>Approval usually takes 24–72 hours.</li>
+          <li>You will receive another email after verification.</li>
+        </ul>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>
+      </div>
+    `,
+  });
+};
+
+export const sendSellerApprovalEmail = async (email: string, name: string) => {
+  console.log(email,name,'email,name')
+  return sendEmail({
+    to: email,
+    subject: 'Sappey Seller Account Approved',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2 style="color: #4b3832;">Hello ${name},</h2>
+        <p>Your seller account has been approved by the Sappey team.</p>
+        <p>You can now log in and start using all seller features.</p>
+        <a href="${process.env.FRONTEND_URL || 'https://local.host'}/login" style="display: inline-block; padding: 10px 20px; background-color: #4b3832; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+          Go to Login
+        </a>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>
+      </div>
+    `,
+  });
+};
+
+export const sendSellerRejectionEmail = async (email: string, name: string, reason: string) => {
+  return sendEmail({
+    to: email,
+    subject: 'Sappey Seller Account Rejected',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2 style="color: #4b3832;">Hello ${name},</h2>
+        <p>We reviewed your seller application and, unfortunately, it was not approved.</p>
+        <p><strong>Reason:</strong> ${reason}</p>
+        <p>You can update your details and reapply at any time.</p>
+        <a href="${process.env.FRONTEND_URL || 'https://local.host'}/signup" style="display: inline-block; padding: 10px 20px; background-color: #4b3832; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+          Reapply Now
         </a>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>

@@ -25,6 +25,19 @@ export interface SellerRegisterCredentials {
   gstNumber?: string;
 }
 
+export interface SellerInitiateRegistrationData {
+  email: string;
+  businessEmail: string;
+  ownerName: string;
+  ownerEmail: string;
+}
+
+export interface SellerVerifyOtpData {
+  email: string;
+  otp: string;
+  registrationData: SellerRegisterCredentials;
+}
+
 export interface SellerAuthResponse {
   success: boolean;
   data: {

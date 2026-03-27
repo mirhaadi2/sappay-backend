@@ -12,6 +12,7 @@ import {
   findAll,
   getSellerStats,
 } from './repository';
+import { sendSellerApprovalEmail, sendSellerRejectionEmail } from '../../utils/sendEmail';
 
 export const registerSeller = async (
   sellerData: {
@@ -157,7 +158,6 @@ export const approveSeller = async (sellerId: string, approvalData?: any) => {
   }
 
   const updated = await updateStatus(sellerId, 'APPROVED');
-
   return {
     id: updated.id,
     status: updated.status,
@@ -330,7 +330,7 @@ export const changeSellerPassword = async (
   }
 
   // Verify current password
-  const isValidPassword = await comparePassword(currentPassword, seller.password);
+  const isValidPassword = await comparePassword(currentPassword, seller?.password ?? '');
   if (!isValidPassword) {
     throw new AppError('Unauthorized', 401, 'Current password is incorrect');
   }

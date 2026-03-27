@@ -5,10 +5,99 @@
 
 import { comparePassword, hashPassword } from '../../../utils/password';
 import { AppError } from '../../../utils/AppError';
-import { sendWelcomeEmail } from '../../../utils/sendEmail';
+import { sendWelcomeEmail, sendOtpToEmail } from '../../../utils/sendEmail';
 import { SellerStatus } from '../model';
 import { create, findById, findByEmail } from '../repository';
 import { SellerLoginCredentials, SellerRegisterCredentials } from './types';
+import { sendOtpToEmail as sendSellerOtp, verifyOtp as verifySellerOtp } from '../../website/users/otp.service';
+import { OtpType } from '../../admin/users/otp.model';
+
+export const initiateSellerRegistration = async (email: string, ownerName: string) => {
+  // Check if seller already exists
+  const existingSeller = await findByEmail(email);
+  if (existingSeller) {
+    throw new AppError('Conflict', 409, 'Email already registered. Please login or use a different email.');
+  }
+
+  // Send OTP to email
+  const otp = await sendSellerOtp(email, OtpType.REGISTRATION);
+  
+  return {
+    message: 'Verification code sent to your email. Please check your inbox.',
+    email,
+    otp: process.env.NODE_ENV === 'development' ? otp : undefined, // Only show in dev
+  };
+};
+
+export const completeSellerRegistration = async (
+  email: string, 
+  otp: string, 
+  data: SellerRegisterCredentials
+) => {
+  const {
+    password,
+    businessName,
+    businessRegistrationNo,
+    businessType,
+    businessIdType,
+    gstNumber,
+    businessAddress,
+    businessPhone,
+    ownerName,
+    ownerEmail,
+    bankAccountName,
+    bankAccountNumber,
+    bankIfscCode,
+  } = data;
+
+  // Verify OTP
+  try {
+    await verifySellerOtp(email, otp, OtpType.REGISTRATION);
+  } catch (err: any) {
+    throw new AppError('ValidationError', 400, err.message || 'Invalid or expired OTP');
+  }
+
+  // Double-check seller doesn't exist
+  const existingSeller = await findByEmail(ownerEmail);
+  if (existingSeller) {
+    throw new AppError('Conflict', 409, 'Seller with this email already exists');
+  }
+
+  // Hash password
+  const hashedPassword = await hashPassword(password);
+
+  // Create seller
+  const seller = await create({
+    ownerEmail,
+    ownerName,
+    businessName,
+    businessRegistrationNo,
+    businessType,
+    businessIdType,
+    gstNumber,
+    businessAddress,
+    businessPhone,
+    bankAccountName,
+    bankAccountNumber,
+    bankIfscCode,
+    password: hashedPassword,
+    status: 'PENDING' as SellerStatus,
+  });
+
+  // Send welcome email (async, don't wait)
+  // sendWelcomeEmail(ownerEmail, ownerName).catch(err =>
+  //   console.error('Failed to send welcome email:', err)
+  // );
+
+  return {
+    id: seller.id,
+    status: seller.status,
+    ownerEmail: seller.ownerEmail,
+    ownerName: seller.ownerName,
+    businessName: seller.businessName,
+    message: 'Registration successful! Your account is under review. Please wait for admin approval.',
+  };
+};
 
 export const registerSellerService = async (data: SellerRegisterCredentials) => {
   const {
@@ -55,9 +144,9 @@ export const registerSellerService = async (data: SellerRegisterCredentials) => 
   });
 
   // Send welcome email (async, don't wait)
-  sendWelcomeEmail(ownerEmail, ownerName).catch(err =>
-    console.error('Failed to send welcome email:', err)
-  );
+  // sendWelcomeEmail(ownerEmail, ownerName).catch(err =>
+  //   console.error('Failed to send welcome email:', err)
+  // );
 
   return seller;
 };

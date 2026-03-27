@@ -5,8 +5,64 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../../utils/AppError';
-import { registerSellerService, loginSellerService, getSellerProfileService } from './service';
+import { registerSellerService, loginSellerService, getSellerProfileService, initiateSellerRegistration, completeSellerRegistration } from './service';
 import { SellerRegisterCredentials } from './types';
+import { sendWelcomeEmail } from '../../../utils/sendEmail';
+
+export const initiateRegistrationHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, ownerName } = req.body;
+
+    if (!email || !ownerName) {
+      throw new AppError('BadRequest', 400, 'Email and owner name are required');
+    }
+
+    const result = await initiateSellerRegistration(email, ownerName);
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: {
+        email: result.email,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyOtpHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, otp, registrationData } = req.body;
+
+    if (!email || !otp || !registrationData) {
+      throw new AppError('BadRequest', 400, 'Email, OTP, and registration data are required');
+    }
+
+    const seller = await completeSellerRegistration(email, otp, registrationData);
+
+    res.status(201).json({
+      success: true,
+      message: seller.message,
+      data: {
+        seller: {
+          id: seller.id,
+          ownerEmail: seller.ownerEmail,
+          ownerName: seller.ownerName,
+          businessName: seller.businessName,
+          status: seller.status,
+        }
+      },
+    });
+    
+    sendWelcomeEmail(seller.ownerEmail, seller.ownerName).catch((error) => {
+      console.error('Failed to send welcome email to', seller.ownerEmail, ':', error);
+      // Email failure is non-critical, logged but not reported to client
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const registerSellerHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
