@@ -182,7 +182,10 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
       p."gst_rate" as "gst_rate",
       p.category_id as category,
       p.status, 
-      p.images, 
+      p.images,
+      p.is_new as "isNew",
+      p.is_customer_favourites as "isCustomerFavourites",
+      p.is_best_seller as "isBestseller",
       p."created_at" AS "createdAt", 
       p."updated_at" AS "updatedAt",
       ct.name as "categoryName",
@@ -226,14 +229,16 @@ export const getProductVariants = async (productId: string) => {
  * Get product variants count
  * Enterprise-grade optimization for list views
  */
-export const getProductVariantsCount = async (productId: string): Promise<number> => {
+export const getProductVariantsCount = async (
+  productId: string,
+): Promise<number> => {
   const query = `
     SELECT COUNT(*) as count
     FROM product_variants
     WHERE product_id = ?
   `;
   const result = await executeSelect<{ count: string }>(query, [productId]);
-  return parseInt(result[0]?.count || '0', 10);
+  return parseInt(result[0]?.count || "0", 10);
 };
 
 export const deleteProductVariantsByProduct = async (productId: string) => {
@@ -242,7 +247,11 @@ export const deleteProductVariantsByProduct = async (productId: string) => {
   return true;
 };
 
-export const createProductVariants = async (productId: string, productName: string, variants: any[]) => {
+export const createProductVariants = async (
+  productId: string,
+  productName: string,
+  variants: any[],
+) => {
   if (!Array.isArray(variants) || variants.length === 0) return [];
 
   const values = variants
@@ -255,8 +264,8 @@ export const createProductVariants = async (productId: string, productName: stri
       v.discountedPrice !== undefined ? Number(v.discountedPrice) : null,
       v.discountedPercent !== undefined ? Number(v.discountedPercent) : null,
       v.weight !== undefined ? Number(v.weight) : null,
-      v.weightUnit || 'G',
-      v.status || 'ACTIVE',
+      v.weightUnit || "G",
+      v.status || "ACTIVE",
       new Date(),
       new Date(),
     ]);
@@ -267,7 +276,7 @@ export const createProductVariants = async (productId: string, productName: stri
     INSERT INTO product_variants
       (id, product_id, sku, price, discounted_price, discounted_percent, weight, weight_unit, status, created_at, updated_at)
     VALUES
-      ${values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}
+      ${values.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}
   `;
 
   await executeModify(query, values.flat());
@@ -282,24 +291,35 @@ export const updateProductVariant = async (variantId: string, updates: any) => {
   if (entries.length === 0) return true;
 
   const mappedEntries = entries.map(([key, val]) => {
+    let finalKey = key;
     let finalValue = val;
-    if (key === 'price' && typeof val === 'string') {
+
+    // 1. Handle Numeric Conversions
+    const numericFields = [
+      "price",
+      "discountedPrice",
+      "discountedPercent",
+      "weight",
+    ];
+    if (numericFields.includes(key) && typeof val === "string") {
       finalValue = Number(val);
     }
-    if (key === 'discountedPrice' && typeof val === 'string') {
-      finalValue = Number(val);
+
+    // 2. Handle Key Transformation (CamelCase to snake_case)
+    if (key === "weightUnit") {
+      finalKey = "weight_unit";
     }
-    if (key === 'discountedPercent' && typeof val === 'string') {
-      finalValue = Number(val);
-    }
-    if (key === 'weight' && typeof val === 'string') {
-      finalValue = Number(val);
-    }
-    return [key, finalValue];
+
+    // Return the potentially modified key and value
+    return [finalKey, finalValue];
   });
 
   const setClauses = mappedEntries.map(([key]) => `"${key}" = ?`).join(", ");
-  const values = [...mappedEntries.map(([, val]) => val), new Date(), variantId];
+  const values = [
+    ...mappedEntries.map(([, val]) => val),
+    new Date(),
+    variantId,
+  ];
 
   const query = `
     UPDATE product_variants
@@ -315,18 +335,21 @@ export const updateProductVariant = async (variantId: string, updates: any) => {
  * Create or update product variants intelligently
  * This is the professional way to handle variant updates
  */
-export const upsertProductVariants = async (productId: string, variants: any[]) => {
+export const upsertProductVariants = async (
+  productId: string,
+  variants: any[],
+) => {
   if (!Array.isArray(variants) || variants.length === 0) return [];
 
   // Get product name for SKU generation
   const product = await findById(productId);
   if (!product) {
-    throw new Error('Product not found');
+    throw new Error("Product not found");
   }
   const productName = product.name;
 
   const existingVariants = await getProductVariants(productId);
-  const existingVariantMap = new Map(existingVariants.map(v => [v.id, v]));
+  const existingVariantMap = new Map(existingVariants.map((v) => [v.id, v]));
 
   const results = [];
 
@@ -336,10 +359,13 @@ export const upsertProductVariants = async (productId: string, variants: any[]) 
       const updates: any = {};
       if (variant.sku !== undefined) updates.sku = variant.sku;
       if (variant.price !== undefined) updates.price = variant.price;
-      if (variant.discountedPrice !== undefined) updates.discountedPrice = variant.discountedPrice;
-      if (variant.discountedPercent !== undefined) updates.discountedPercent = variant.discountedPercent;
+      if (variant.discountedPrice !== undefined)
+        updates.discountedPrice = variant.discountedPrice;
+      if (variant.discountedPercent !== undefined)
+        updates.discountedPercent = variant.discountedPercent;
       if (variant.weight !== undefined) updates.weight = variant.weight;
-      if (variant.weightUnit !== undefined) updates.weightUnit = variant.weightUnit;
+      if (variant.weightUnit !== undefined)
+        updates.weightUnit = variant.weightUnit;
       if (variant.status !== undefined) updates.status = variant.status;
 
       await updateProductVariant(variant.id, updates);
@@ -348,10 +374,14 @@ export const upsertProductVariants = async (productId: string, variants: any[]) 
       // Create new variant - remove ID if present and auto-generate SKU if needed
       const { id, createdAt, updatedAt, ...variantData } = variant;
       if (!variantData.sku) {
-        const weightInfo = variantData.weight ? `${variantData.weight}${variantData.weightUnit || 'G'}` : '';
+        const weightInfo = variantData.weight
+          ? `${variantData.weight}${variantData.weightUnit || "G"}`
+          : "";
         variantData.sku = generateSku(productName, weightInfo);
       }
-      const newVariants = await createProductVariants(productId, productName, [variantData]);
+      const newVariants = await createProductVariants(productId, productName, [
+        variantData,
+      ]);
       results.push(...newVariants);
     }
   }
@@ -380,11 +410,16 @@ export const updateFields = async (
 
   // Map model property names to database column names
   // Updated Mapping: Front-end Key -> Database Column Name
-  const columnMapping: Record<string, string> = { // Added
+  const columnMapping: Record<string, string> = {
+    // Added
     discountedPrice: "discounted_price", // Added
     discountedPercent: "discounted_percent", // Added
     category: "category_id",
     gst_rate: "gst_rate",
+    isNew: "is_new",
+    isCustomerFavourites: "is_customer_favourites",
+    isBestseller: "is_best_seller",
+    // Existing mappings
     // 'name', 'description', 'status' map 1:1, so fallback handles them
   };
 

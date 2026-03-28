@@ -17,6 +17,7 @@ export interface AdminProductVariantDetail {
   sku?: string;
   price: number;
   weight?: number;
+  weightUnit?: string;
   status: 'ACTIVE' | 'INACTIVE';
   createdAt: string;
   updatedAt: string;
