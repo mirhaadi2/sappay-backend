@@ -33,7 +33,7 @@ interface SellerAttributes {
   commissionRate: number;
   status: SellerStatus;
   approvedAt?: Date;
-  rejectedReason?: string;
+  rejectedReason?: string | null;
   onboardingStep: number;
   metadata?: Record<string, any>;
   createdAt: Date;
@@ -65,7 +65,7 @@ export class Seller extends Model<SellerAttributes, SellerCreationAttributes> im
   public commissionRate!: number;
   public status!: SellerStatus;
   public approvedAt?: Date;
-  public rejectedReason?: string;
+  public rejectedReason?: string | null;
   public onboardingStep!: number;
   public metadata?: Record<string, any>;
 

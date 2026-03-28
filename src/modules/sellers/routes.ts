@@ -58,9 +58,9 @@ router.put('/:id/reapply', updateSellerForReapplyHandler);
 
 // Admin routes
 router.get('/', listSellersHandler);
-router.post('/:id/approve', approveSellerHandler);
-router.post('/:id/reject', rejectSellerHandler);
-router.post('/:id/reapply', reapplySellerHandler);
-router.post('/:id/suspend', suspendSellerHandler);
+// router.post('/:id/approve', approveSellerHandler);
+// router.post('/:id/reject', rejectSellerHandler);
+// router.post('/:id/reapply', reapplySellerHandler);
+// router.post('/:id/suspend', suspendSellerHandler);
 
 export default router;

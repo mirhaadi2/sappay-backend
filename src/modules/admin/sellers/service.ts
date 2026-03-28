@@ -255,6 +255,7 @@ export const adminApproveSeller = async (id: string) => {
 
     await seller.update({
       status: SellerStatus.APPROVED,
+      rejectedReason: null,
       approvedAt: new Date(),
     });
 
