@@ -81,7 +81,6 @@ try {
 
   if (!isPending) {
     log(`⚠️  Migration status unknown. Current status:\n`, 'yellow');
-    console.log(statusOutput);
     process.exit(0);
   }
 

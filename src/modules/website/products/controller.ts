@@ -126,7 +126,6 @@ export const getSellerProductsHandler = async (
   next: NextFunction
 ) => {
   try {
-    console.log(req?.session, 'session data in getSellerProductsHandler');
     const userId = req.session?.user?.id;
 
     if (!userId) {

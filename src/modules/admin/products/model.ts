@@ -14,6 +14,9 @@ interface ProductAttributes {
   gst_rate: number;
   certifications?: string[];
   status: 'ACTIVE' | 'INACTIVE';
+  isNew: boolean;
+  isCustomerFavourites: boolean;
+  isBestseller: boolean;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -21,7 +24,7 @@ interface ProductAttributes {
 
 type ProductCreationAttributes = Optional<
   ProductAttributes,
-  'id' | 'gst_rate' | 'status' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  'id' | 'gst_rate' | 'status' | 'isNew' | 'isCustomerFavourites' | 'isBestseller' | 'createdAt' | 'updatedAt' | 'deletedAt'
 >;
 
 export class Product extends Model<ProductAttributes, ProductCreationAttributes> implements ProductAttributes {
@@ -37,6 +40,9 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   public gst_rate!: number;
   public certifications?: string[];
   public status!: 'ACTIVE' | 'INACTIVE';
+  public isNew!: boolean;
+  public isCustomerFavourites!: boolean;
+  public isBestseller!: boolean;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -101,6 +107,24 @@ Product.init(
       type: DataTypes.ENUM('ACTIVE', 'INACTIVE'),
       allowNull: false,
       defaultValue: 'ACTIVE',
+    },
+    isNew: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_new',
+    },
+    isCustomerFavourites: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_customer_favourites',
+    },
+    isBestseller: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_best_seller',
     },
     createdAt: {
       type: DataTypes.DATE,

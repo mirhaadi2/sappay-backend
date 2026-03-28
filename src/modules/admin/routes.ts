@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { requireAuth, requireActiveStaff, requirePermission } from './middleware';
 import { assignRoleToStaffHandler, createRoleHandler, deleteRoleHandler, getRoleByIdHandler, getStaffPermissionsHandler, getStaffRolesHandler, listAuditLogsHandler, listPermissionsHandler, listRolesHandler, revokeRoleFromStaffHandler, updateRoleHandler } from './controller';
+import { websiteAdminRoutes } from './website';
 
 const router = Router();
 
@@ -167,5 +168,8 @@ router.get(
     requirePermission('admin.audit.read'),
     listAuditLogsHandler
 );
+
+// ===================== HOMEPAGE MANAGEMENT ENDPOINTS =====================
+router.use('/website', websiteAdminRoutes);
 
 export { router as adminRouter };

@@ -10,6 +10,7 @@ import authRoutes from "./modules/website/auth/routes";
 import userRoutes from "./modules/website/users/routes";
 import addressRoutes from "./modules/website/address/routes";
 import productRoutes from "./modules/website/products/routes";
+import { homepageRoutes } from "./modules/website/homepage";
 import { errorHandler } from "./middleware/error.middleware";
 import { sellerRoutes } from "./modules/sellers";
 import { uploadsRoutes } from "./modules/uploads";
@@ -49,7 +50,7 @@ app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sel
     portal = Portal.ADMIN;
   } else if (effectivePath.includes('/api/sellers') || effectivePath.includes('/sellers') || effectivePath.includes('/api/products/seller')) {
     portal = Portal.SELLER;
-  } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/users') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products')) {
+  } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/users') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products') || effectivePath.includes('/api/homepage')) {
     portal = Portal.WEBSITE;
   } else {
     // For any other unknown route, preserve existing portal via cookie. Useful for routes outside our explicit prefix list.
@@ -74,6 +75,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/homepage", homepageRoutes);
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);

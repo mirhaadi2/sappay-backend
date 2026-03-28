@@ -32,6 +32,9 @@ export interface ProductRow {
   category: string;
   categoryName?: string;
   status: 'ACTIVE' | 'INACTIVE';
+  isNew?: boolean;
+  isCustomerFavourites?: boolean;
+  isBestseller?: boolean;
   images: string[];
   imageUrl?: string;
   variantsCount?: number;

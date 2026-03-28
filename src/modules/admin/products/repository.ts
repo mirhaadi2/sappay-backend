@@ -135,7 +135,10 @@ export const findProducts = async (
       p.gst_rate,
       p.category_id as "categoryId",
       c.name as "categoryName",
-      p.status, 
+      p.status,
+      p.is_new as "isNew",
+      p.is_customer_favourites as "isCustomerFavourites", 
+      p.is_best_seller as "isBestseller",
       p.images, -- Full array for detail views, or use p.images[1] for list
       p.weight,
       -- Aggregated Stock from CTE

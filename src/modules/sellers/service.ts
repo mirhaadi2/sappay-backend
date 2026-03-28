@@ -396,7 +396,6 @@ export const loginSeller = async (email: string, password: string) => {
  * Returns complete seller profile for authenticated seller
  */
 export const getCurrentSellerProfile = async (sellerId: string) => {
-  console.log(sellerId, 'sellerId')
   const seller = await findById(sellerId);
   if (!seller) {
     throw new AppError('NotFound', 404, 'Seller profile not found');

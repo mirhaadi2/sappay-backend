@@ -69,6 +69,9 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       sellerId,
       variants,
       stock = 0,
+      isNew,
+      isCustomerFavourites,
+      isBestseller,
     } = req.body;
 
     const product = await adminCreateProduct({
@@ -83,6 +86,9 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       variants,
       addedBy,
       stock,
+      isNew,
+      isCustomerFavourites,
+      isBestseller,
     });
 
     res.status(201).json({ success: true, data: product });
@@ -129,9 +135,7 @@ export const publishProductHandler = async (req: AuthenticatedRequest, res: Resp
 export const unpublishProductHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    console.log(id,'id')
     const product = await adminUnpublishProduct(id);
-    console.log(product,'product')
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Unpublish product error', { error });

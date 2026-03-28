@@ -154,7 +154,6 @@ export const registerSellerService = async (data: SellerRegisterCredentials) => 
 export const loginSellerService = async (email: string, password: string) => {
   // Find seller by email
   const seller = await findByEmail(email);
-  console.log(seller,'seeller')
   if (!seller) {
     throw new AppError('Unauthorized', 401, 'Invalid email or password');
   }

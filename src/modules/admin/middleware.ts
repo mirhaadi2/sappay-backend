@@ -25,11 +25,6 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
     // Extract staff OR admin from session (both can authenticate to admin portal)
     const staff = (req.session as any)?.staff || (req.session as any)?.admin;
     
-    console.log('[requireAuth] Session ID:', req.sessionID);
-    console.log('[requireAuth] Session admin:', (req.session as any)?.admin?.id);
-    console.log('[requireAuth] Session staff:', (req.session as any)?.staff?.id);
-    console.log('[requireAuth] Resolved staff object:', staff);
-    
     if (!staff || !staff.id) {
         console.log('[requireAuth] FAILED - No staff or admin in session');
         return res.status(401).json({ error: 'Unauthorized' });

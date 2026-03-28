@@ -73,7 +73,6 @@ export const findAllProducts = async (filters: any) => {
     // Try to fetch file from R2 (optional, for existence check)
     try {
       const data = await fetchFromR2(key);
-      console.log(data, "data"); // If file exists, get signed URL
       return getR2SignedUrl(key);
     } catch (err) {
       // If not found, fallback
@@ -200,6 +199,7 @@ export const createProductVariant = async (productId: string, variant: any) => {
     price: Number(variant.price),
     weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
     status: variant.status || "ACTIVE",
+
   });
 };
 
@@ -223,6 +223,7 @@ export const createProductVariants = async (
       weight: v.weight !== undefined ? Number(v.weight) : undefined,
       weightUnit: v.weightUnit || "G",
       status: v.status || "ACTIVE",
+
     }));
   return await ProductVariant.bulkCreate(sanitized);
 };

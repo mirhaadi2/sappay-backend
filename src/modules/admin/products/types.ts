@@ -84,6 +84,9 @@ export interface AdminProduct {
   categoryName?: string;
   status: 'draft' | 'published';
   isFeatured: boolean;
+  isNew: boolean;
+  isCustomerFavourites: boolean;
+  isBestseller: boolean;
   stock: number;
   /**
    * Product variants - populated in list as count summary, detailed in product details

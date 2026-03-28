@@ -310,6 +310,9 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       images,
       stock = 0,
       addedBy,
+      isNew,
+      isCustomerFavourites,
+      isBestseller,
     } = input;
 
     if (!name || !(categoryId || input.category)) {
@@ -339,6 +342,9 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       variants: Array.isArray(input.variants) ? input.variants : [],
       stock: parseInt(stock) || 0,
       addedBy: addedBy || null,
+      isNew: isNew ?? false,
+      isCustomerFavourites: isCustomerFavourites ?? false,
+      isBestseller: isBestseller ?? false,
     };
 
     const created = await createProductService(productPayload);

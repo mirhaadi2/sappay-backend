@@ -108,6 +108,9 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
     categoryName: row.categoryName || 'Uncategorized',
     status: row.status === 'ACTIVE' ? 'published' : 'draft',
     isFeatured: false,
+    isNew: row.isNew || false,
+    isCustomerFavourites: row.isCustomerFavourites || false,
+    isBestseller: row.isBestseller || false,
     stock: Number(row.stock) || 0,
     // Safely resolve the first image as the primary imageUrl
     imageUrl: resolvedImages?.[0] || '/placeholder.png', 
