@@ -44,8 +44,8 @@ interface HomepageHeroAttributes {
     subtitle: string;
     videoUrl: string;
     videoPosterUrl?: string;
-    ctaText: string;
-    ctaLink: string;
+    buttonText: string;
+    buttonLink: string;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -60,8 +60,8 @@ export class HomepageHero extends Model<HomepageHeroAttributes, HomepageHeroCrea
     public subtitle!: string;
     public videoUrl!: string;
     public videoPosterUrl?: string;
-    public ctaText!: string;
-    public ctaLink!: string;
+    public buttonText!: string;
+    public buttonLink!: string;
     public isActive!: boolean;
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
@@ -75,8 +75,8 @@ HomepageHero.init(
         subtitle: { type: DataTypes.TEXT, allowNull: false },
         videoUrl: { type: DataTypes.STRING(500), allowNull: false },
         videoPosterUrl: { type: DataTypes.STRING(500), allowNull: true },
-        ctaText: { type: DataTypes.STRING(100), allowNull: false },
-        ctaLink: { type: DataTypes.STRING(500), allowNull: false },
+        buttonText: { type: DataTypes.STRING(100), allowNull: false },
+        buttonLink: { type: DataTypes.STRING(500), allowNull: false },
         isActive: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'is_active' },
         createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'created_at' },
         updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'updated_at' },

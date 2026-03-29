@@ -41,8 +41,8 @@ export const createHero = async (data: {
     subtitle: string;
     videoUrl: string;
     videoPosterUrl?: string;
-    ctaText: string;
-    ctaLink: string;
+    buttonText: string;
+    buttonLink: string;
     isActive?: boolean;
 }) => {
     // Deactivate other heroes if this one is active
@@ -60,8 +60,8 @@ export const updateHero = async (id: string, data: Partial<{
     subtitle: string;
     videoUrl: string;
     videoPosterUrl?: string;
-    ctaText: string;
-    ctaLink: string;
+    buttonText: string;
+    buttonLink: string;
     isActive: boolean;
 }>) => {
     const hero = await HomepageHero.findByPk(id);
