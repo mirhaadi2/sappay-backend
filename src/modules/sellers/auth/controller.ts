@@ -8,6 +8,7 @@ import { AppError } from '../../../utils/AppError';
 import { registerSellerService, loginSellerService, getSellerProfileService, initiateSellerRegistration, completeSellerRegistration } from './service';
 import { SellerRegisterCredentials } from './types';
 import { sendWelcomeEmail } from '../../../utils/sendEmail';
+import { portalConfigs } from '../../../config/portal-config';
 
 export const initiateRegistrationHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -155,6 +156,7 @@ export const logoutSellerHandler = async (req: Request, res: Response, next: Nex
         return next(new AppError('InternalError', 500, 'Failed to logout'));
       }
 
+      res.clearCookie(portalConfigs.SELLER.cookieName);
       res.json({
         success: true,
         message: 'Logged out successfully'

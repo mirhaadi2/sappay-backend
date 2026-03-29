@@ -6,6 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { loginStaff, getStaffDetails } from './service';
 import { logger } from '../../../utils/logger';
+import { portalConfigs } from '../../../config/portal-config';
 
 /**
  * POST /api/staff/auth/login
@@ -53,7 +54,7 @@ export const logoutHandler = async (req: Request, res: Response, next: NextFunct
       }
 
       logger.info('Staff logged out', { staffId });
-      res.clearCookie('staff-session');
+      res.clearCookie(portalConfigs.ADMIN.cookieName);
       res.json({
         success: true,
         message: 'Logged out successfully',
