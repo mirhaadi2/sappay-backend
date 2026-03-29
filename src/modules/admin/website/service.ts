@@ -3,7 +3,7 @@ import { HomepageBanner, HomepageHero, HomepageSection, Testimonial, InstagramPo
 // ===================== BANNER SERVICES =====================
 export const getActiveBanners = async () => {
     return await HomepageBanner.findAll({
-        where: { isActive: true },
+        // where: { isActive: true },
         order: [['order', 'ASC'], ['createdAt', 'DESC']]
     });
 };
@@ -31,7 +31,7 @@ export const deleteBanner = async (id: string) => {
 // ===================== HERO SECTION SERVICES =====================
 export const getActiveHero = async () => {
     return await HomepageHero.findOne({
-        where: { isActive: true },
+        // where: { isActive: true },
         order: [['createdAt', 'DESC']]
     });
 };
@@ -84,7 +84,7 @@ export const deleteHero = async (id: string) => {
 // ===================== SECTION SERVICES =====================
 export const getActiveSections = async () => {
     return await HomepageSection.findAll({
-        where: { isActive: true },
+        // where: { isActive: true },
         order: [['order', 'ASC'], ['createdAt', 'DESC']]
     });
 };
@@ -143,7 +143,7 @@ export const deleteSection = async (id: string) => {
 // ===================== TESTIMONIAL SERVICES =====================
 export const getActiveTestimonials = async () => {
     return await Testimonial.findAll({
-        where: { isActive: true },
+        // where: { isActive: true },
         order: [['order', 'ASC'], ['createdAt', 'DESC']]
     });
 };
@@ -187,7 +187,7 @@ export const deleteTestimonial = async (id: string) => {
 // ===================== INSTAGRAM POST SERVICES =====================
 export const getActiveInstagramPosts = async () => {
     return await InstagramPost.findAll({
-        where: { isActive: true },
+        // where: { isActive: true },
         order: [['order', 'ASC'], ['createdAt', 'DESC']]
     });
 };
