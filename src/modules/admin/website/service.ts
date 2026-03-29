@@ -141,13 +141,28 @@ export const deleteHero = async (id: string) => {
 
 // ===================== SECTION SERVICES =====================
 export const getActiveSections = async () => {
-  return await HomepageSection.findAll({
-    // where: { isActive: true },
-    order: [
-      ["order", "ASC"],
-      ["createdAt", "DESC"],
-    ],
-  });
+    const sections = await HomepageSection.findAll({
+        // where: { isActive: true },
+        raw: true,
+        order: [
+            ["order", "ASC"],
+            ["createdAt", "DESC"],
+        ],
+    });
+
+    return await Promise.all(
+        sections.map(async (section) => {
+            const videoUrl = await resolveR2Url(section.videoUrl);
+            const imageUrl = await resolveR2Url(section.imageUrl);
+            const backgroundImageUrl = await resolveR2Url(section.backgroundImageUrl);
+            return {
+                ...section,
+                videoUrl,
+                imageUrl,
+                backgroundImageUrl,
+            };
+        }),
+    );
 };
 
 export const getSectionsByType = async (sectionType: string) => {

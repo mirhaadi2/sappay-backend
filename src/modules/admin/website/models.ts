@@ -88,7 +88,7 @@ HomepageHero.init(
 // ===================== HOMEPAGE SECTION MODEL =====================
 interface HomepageSectionAttributes {
     id: string;
-    sectionType: 'collections' | 'bestsellers' | 'health_wellness' | 'new_arrivals' | 'story' | 'testimonials' | 'instagram' | 'contact' | 'about' | 'footer';
+    sectionType: string;
     title: string;
     subtitle?: string;
     content?: string;
@@ -108,7 +108,7 @@ type HomepageSectionCreationAttributes = Optional<HomepageSectionAttributes, 'id
 
 export class HomepageSection extends Model<HomepageSectionAttributes, HomepageSectionCreationAttributes> implements HomepageSectionAttributes {
     public id!: string;
-    public sectionType!: 'collections' | 'bestsellers' | 'health_wellness' | 'new_arrivals' | 'story' | 'testimonials' | 'instagram' | 'contact' | 'about' | 'footer';
+    public sectionType!: string;
     public title!: string;
     public subtitle?: string;
     public content?: string;
@@ -127,7 +127,7 @@ export class HomepageSection extends Model<HomepageSectionAttributes, HomepageSe
 HomepageSection.init(
     {
         id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-        sectionType: { type: DataTypes.ENUM('collections', 'bestsellers', 'health_wellness', 'new_arrivals', 'story', 'testimonials', 'instagram', 'contact', 'about', 'footer'), allowNull: false, field: 'section_type' },
+        sectionType: { type: DataTypes.STRING(100), allowNull: false, field: 'section_type' },
         title: { type: DataTypes.STRING(255), allowNull: false },
         subtitle: { type: DataTypes.TEXT, allowNull: true },
         content: { type: DataTypes.TEXT, allowNull: true },
