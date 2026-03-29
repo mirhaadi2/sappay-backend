@@ -1,7 +1,7 @@
 import multer from 'multer';
 
-const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_SIZE_MB = 10;
+const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/ogg'];
+const MAX_SIZE_MB = 20;
 
 const fileFilter: multer.Options['fileFilter'] = (req, file, cb) => {
 	if (!allowedMimeTypes.includes(file.mimetype)) {
