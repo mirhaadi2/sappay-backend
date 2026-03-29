@@ -180,7 +180,7 @@ Testimonial.init(
     {
         id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
         author: { type: DataTypes.STRING(255), allowNull: false },
-        initials: { type: DataTypes.STRING(10), allowNull: false },
+        initials: { type: DataTypes.STRING(10), allowNull: true },
         location: { type: DataTypes.STRING(255), allowNull: false },
         comment: { type: DataTypes.TEXT, allowNull: false },
         rating: { type: DataTypes.INTEGER, allowNull: false, validate: { min: 1, max: 5 } },
