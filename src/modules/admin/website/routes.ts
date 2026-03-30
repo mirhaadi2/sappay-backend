@@ -21,7 +21,16 @@ import {
     getReturnsRefunds, createOrUpdateReturnsRefunds, deleteReturnsRefunds,
     getFAQs, createOrUpdateFAQs, deleteFAQs,
     // Data aggregators
-    getHomepageData, getWebsiteData
+    getHomepageData, getWebsiteData,
+    getPrivacyPolicy,
+    createOrUpdatePrivacyPolicy,
+    deletePrivacyPolicy,
+    getTermsConditions,
+    createOrUpdateTermsConditions,
+    deleteTermsConditions,
+    getSitemap,
+    createOrUpdateSitemap,
+    deleteSitemap
 } from './service';
 
 const router = Router();
@@ -604,6 +613,90 @@ router.delete('/faqs', requireAuth, requireActiveStaff, requirePermission('admin
     try {
         await deleteFAQs();
         res.json({ success: true, message: 'FAQs deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===================== PRIVACY POLICY MANAGEMENT =====================
+router.get('/privacy-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+    try {
+        const policy = await getPrivacyPolicy();
+        res.json({ success: true, data: policy });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.put('/privacy-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        const policy = await createOrUpdatePrivacyPolicy(req.body);
+        res.json({ success: true, data: policy });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.delete('/privacy-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        await deletePrivacyPolicy();
+        res.json({ success: true, message: 'Privacy Policy deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===================== TERMS & CONDITIONS MANAGEMENT =====================
+router.get('/terms-and-conditions', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+    try {
+        const terms = await getTermsConditions();
+        res.json({ success: true, data: terms });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.put('/terms-and-conditions', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        const terms = await createOrUpdateTermsConditions(req.body);
+        res.json({ success: true, data: terms });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.delete('/terms-and-conditions', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        await deleteTermsConditions();
+        res.json({ success: true, message: 'Terms & Conditions deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===================== SITEMAP MANAGEMENT =====================
+router.get('/sitemap', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+    try {
+        const map = await getSitemap();
+        res.json({ success: true, data: map });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.put('/sitemap', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        const map = await createOrUpdateSitemap(req.body);
+        res.json({ success: true, data: map });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.delete('/sitemap', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        await deleteSitemap();
+        res.json({ success: true, message: 'Sitemap deleted successfully' });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }

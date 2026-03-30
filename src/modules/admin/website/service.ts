@@ -593,6 +593,45 @@ export const createOrUpdateFAQs = async (data: {
 
 export const deleteFAQs = async () => deletePageByType(PageType.FAQS);
 
+// ===================== PRIVACY POLICY SERVICES =====================
+export const getPrivacyPolicy = async () => getPage(PageType.PRIVACY_POLICY);
+
+export const createOrUpdatePrivacyPolicy = async (data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => createOrUpdatePage(PageType.PRIVACY_POLICY, 'privacy-policy', data);
+
+export const deletePrivacyPolicy = async () => deletePageByType(PageType.PRIVACY_POLICY);
+
+// ===================== TERMS & CONDITIONS SERVICES =====================
+export const getTermsConditions = async () => getPage(PageType.TERMS_CONDITIONS);
+
+export const createOrUpdateTermsConditions = async (data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => createOrUpdatePage(PageType.TERMS_CONDITIONS, 'terms-and-conditions', data);
+
+export const deleteTermsConditions = async () => deletePageByType(PageType.TERMS_CONDITIONS);
+
+// ===================== SITEMAP SERVICES =====================
+export const getSitemap = async () => getPage(PageType.SITEMAP);
+
+export const createOrUpdateSitemap = async (data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => createOrUpdatePage(PageType.SITEMAP, 'sitemap', data);
+
+export const deleteSitemap = async () => deletePageByType(PageType.SITEMAP);
+
 // ===================== HOMEPAGE DATA AGGREGATOR =====================
 export const getHomepageData = async () => {
     const [banners, hero, sections, testimonials, instagramPosts] =

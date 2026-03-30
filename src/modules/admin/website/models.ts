@@ -336,7 +336,9 @@ export enum PageType {
     SHIPPING_POLICY = 'shipping_policy',
     RETURNS_REFUNDS = 'returns_refunds',
     FAQS = 'faqs',
-    TERMS_CONDITIONS = 'terms_conditions' // Added for future-proofing
+    TERMS_CONDITIONS = 'terms_conditions',
+    PRIVACY_POLICY = 'privacy_policy',
+    SITEMAP = 'sitemap',
 }
 
 // 2. Define the Attributes interface
