@@ -55,9 +55,9 @@ module.exports = {
       }
     });
 
-    // Adding indexes for performance
+    // Adding indexes for performance and to enforce one page per type
     await queryInterface.addIndex('pages', ['slug']);
-    await queryInterface.addIndex('pages', ['type']);
+    await queryInterface.addIndex('pages', ['type'], { unique: true });
   },
 
   async down(queryInterface, Sequelize) {

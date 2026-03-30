@@ -509,9 +509,18 @@ export const createOrUpdatePage = async (type: PageType, slug: string, data: {
     metaDescription?: string;
     isPublished?: boolean;
 }) => {
-    const existing = await Page.findOne({ where: { type } });
-    if (existing) {
-        return await existing.update({
+    const existingPages = await Page.findAll({ where: { type } });
+
+    if (existingPages.length > 0) {
+        const [primary, ...duplicates] = existingPages;
+
+        // Ensure exactly one record exists per type by removing any accidental duplicates.
+        if (duplicates.length > 0) {
+            await Page.destroy({ where: { id: duplicates.map((page) => page.id) } });
+        }
+
+        return await primary.update({
+            slug,
             ...data,
             isPublished: data.isPublished ?? false,
         });

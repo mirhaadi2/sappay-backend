@@ -445,6 +445,7 @@ Page.init(
                 fields: ['slug'],
             },
             {
+                unique: true,
                 fields: ['type'],
             }
         ],
