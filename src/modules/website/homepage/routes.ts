@@ -1,5 +1,14 @@
 import { Router } from 'express';
-import { getHomepageData, getAboutUs, getShippingPolicy, getReturnsRefunds, getFAQs } from '../../admin/website/service';
+import {
+    getHomepageData,
+    getAboutUs,
+    getShippingPolicy,
+    getReturnsRefunds,
+    getFAQs,
+    getPrivacyPolicy,
+    getTermsConditions,
+    getSitemap,
+} from '../../admin/website/service';
 
 const router = Router();
 
@@ -66,6 +75,15 @@ router.get('/pages/:slug', async (req, res) => {
             case 'faqs':
             case 'faq':
                 page = await getFAQs();
+                break;
+            case 'privacy-policy':
+                page = await getPrivacyPolicy();
+                break;
+            case 'terms-and-conditions':
+                page = await getTermsConditions();
+                break;
+            case 'sitemap':
+                page = await getSitemap();
                 break;
             default:
                 return res.status(404).json({ success: false, error: 'Page not found' });
