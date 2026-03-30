@@ -6,6 +6,8 @@ import {
     InstagramPost,
     WebsiteSetting,
     WebsitePage,
+    Page,
+    PageType,
 } from "./models";
 import { getR2SignedUrl } from "../../uploads/r2-utils";
 
@@ -148,9 +150,9 @@ export const getActiveSections = async () => {
 
     return await Promise.all(
         sections.map(async (section) => {
-            const videoUrl = await resolveR2Url(section.videoUrl);
-            const imageUrl = await resolveR2Url(section.imageUrl);
-            const backgroundImageUrl = await resolveR2Url(section.backgroundImageUrl);
+            const videoUrl = await resolveR2Url(section.videoUrl || null);
+            const imageUrl = await resolveR2Url(section.imageUrl || null);
+            const backgroundImageUrl = await resolveR2Url(section.backgroundImageUrl || null);
             return {
                 ...section,
                 videoUrl,
@@ -172,9 +174,9 @@ export const getSectionsByType = async (sectionType: string) => {
     });
     return await Promise.all(
         sections.map(async (section) => {
-            const videoUrl = await resolveR2Url(section.videoUrl);
-            const imageUrl = await resolveR2Url(section.imageUrl);
-            const backgroundImageUrl = await resolveR2Url(section.backgroundImageUrl);
+            const videoUrl = await resolveR2Url(section.videoUrl || null);
+            const imageUrl = await resolveR2Url(section.imageUrl || null);
+            const backgroundImageUrl = await resolveR2Url(section.backgroundImageUrl || null);
             return {
                 ...section,
                 videoUrl,
@@ -491,6 +493,96 @@ export const deletePage = async (id: string) => {
     if (!page) throw new Error("Page not found");
     await page.destroy();
 };
+
+// ===================== UNIFIED PAGE SERVICES =====================
+export const getPage = async (type: PageType) => {
+    return await Page.findOne({
+        where: { type },
+        order: [["createdAt", "DESC"]],
+    });
+};
+
+export const createOrUpdatePage = async (type: PageType, slug: string, data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => {
+    const existing = await Page.findOne({ where: { type } });
+    if (existing) {
+        return await existing.update({
+            ...data,
+            isPublished: data.isPublished ?? false,
+        });
+    } else {
+        return await Page.create({
+            type,
+            slug,
+            ...data,
+            isPublished: data.isPublished ?? false,
+        });
+    }
+};
+
+export const deletePageByType = async (type: PageType) => {
+    const page = await Page.findOne({ where: { type } });
+    if (page) {
+        await page.destroy();
+    }
+};
+
+// ===================== ABOUT US SERVICES =====================
+export const getAboutUs = async () => getPage(PageType.ABOUT_US);
+
+export const createOrUpdateAboutUs = async (data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => createOrUpdatePage(PageType.ABOUT_US, 'about-us', data);
+
+export const deleteAboutUs = async () => deletePageByType(PageType.ABOUT_US);
+
+// ===================== SHIPPING POLICY SERVICES =====================
+export const getShippingPolicy = async () => getPage(PageType.SHIPPING_POLICY);
+
+export const createOrUpdateShippingPolicy = async (data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => createOrUpdatePage(PageType.SHIPPING_POLICY, 'shipping-policy', data);
+
+export const deleteShippingPolicy = async () => deletePageByType(PageType.SHIPPING_POLICY);
+
+// ===================== RETURNS & REFUNDS SERVICES =====================
+export const getReturnsRefunds = async () => getPage(PageType.RETURNS_REFUNDS);
+
+export const createOrUpdateReturnsRefunds = async (data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => createOrUpdatePage(PageType.RETURNS_REFUNDS, 'returns-refunds', data);
+
+export const deleteReturnsRefunds = async () => deletePageByType(PageType.RETURNS_REFUNDS);
+
+// ===================== FAQs SERVICES =====================
+export const getFAQs = async () => getPage(PageType.FAQS);
+
+export const createOrUpdateFAQs = async (data: {
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished?: boolean;
+}) => createOrUpdatePage(PageType.FAQS, 'faqs', data);
+
+export const deleteFAQs = async () => deletePageByType(PageType.FAQS);
 
 // ===================== HOMEPAGE DATA AGGREGATOR =====================
 export const getHomepageData = async () => {

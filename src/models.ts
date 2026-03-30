@@ -12,4 +12,4 @@ export { Product } from './modules/admin/products/model';
 export { SellerProduct } from './modules/admin/products/seller-product/model';
 export { Role, Permission, StaffRole, AuditLog } from './modules/admin/models';
 export { Staff } from './modules/staff/models';
-export { HomepageBanner, HomepageHero, HomepageSection, Testimonial, InstagramPost, WebsiteSetting, WebsitePage } from './modules/admin/website/models';
+export { HomepageBanner, HomepageHero, HomepageSection, Testimonial, InstagramPost, WebsiteSetting, WebsitePage, Page, PageType } from './modules/admin/website/models';

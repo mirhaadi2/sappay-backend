@@ -1,4 +1,4 @@
-import { Model, DataTypes, Optional } from 'sequelize';
+import { Model, DataTypes, Optional, Sequelize } from 'sequelize';
 import { sequelize } from '../../../db/sequelize';
 
 // ===================== HOMEPAGE BANNER MODEL =====================
@@ -38,7 +38,7 @@ HomepageBanner.init(
 );
 
 // ===================== HOMEPAGE HERO SECTION MODEL =====================
-interface HomepageHeroAttributes {
+export interface HomepageHeroAttributes {
     id: string;
     title: string;
     subtitle: string;
@@ -86,7 +86,7 @@ HomepageHero.init(
 );
 
 // ===================== HOMEPAGE SECTION MODEL =====================
-interface HomepageSectionAttributes {
+export interface HomepageSectionAttributes {
     id: string;
     sectionType: string;
     title: string;
@@ -194,7 +194,7 @@ Testimonial.init(
 );
 
 // ===================== INSTAGRAM POST MODEL =====================
-interface InstagramPostAttributes {
+export interface InstagramPostAttributes {
     id: string;
     imageUrl: string;
     altText?: string;
@@ -326,4 +326,127 @@ WebsitePage.init(
         deletedAt: { type: DataTypes.DATE, allowNull: true, field: 'deleted_at' },
     },
     { sequelize, tableName: 'website_pages', timestamps: true, paranoid: true, underscored: true }
+);
+
+// ===================== UNIFIED PAGE MODEL =====================
+
+// 1. Define the possible page types for strict typing
+export enum PageType {
+    ABOUT_US = 'about_us',
+    SHIPPING_POLICY = 'shipping_policy',
+    RETURNS_REFUNDS = 'returns_refunds',
+    FAQS = 'faqs',
+    TERMS_CONDITIONS = 'terms_conditions' // Added for future-proofing
+}
+
+// 2. Define the Attributes interface
+interface PageAttributes {
+    id: string;
+    type: PageType;
+    slug: string;
+    title: string;
+    content: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    isPublished: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
+}
+
+// 3. Define Creation Attributes (fields that are optional during creation)
+type PageCreationAttributes = Optional<
+    PageAttributes, 
+    'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'metaTitle' | 'metaDescription' | 'isPublished'
+>;
+
+// 4. The Unified Model Class
+export class Page extends Model<PageAttributes, PageCreationAttributes> implements PageAttributes {
+    public id!: string;
+    public type!: PageType;
+    public slug!: string;
+    public title!: string;
+    public content!: string;
+    public metaTitle?: string;
+    public metaDescription?: string;
+    public isPublished!: boolean;
+
+    // Timestamps
+    public readonly createdAt!: Date;
+    public readonly updatedAt!: Date;
+    public readonly deletedAt?: Date;
+}
+
+// 5. Initialize the Model
+Page.init(
+    {
+        id: {
+            type: DataTypes.UUID,
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+        },
+        type: {
+            type: DataTypes.ENUM(...Object.values(PageType)),
+            allowNull: false,
+        },
+        slug: {
+            type: DataTypes.STRING(255),
+            allowNull: false,
+            unique: true, // Crucial for SEO-friendly URLs
+        },
+        title: {
+            type: DataTypes.STRING(255),
+            allowNull: false,
+        },
+        content: {
+            type: DataTypes.TEXT,
+            allowNull: false,
+        },
+        metaTitle: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+            field: 'meta_title',
+        },
+        metaDescription: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: 'meta_description',
+        },
+        isPublished: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            field: 'is_published',
+        },
+        createdAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+            field: 'created_at',
+        },
+        updatedAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+            field: 'updated_at',
+        },
+        deletedAt: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: 'deleted_at',
+        },
+    },
+    {
+        sequelize,
+        tableName: 'pages',
+        timestamps: true,
+        paranoid: true,
+        underscored: true,
+        indexes: [
+            {
+                unique: true,
+                fields: ['slug'],
+            },
+            {
+                fields: ['type'],
+            }
+        ],
+    }
 );
