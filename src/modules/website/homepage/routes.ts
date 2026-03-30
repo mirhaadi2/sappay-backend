@@ -64,6 +64,7 @@ router.get('/pages/:slug', async (req, res) => {
                 page = await getReturnsRefunds();
                 break;
             case 'faqs':
+            case 'faq':
                 page = await getFAQs();
                 break;
             default:
