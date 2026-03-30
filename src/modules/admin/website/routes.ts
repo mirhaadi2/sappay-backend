@@ -15,22 +15,10 @@ import {
     getWebsiteSettings, getWebsiteSetting, createWebsiteSetting, updateWebsiteSetting, deleteWebsiteSetting,
     // Page services
     getAllPages, getPageBySlug, createPage, updatePage, deletePage,
-    // Support page services
-    getAboutUs, createOrUpdateAboutUs, deleteAboutUs,
-    getShippingPolicy, createOrUpdateShippingPolicy, deleteShippingPolicy,
-    getReturnsRefunds, createOrUpdateReturnsRefunds, deleteReturnsRefunds,
-    getFAQs, createOrUpdateFAQs, deleteFAQs,
+    // Generic page service
+    getPage, createOrUpdatePage, deletePageByType,
     // Data aggregators
     getHomepageData, getWebsiteData,
-    getPrivacyPolicy,
-    createOrUpdatePrivacyPolicy,
-    deletePrivacyPolicy,
-    getTermsConditions,
-    createOrUpdateTermsConditions,
-    deleteTermsConditions,
-    getSitemap,
-    createOrUpdateSitemap,
-    deleteSitemap
 } from './service';
 
 const router = Router();
@@ -399,21 +387,7 @@ router.get('/pages', requireAuth, requireActiveStaff, requirePermission('admin.c
     }
 });
 
-/**
- * GET /admin/website/pages/:slug
- * Get page by slug
- */
-router.get('/pages/:slug', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
-    try {
-        const page = await getPageBySlug(req.params.slug);
-        if (!page) {
-            return res.status(404).json({ success: false, error: 'Page not found' });
-        }
-        res.json({ success: true, data: page });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+
 
 /**
  * POST /admin/website/pages
@@ -432,14 +406,14 @@ router.post('/pages', requireAuth, requireActiveStaff, requirePermission('admin.
  * PUT /admin/website/pages/:id
  * Update page
  */
-router.put('/pages/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        const page = await updatePage(req.params.id, req.body);
-        res.json({ success: true, data: page });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+// router.put('/pages/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+//     try {
+//         const page = await updatePage(req.params.id, req.body);
+//         res.json({ success: true, data: page });
+//     } catch (error: any) {
+//         res.status(500).json({ success: false, error: error.message });
+//     }
+// });
 
 /**
  * DELETE /admin/website/pages/:id
@@ -454,249 +428,59 @@ router.delete('/pages/:id', requireAuth, requireActiveStaff, requirePermission('
     }
 });
 
-// ===================== ABOUT US MANAGEMENT =====================
 
-/**
- * GET /admin/website/about-us
- * Get about us content
- */
-router.get('/about-us', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+const supportSlugToTypeMap: Record<string, any> = {
+    'about-us': 'about_us',
+    'shipping-policy': 'shipping_policy',
+    'returns-refunds': 'returns_refunds',
+    'faqs': 'faqs',
+    'privacy-policy': 'privacy_policy',
+    'terms-and-conditions': 'terms_conditions',
+    'sitemap': 'sitemap',
+};
+
+const getPageTypeFromSlug = (slug: string) => {
+    return supportSlugToTypeMap[slug];
+};
+
+// ===================== PAGE MANAGEMENT (GENERIC SUPPORT PAGES) =====================
+router.get('/pages/:slug', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
     try {
-        const aboutUs = await getAboutUs();
-        res.json({ success: true, data: aboutUs });
+        const { slug } = req.params;
+        const type = getPageTypeFromSlug(slug);
+        if (!type) return res.status(404).json({ success: false, error: 'Page not found' });
+
+        const page = await getPage(type as any);
+        if (!page) return res.status(404).json({ success: false, error: 'Page not found' });
+
+        return res.json({ success: true, data: page });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-/**
- * PUT /admin/website/about-us
- * Create or update about us
- */
-router.put('/about-us', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+router.put('/pages/:slug', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
     try {
-        const aboutUs = await createOrUpdateAboutUs(req.body);
-        res.json({ success: true, data: aboutUs });
+
+        const { slug } = req.params;
+        const type = getPageTypeFromSlug(slug);
+        if (!type) return res.status(404).json({ success: false, error: 'Page not found' });
+
+        const page = await createOrUpdatePage(type as any, slug, req.body);
+        return res.json({ success: true, data: page });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-/**
- * DELETE /admin/website/about-us
- * Delete about us
- */
-router.delete('/about-us', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+router.delete('/pages/:slug', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
     try {
-        await deleteAboutUs();
-        res.json({ success: true, message: 'About Us deleted successfully' });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+        const { slug } = req.params;
+        const type = getPageTypeFromSlug(slug);
+        if (!type) return res.status(404).json({ success: false, error: 'Page not found' });
 
-// ===================== SHIPPING POLICY MANAGEMENT =====================
-
-/**
- * GET /admin/website/shipping-policy
- * Get shipping policy content
- */
-router.get('/shipping-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
-    try {
-        const policy = await getShippingPolicy();
-        res.json({ success: true, data: policy });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-/**
- * PUT /admin/website/shipping-policy
- * Create or update shipping policy
- */
-router.put('/shipping-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        const policy = await createOrUpdateShippingPolicy(req.body);
-        res.json({ success: true, data: policy });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-/**
- * DELETE /admin/website/shipping-policy
- * Delete shipping policy
- */
-router.delete('/shipping-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        await deleteShippingPolicy();
-        res.json({ success: true, message: 'Shipping Policy deleted successfully' });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ===================== RETURNS & REFUNDS MANAGEMENT =====================
-
-/**
- * GET /admin/website/returns-refunds
- * Get returns & refunds content
- */
-router.get('/returns-refunds', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
-    try {
-        const returns = await getReturnsRefunds();
-        res.json({ success: true, data: returns });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-/**
- * PUT /admin/website/returns-refunds
- * Create or update returns & refunds
- */
-router.put('/returns-refunds', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        const returns = await createOrUpdateReturnsRefunds(req.body);
-        res.json({ success: true, data: returns });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-/**
- * DELETE /admin/website/returns-refunds
- * Delete returns & refunds
- */
-router.delete('/returns-refunds', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        await deleteReturnsRefunds();
-        res.json({ success: true, message: 'Returns & Refunds deleted successfully' });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ===================== FAQs MANAGEMENT =====================
-
-/**
- * GET /admin/website/faqs
- * Get FAQs content
- */
-router.get('/faqs', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
-    try {
-        const faqs = await getFAQs();
-        res.json({ success: true, data: faqs });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-/**
- * PUT /admin/website/faqs
- * Create or update FAQs
- */
-router.put('/faqs', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        const faqs = await createOrUpdateFAQs(req.body);
-        res.json({ success: true, data: faqs });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-/**
- * DELETE /admin/website/faqs
- * Delete FAQs
- */
-router.delete('/faqs', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        await deleteFAQs();
-        res.json({ success: true, message: 'FAQs deleted successfully' });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ===================== PRIVACY POLICY MANAGEMENT =====================
-router.get('/privacy-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
-    try {
-        const policy = await getPrivacyPolicy();
-        res.json({ success: true, data: policy });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-router.put('/privacy-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        const policy = await createOrUpdatePrivacyPolicy(req.body);
-        res.json({ success: true, data: policy });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-router.delete('/privacy-policy', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        await deletePrivacyPolicy();
-        res.json({ success: true, message: 'Privacy Policy deleted successfully' });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ===================== TERMS & CONDITIONS MANAGEMENT =====================
-router.get('/terms-and-conditions', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
-    try {
-        const terms = await getTermsConditions();
-        res.json({ success: true, data: terms });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-router.put('/terms-and-conditions', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        const terms = await createOrUpdateTermsConditions(req.body);
-        res.json({ success: true, data: terms });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-router.delete('/terms-and-conditions', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        await deleteTermsConditions();
-        res.json({ success: true, message: 'Terms & Conditions deleted successfully' });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ===================== SITEMAP MANAGEMENT =====================
-router.get('/sitemap', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
-    try {
-        const map = await getSitemap();
-        res.json({ success: true, data: map });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-router.put('/sitemap', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        const map = await createOrUpdateSitemap(req.body);
-        res.json({ success: true, data: map });
-    } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-router.delete('/sitemap', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
-    try {
-        await deleteSitemap();
-        res.json({ success: true, message: 'Sitemap deleted successfully' });
+        await deletePageByType(type as any);
+        return res.json({ success: true, message: 'Page deleted successfully' });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
