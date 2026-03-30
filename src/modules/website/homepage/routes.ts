@@ -1,13 +1,8 @@
 import { Router } from 'express';
 import {
+    getAllPages,
     getHomepageData,
-    getAboutUs,
-    getShippingPolicy,
-    getReturnsRefunds,
-    getFAQs,
-    getPrivacyPolicy,
-    getTermsConditions,
-    getSitemap,
+    getPage,
 } from '../../admin/website/service';
 
 const router = Router();
@@ -37,17 +32,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/pages', async (req, res) => {
     try {
-        const [aboutUs, shipping, returns, faqs] = await Promise.all([
-            getAboutUs(),
-            getShippingPolicy(),
-            getReturnsRefunds(),
-            getFAQs(),
-        ]);
-        const pages = [];
-        if (aboutUs?.isPublished) pages.push({ ...aboutUs.toJSON(), slug: 'about' });
-        if (shipping?.isPublished) pages.push({ ...shipping.toJSON(), slug: 'shipping' });
-        if (returns?.isPublished) pages.push({ ...returns.toJSON(), slug: 'returns' });
-        if (faqs?.isPublished) pages.push({ ...faqs.toJSON(), slug: 'faqs' });
+        const pages = await getAllPages();
         res.json({ success: true, data: pages });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message || 'Failed to fetch pages' });
@@ -58,42 +43,32 @@ router.get('/pages', async (req, res) => {
  * GET /api/homepage/pages/:slug
  * Get a published page by slug (public)
  */
+const supportSlugToTypeMap: Record<string, any> = {
+    'about-us': 'about_us',
+    'shipping-policy': 'shipping_policy',
+    'returns-refunds': 'returns_refunds',
+    'faqs': 'faqs',
+    'privacy-policy': 'privacy_policy',
+    'terms-and-conditions': 'terms_conditions',
+    'sitemap': 'sitemap',
+};
+
+const getPageTypeFromSlug = (slug: string) => {
+    return supportSlugToTypeMap[slug];
+};
+
 router.get('/pages/:slug', async (req, res) => {
     try {
         const { slug } = req.params;
-        let page = null;
-        switch (slug) {
-            case 'about':
-                page = await getAboutUs();
-                break;
-            case 'shipping':
-                page = await getShippingPolicy();
-                break;
-            case 'returns':
-                page = await getReturnsRefunds();
-                break;
-            case 'faqs':
-            case 'faq':
-                page = await getFAQs();
-                break;
-            case 'privacy-policy':
-                page = await getPrivacyPolicy();
-                break;
-            case 'terms-and-conditions':
-                page = await getTermsConditions();
-                break;
-            case 'sitemap':
-                page = await getSitemap();
-                break;
-            default:
-                return res.status(404).json({ success: false, error: 'Page not found' });
-        }
-        if (!page || !page.isPublished) {
-            return res.status(404).json({ success: false, error: 'Page not found' });
-        }
-        res.json({ success: true, data: { ...page.toJSON(), slug } });
+        const type = getPageTypeFromSlug(slug);
+        if (!type) return res.status(404).json({ success: false, error: 'Page not found' });
+
+        const page = await getPage(type as any);
+        if (!page) return res.status(404).json({ success: false, error: 'Page not found' });
+
+        return res.json({ success: true, data: page });
     } catch (error: any) {
-        res.status(500).json({ success: false, error: error.message || 'Failed to fetch page' });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
