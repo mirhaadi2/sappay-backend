@@ -10,16 +10,38 @@ import {
     PageType,
 } from "./models";
 import { getR2SignedUrl } from "../../uploads/r2-utils";
+import { sequelize } from "../../../db/sequelize";
+import { QueryTypes } from "sequelize";
 
 // ===================== BANNER SERVICES =====================
 export const getActiveBanners = async () => {
-    return await HomepageBanner.findAll({
-        // where: { isActive: true },
-        order: [
-            ["order", "ASC"],
-            ["createdAt", "DESC"],
-        ],
-    });
+    const query = `
+        SELECT 
+            id, 
+            text, 
+            "is_active" AS "isActive", 
+            "order", 
+            "created_at" AS "createdAt", 
+            "updated_at" AS "updatedAt"
+        FROM "homepage_banners"
+        ORDER BY "created_at" DESC
+    `;
+
+    let banners: HomepageBanner[] = [];
+    try {
+        banners = await sequelize.query(query, { 
+            type: QueryTypes.SELECT,
+            logging(sql, timing) {
+                console.log(`[SQL - ${timing}ms]: ${sql}`);
+            },
+            benchmark: true,
+        });
+    } catch (error) {
+        console.error("Error fetching active banners:", error);
+        return [];
+    }
+
+    return banners as HomepageBanner[] || [];
 };
 
 export const createBanner = async (data: {
@@ -51,13 +73,31 @@ export const deleteBanner = async (id: string) => {
 
 export const getActiveHero = async () => {
     try {
-        const heroes = await HomepageHero.findAll({
-            // where: { isActive: true },
-            order: [["createdAt", "DESC"]],
-            raw: true, // Recommended for read-only performance
+        const query = `
+            SELECT
+                id,
+                title,
+                subtitle,
+                "video_url" AS "videoUrl",
+                "video_poster_url" AS "videoPosterUrl",
+                "button_text" AS "buttonText",
+                "button_link" AS "buttonLink",
+                "is_active" AS "isActive",
+                "created_at" AS "createdAt",
+                "updated_at" AS "updatedAt"
+            FROM "homepage_hero"
+            ORDER BY "created_at" DESC
+        `;
+
+        const heroes: HomepageHero[] = await sequelize.query(query, {
+            type: QueryTypes.SELECT,
+            logging(sql, timing) {
+                console.log(`[SQL - ${timing}ms]: ${sql}`);
+            },
+            benchmark: true,
         });
 
-        return await Promise.all(
+        const resolvedHeroes = await Promise.all(
             heroes.map(async (hero) => {
                 const videoUrl = await resolveR2Url(hero.videoUrl);
                 return {
@@ -66,6 +106,8 @@ export const getActiveHero = async () => {
                 };
             }),
         );
+
+        return resolvedHeroes?.length > 0 ? resolvedHeroes : [];
     } catch (error) {
         console.error("[HeroService] Failed to fetch active heroes:", error);
         return [];
@@ -120,7 +162,6 @@ export const updateHero = async (
     const hero = await HomepageHero.findByPk(id);
     if (!hero) throw new Error("Hero section not found");
 
-    // If activating this hero, deactivate others
     if (data.isActive) {
         await HomepageHero.update(
             { isActive: false },
@@ -139,52 +180,105 @@ export const deleteHero = async (id: string) => {
 
 // ===================== SECTION SERVICES =====================
 export const getActiveSections = async () => {
-    const sections = await HomepageSection.findAll({
-        // where: { isActive: true },
-        raw: true,
-        order: [
-            ["order", "ASC"],
-            ["createdAt", "DESC"],
-        ],
+    const query = `
+        SELECT
+            id,
+            section_type AS "sectionType",
+            title,
+            subtitle,
+            content,
+            image_url AS "imageUrl",
+            video_url AS "videoUrl",
+            button_text AS "buttonText",
+            button_link AS "buttonLink",
+            background_image_url AS "backgroundImageUrl",
+            is_active AS "isActive",
+            "order",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+        FROM homepage_sections
+        WHERE is_active = true  -- CRITICAL: Only fetch active items
+        ORDER BY "order" ASC, created_at DESC
+    `;
+
+    const sections = await sequelize.query<HomepageSection>(query, {
+        type: QueryTypes.SELECT,
+        benchmark: true,
+        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
     });
 
-    return await Promise.all(
-        sections.map(async (section) => {
-            const videoUrl = await resolveR2Url(section.videoUrl || null);
-            const imageUrl = await resolveR2Url(section.imageUrl || null);
-            const backgroundImageUrl = await resolveR2Url(section.backgroundImageUrl || null);
+    if (!sections.length) return [];
+
+    const resolvedSections = await Promise.all(
+        sections.map(async (section: any) => {
+            const [videoUrl, imageUrl, backgroundImageUrl] = await Promise.all([
+                resolveR2Url(section?.videoUrl),
+                resolveR2Url(section?.imageUrl),
+                resolveR2Url(section?.backgroundImageUrl)
+            ]);
+
             return {
                 ...section,
                 videoUrl,
                 imageUrl,
                 backgroundImageUrl,
             };
-        }),
+        })
     );
+
+    return resolvedSections?.length > 0 ? resolvedSections : [];
 };
 
 export const getSectionsByType = async (sectionType: string) => {
-    const sections = await HomepageSection.findAll({
-        // where: { sectionType, isActive: true },
-        raw: true,
-        order: [
-            ["order", "ASC"],
-            ["createdAt", "DESC"],
-        ],
+    const query = `
+        SELECT
+            id,
+            section_type AS "sectionType",
+            title,
+            subtitle,
+            content,
+            image_url AS "imageUrl",
+            video_url AS "videoUrl",
+            button_text AS "buttonText",
+            button_link AS "buttonLink",
+            background_image_url AS "backgroundImageUrl",
+            is_active AS "isActive",
+            "order",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+        FROM homepage_sections
+        WHERE is_active = true  
+        AND section_type = :sectionType
+        ORDER BY "order" ASC, created_at DESC
+    `;
+
+    const sections = await sequelize.query<HomepageSection>(query, {
+        type: QueryTypes.SELECT,
+        replacements: { sectionType },
+        benchmark: true,
+        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
     });
-    return await Promise.all(
-        sections.map(async (section) => {
-            const videoUrl = await resolveR2Url(section.videoUrl || null);
-            const imageUrl = await resolveR2Url(section.imageUrl || null);
-            const backgroundImageUrl = await resolveR2Url(section.backgroundImageUrl || null);
+
+    if (!sections.length) return [];
+
+    const resolvedSections = await Promise.all(
+        sections.map(async (section: any) => {
+            const [videoUrl, imageUrl, backgroundImageUrl] = await Promise.all([
+                resolveR2Url(section?.videoUrl),
+                resolveR2Url(section?.imageUrl),
+                resolveR2Url(section?.backgroundImageUrl)
+            ]);
+
             return {
                 ...section,
                 videoUrl,
                 imageUrl,
                 backgroundImageUrl,
             };
-        }),
+        })
     );
+
+    return resolvedSections?.length > 0 ? resolvedSections : [];
 };
 
 export const createSection = async (data: {
@@ -256,13 +350,36 @@ export const deleteSection = async (id: string) => {
 
 // ===================== TESTIMONIAL SERVICES =====================
 export const getActiveTestimonials = async () => {
-    return await Testimonial.findAll({
-        // where: { isActive: true },
-        order: [
-            ["order", "ASC"],
-            ["createdAt", "DESC"],
-        ],
+    // return await Testimonial.findAll({
+    //     order: [
+    //         ["order", "ASC"],
+    //         ["createdAt", "DESC"],
+    //     ],
+    // });
+    const query = `
+        SELECT
+            id,
+            author,
+            initials,
+            location,
+            comment,
+            rating,
+            is_active AS "isActive",
+            "order",
+            "created_at" AS "createdAt",
+            "updated_at" AS "updatedAt"
+        FROM testimonials
+        WHERE is_active = true  AND deleted_at IS NULL
+        ORDER BY "order" ASC, created_at DESC
+    `;
+
+    const testimonials: Testimonial[] = await sequelize.query<Testimonial>(query, {
+        type: QueryTypes.SELECT,
+        benchmark: true,
+        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
     });
+
+    return testimonials;
 };
 
 export const createTestimonial = async (data: {
