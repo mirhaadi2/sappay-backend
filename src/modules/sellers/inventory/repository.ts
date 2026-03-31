@@ -4,6 +4,10 @@ import { AppError } from '../../../utils/AppError';
 import { sequelize } from '../../../db/sequelize';
 import { QueryTypes } from 'sequelize';
 
+export const findInventoryByProductId = async (productId: string) => {
+  return await Inventory.findOne({ where: { productId } });
+};
+
 export const createInventory = async (data: any) => {
   return await Inventory.create(data);
 };
@@ -91,6 +95,21 @@ export const decrementStock = async (sellerProductId: string, quantity: number) 
     soldStock: inventory.soldStock + quantity,
   });
 };
+
+export const reserveStockByProductIdRepo = async (productId: string, quantity: number) => {
+  const inventory = await findInventoryByProductId(productId);
+  if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+
+  if (inventory?.dataValues?.availableStock < quantity) {
+    throw new AppError('BadRequest', 400, 'Insufficient stock');
+  }
+
+  return await inventory.update({
+    availableStock: inventory.availableStock - quantity,
+    reservedStock: inventory.reservedStock + quantity,
+  });
+};
+
 
 export const reserveStockRepo = async (sellerProductId: string, quantity: number) => {
   const inventory = await findBySellerProductId(sellerProductId);

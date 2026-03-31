@@ -38,6 +38,7 @@ export const findProductById = async (id: string) => {
       JSON_AGG(
         JSON_BUILD_OBJECT(
           'id', pv.id,
+          'productId', pv.product_id,
           'sku', pv.sku,
           'price', pv.price,
           'discountedPrice', pv.discounted_price,

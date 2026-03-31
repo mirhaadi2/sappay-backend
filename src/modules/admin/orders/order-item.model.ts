@@ -4,13 +4,14 @@ import { sequelize } from '../../../db/sequelize';
 interface OrderItemAttributes {
   id: string;
   orderId: string;
-  sellerId: string;
-  sellerProductId: string;
+  productId: string;
+  productVariantId: string;
+  sku: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
-  taxAmount: number;
-  itemTotal: number;
+  taxAmount?: number;
+  itemTotal?: number;
   status: 'PENDING' | 'CONFIRMED' | 'PACKED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'RETURNED';
   trackerNumber?: string;
   shippedAt?: Date;
@@ -28,13 +29,14 @@ type OrderItemCreationAttributes = Optional<
 export class OrderItem extends Model<OrderItemAttributes, OrderItemCreationAttributes> implements OrderItemAttributes {
   public id!: string;
   public orderId!: string;
-  public sellerId!: string;
-  public sellerProductId!: string;
+  public productId!: string;
+  public productVariantId!: string;
+  public sku!: string;
   public quantity!: number;
   public unitPrice!: number;
   public subtotal!: number;
-  public taxAmount!: number;
-  public itemTotal!: number;
+  public taxAmount?: number;
+  public itemTotal?: number;
   public status!: 'PENDING' | 'CONFIRMED' | 'PACKED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'RETURNED';
   public trackerNumber?: string;
   public shippedAt?: Date;
@@ -56,13 +58,20 @@ OrderItem.init(
     orderId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'order_id',
     },
-    sellerId: {
+    productId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'product_id',
     },
-    sellerProductId: {
+    productVariantId: {
       type: DataTypes.UUID,
+      allowNull: false,
+      field: 'product_variant_id',
+    },
+    sku: {
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
     quantity: {
@@ -72,19 +81,24 @@ OrderItem.init(
     unitPrice: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
+      field: 'unit_price',
     },
     subtotal: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
+      field: 'subtotal',
     },
     taxAmount: {
       type: DataTypes.DECIMAL(12, 2),
-      allowNull: false,
+      allowNull: true,
       defaultValue: 0,
+      field: 'tax_amount',
     },
     itemTotal: {
       type: DataTypes.DECIMAL(12, 2),
-      allowNull: false,
+      allowNull: true,
+      defaultValue: 0,
+      field: 'item_total',                  
     },
     status: {
       type: DataTypes.ENUM(
@@ -102,14 +116,17 @@ OrderItem.init(
     trackerNumber: {
       type: DataTypes.STRING(100),
       allowNull: true,
+      field: 'tracker_number',
     },
     shippedAt: {
       type: DataTypes.DATE,
       allowNull: true,
+      field: 'shipped_at',
     },
     deliveredAt: {
       type: DataTypes.DATE,
       allowNull: true,
+      field: 'delivered_at',
     },
     metadata: {
       type: DataTypes.JSON,
@@ -120,11 +137,13 @@ OrderItem.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'created_at',
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'updated_at',
     },
   },
   {

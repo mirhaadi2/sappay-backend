@@ -6,6 +6,8 @@ import {
   decrementStock,
   releaseReservedStock,
   getSellerInventory,
+  findInventoryByProductId,
+  reserveStockByProductIdRepo,
 } from "./repository";
 import { createHistoryRecord } from "./histories";
 import { AppError } from "../../../utils/AppError";
@@ -64,6 +66,13 @@ export const updateStockService = async (
   });
 };
 
+export const reserveStockByProductIdService = async (
+  productId: string,
+  quantity: number,
+) => {
+  return await reserveStockByProductIdRepo(productId, quantity);
+};
+
 export const reserveStockService = async (
   sellerProductId: string,
   quantity: number,
@@ -83,6 +92,15 @@ export const cancelOrderService = async (
   quantity: number,
 ) => {
   return await releaseReservedStock(sellerProductId, quantity);
+};
+
+export const checkInventoryByProductIdService = async (
+  productId: string,
+  quantity: number,
+) => {
+  const inventory = await findInventoryByProductId(productId);
+  if (!inventory) return false;
+  return inventory?.dataValues?.availableStock >= quantity;
 };
 
 export const checkAvailabilityService = async (

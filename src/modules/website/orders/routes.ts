@@ -7,8 +7,11 @@ import {
   getSellerOrdersHandler,
   updateItemStatusHandler,
 } from './controller';
+import { requireAuth } from "../../../middleware/auth.middleware";
 
 const router = Router();
+
+router.use(requireAuth);
 
 // Customer endpoints
 router.post('/', placeOrderHandler);

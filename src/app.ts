@@ -19,6 +19,7 @@ import adminAuthRoutes from "./modules/admin/auth/routes";
 import adminRoutes from "./modules/admin";
 import staffAuthRoutes from "./modules/staff/auth/routes";
 import { staffRouter } from "./modules/staff/routes";
+import { orderRoutes } from "./modules/website/orders";
 
 const app = express();
 
@@ -41,7 +42,7 @@ const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff"], (req, res, next) => {
+app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toLowerCase();
 
@@ -55,7 +56,7 @@ app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sel
     portal = Portal.ADMIN;
   } else if (effectivePath.includes('/api/sellers') || effectivePath.includes('/sellers') || effectivePath.includes('/api/products/seller')) {
     portal = Portal.SELLER;
-  } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/users') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products') || effectivePath.includes('/api/homepage')) {
+  } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/users') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products') || effectivePath.includes('/api/homepage') || effectivePath.includes('/api/orders')) {
     portal = Portal.WEBSITE;
   } else {
     // For any other unknown route, preserve existing portal via cookie. Useful for routes outside our explicit prefix list.
@@ -82,6 +83,7 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/homepage", homepageRoutes);
 app.use("/api/sellers", sellerRoutes);
+app.use("/api/orders", orderRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin", adminRoutes);

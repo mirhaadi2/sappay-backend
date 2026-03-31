@@ -15,6 +15,8 @@ import {
   reserveStockService,
   confirmOrderService,
   cancelOrderService as releaseStockService,
+  checkInventoryByProductIdService,
+  reserveStockByProductIdService,
 } from '../../sellers/inventory/service';
 import { findSellerProductById, findProductById } from '../products/repository';
 import { AppError } from '../../../utils/AppError';
@@ -23,74 +25,126 @@ export const placeOrderService = async (
   customerId: string,
   orderData: {
     items: Array<{
-      sellerProductId: string;
+      productId: string;
+      productVariantId: string;
+      sku: string;
       quantity: number;
+      price: number;
+      discountedPrice: number;
+      discountedPercent: number;
     }>;
+    subtotal: number;
+    totalAmount: number;
+    discountAmount: number;
+    taxAmount: number;
+    shippingCost?: number;
     shippingAddressId: string;
     paymentMethod: string;
   }
 ) => {
-  const { items, shippingAddressId, paymentMethod } = orderData;
+  const { items, shippingAddressId, paymentMethod, subtotal, taxAmount, shippingCost = 0 } = orderData;
 
+  // ✅ Validation
   if (!items || items.length === 0) {
     throw new AppError('BadRequest', 400, 'Order must have at least one item');
   }
 
-  let totalAmount = 0;
-  let totalTax = 0;
+  if (!customerId || !shippingAddressId) {
+    throw new AppError('BadRequest', 400, 'Customer ID and shipping address are required');
+  }
+
   const orderItems = [];
+  const itemsToProcess = [];
 
+  // ✅ Step 1: Validate all products and variants exist, check stock
   for (const item of items) {
-    const sellerProduct = await findSellerProductById(item.sellerProductId);
-    if (!sellerProduct) {
-      throw new AppError('NotFound', 404, `Product not found: ${item.sellerProductId}`);
+    // Fetch product
+    const product = await findProductById(item.productId);
+    if (!product) {
+      throw new AppError('NotFound', 404, `Product not found: ${item.productId}`);
     }
 
-    const available = await checkAvailabilityService(item.sellerProductId, item.quantity);
+    // ✅ Fetch variant
+    const variants = (product as any).variants || [];
+    const variant = variants.find((v: any) => v.id === item.productVariantId);
+    if (!variant) {
+      throw new AppError('NotFound', 404, `Product variant not found: ${item.productVariantId}`);
+    }
+
+    // ✅ Validate SKU matches
+    if (variant.sku !== item.sku) {
+      throw new AppError('BadRequest', 400, `SKU mismatch for variant ${item.productVariantId}`);
+    }
+
+    // ✅ Check stock availability
+    const available = await checkInventoryByProductIdService(item.productId, item.quantity);
     if (!available) {
-      throw new AppError('BadRequest', 400, 'Insufficient stock for one or more items');
+      throw new AppError('BadRequest', 400, `Insufficient stock for ${(product as any).name} (${variant.weight})`);
     }
 
-    const subtotal = (sellerProduct as any).sellerPrice * item.quantity;
-    const product = await findProductById((sellerProduct as any).productId);
-    const tax = (subtotal * ((product as any)?.gst_rate || 18)) / 100;
-
-    totalAmount += subtotal;
-    totalTax += tax;
-
-    orderItems.push({
-      sellerProductId: item.sellerProductId,
-      sellerId: (sellerProduct as any).sellerId,
+    itemsToProcess.push({
+      productId: item.productId,
+      productVariantId: item.productVariantId,
+      sku: item.sku,
       quantity: item.quantity,
-      unitPrice: (sellerProduct as any).sellerPrice,
-      subtotal,
-      taxAmount: tax,
-      itemTotal: subtotal + tax,
+      price: item.price,
+      discountedPrice: item.discountedPrice,
+      discountedPercent: item.discountedPercent,
     });
   }
 
-  const finalAmount = totalAmount + totalTax;
+  // ✅ Step 2: Create order items with frontend-calculated data
+  for (const item of itemsToProcess) {
+    orderItems.push({
+      productId: item.productId,
+      productVariantId: item.productVariantId,
+      sku: item.sku,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      discountedPrice: item.discountedPrice,
+      discountedPercent: item.discountedPercent,
+    });
+  }
+
+  // ✅ Step 3: Use frontend-calculated totals
+  const finalAmount = parseFloat(orderData.totalAmount.toFixed(2));
   const orderNumber = await generateOrderNumber();
+
+  // ✅ Step 4: Create order with frontend-provided totals
   const order = await createOrder({
     orderNumber,
     customerId,
     shippingAddressId,
     paymentMethod,
-    status: 'PENDING',
+    status: 'CONFIRMED',
     paymentStatus: 'PENDING',
-    totalAmount,
-    taxAmount: totalTax,
+    subtotal: parseFloat(subtotal.toFixed(2)),
+    taxAmount: parseFloat(taxAmount.toFixed(2)),
+    discountAmount: parseFloat(orderData.discountAmount.toFixed(2)),
+    totalAmount: finalAmount,
     finalAmount,
-    shippingCost: 0,
+    shippingCost: parseFloat(shippingCost.toFixed(2)),
   });
-
+console.log(order,'order')
+  // ✅ Step 5: Create order items and reserve stock
   for (const itemData of orderItems) {
     await createOrderItem({
-      ...itemData,
-      orderId: (order as any).id,
+      orderId: order?.dataValues?.id ?? (order as any).id,
+      productId: itemData.productId,
+      productVariantId: itemData.productVariantId,
+      sku: itemData.sku,
+      quantity: itemData.quantity,
+      unitPrice: itemData.unitPrice,
+      subtotal: itemData.unitPrice * itemData.quantity,
+      taxAmount: 0, // Initialize tax amount
+      itemTotal: 0, // Initialize item total
+      discountedPrice: itemData.discountedPrice,
+      discountedPercent: itemData.discountedPercent,
+      status: 'PENDING',
     });
 
-    await reserveStockService(itemData.sellerProductId, itemData.quantity);
+    // Reserve stock for this product
+    await reserveStockByProductIdService(itemData.productId, itemData.quantity);
   }
 
   return {
