@@ -12,6 +12,7 @@ import addressRoutes from "./modules/website/address/routes";
 import productRoutes from "./modules/website/products/routes";
 import { homepageRoutes } from "./modules/website/homepage";
 import { errorHandler } from "./middleware/error.middleware";
+import { requestLoggingMiddleware, errorLoggingMiddleware } from "./middleware/logging.middleware";
 import { sellerRoutes } from "./modules/sellers";
 import { uploadsRoutes } from "./modules/uploads";
 import adminAuthRoutes from "./modules/admin/auth/routes";
@@ -22,6 +23,10 @@ import { staffRouter } from "./modules/staff/routes";
 const app = express();
 
 app.set('trust proxy', 1); // Trust first proxy for development/production
+
+// Add request logging middleware as the first middleware
+app.use(requestLoggingMiddleware);
+
 app.use(helmet());
 app.use(cors({
   origin: config.frontendOrigin,
@@ -83,6 +88,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/staff/auth", staffAuthRoutes);
 app.use("/api/staff", staffRouter);
 
+app.use(errorLoggingMiddleware);
 app.use(errorHandler);
 
 export default app;
