@@ -10,6 +10,7 @@ import { AdminUserQuery, AdminUser } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
 import { hashPassword, generateRandomPassword } from '../../../utils/password';
+import { sequelize } from '../../../db/sequelize';
 
 export const adminListUsers = async (query: AdminUserQuery) => {
   try {
@@ -56,6 +57,7 @@ export const adminListUsers = async (query: AdminUserQuery) => {
 };
 
 export const adminCreateUser = async (data: { email: string; name?: string; phone?: string }) => {
+  const transaction = await sequelize?.transaction();
   try {
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email: data.email } });
@@ -74,14 +76,16 @@ export const adminCreateUser = async (data: { email: string; name?: string; phon
       name: data.name,
       phone: data.phone,
       role: 'USER' as UserRole
-    });
+    }, { transaction });
 
     logger.info('User created by admin', { userId: user.id, email: data.email });
+    await transaction?.commit();
     return {
       ...(await adminGetUser(user.id)),
       password: plainPassword
     };
   } catch (error: any) {
+    if (transaction) await transaction.rollback();
     logger.error('Error creating admin user', { email: data.email, error });
     if (error instanceof AppError) throw error;
     throw new AppError('UserError', 500, error.message || 'Failed to create user');

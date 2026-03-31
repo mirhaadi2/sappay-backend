@@ -111,11 +111,62 @@ const resolveR2Url = async (key: string) => {
 };
 
 export const findAllProducts = async (filters: any) => {
-  const { categoryId, status, limit = 20, offset = 0, search } = filters;
-  const where: any = {};
+  const {
+    categoryId,
+    status,
+    limit = 20,
+    offset,
+    page = 1,
+    search,
+    isBestseller,
+    isNew,
+    isCustomerFavourites,
+  } = filters || {};
 
-  if (categoryId) where.categoryId = categoryId;
-  if (status) where.status = status;
+  const parsedLimit = Number(limit) > 0 ? Number(limit) : 20;
+  const parsedOffset =
+    Number.isInteger(Number(offset)) && Number(offset) >= 0
+      ? Number(offset)
+      : (Number(page) > 0 ? (Number(page) - 1) * parsedLimit : 0);
+
+  const conditions: string[] = ['p.status = \'ACTIVE\''];
+  const replacements: any = {
+    limit: parsedLimit,
+    offset: parsedOffset,
+  };
+
+  if (categoryId) {
+    conditions.push('p.category_id = :categoryId');
+    replacements.categoryId = categoryId;
+  }
+
+  if (status) {
+    conditions.push('p.status = :status');
+    replacements.status = status;
+  }
+
+  if (typeof isBestseller !== 'undefined') {
+    conditions.push('p.is_best_seller = :isBestseller');
+    replacements.isBestseller = isBestseller === 'true' || isBestseller === true;
+  }
+
+  if (typeof isNew !== 'undefined') {
+    conditions.push('p.is_new = :isNew');
+    replacements.isNew = isNew === 'true' || isNew === true;
+  }
+
+  if (typeof isCustomerFavourites !== 'undefined') {
+    conditions.push('p.is_customer_favourites = :isCustomerFavourites');
+    replacements.isCustomerFavourites =
+      isCustomerFavourites === 'true' || isCustomerFavourites === true;
+  }
+
+  if (search) {
+    conditions.push('p.name ILIKE :search');
+    replacements.search = `%${search}%`;
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const query = `
     SELECT
@@ -144,19 +195,12 @@ export const findAllProducts = async (filters: any) => {
     FROM products p
     LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
     LEFT JOIN categories c ON c.id = p.category_id
-    WHERE p.status = 'ACTIVE'
-    ${search ? "AND p.name ILIKE :search" : ""}
+    ${whereClause}
     GROUP BY p.id, c.name
     ORDER BY p.created_at DESC
-    LIMIT :limit 
+    LIMIT :limit
     OFFSET :offset
   `;
-
-  const replacements: any = {
-    limit,
-    offset,
-    search: search ? `%${search}%` : undefined,
-  };
   const products: any = await sequelize?.query(query, {
     replacements,
     type: QueryTypes.SELECT,
@@ -190,19 +234,30 @@ export const findAllProducts = async (filters: any) => {
     }),
   );
 
-  const total = await Product.count({
-    where: {
-      status: "ACTIVE",
-      ...(categoryId && { categoryId }),
-      ...(search && { name: { [Op.iLike]: `%${search}%` } }),
-    },
-  });
+  const countWhere: any = {
+    status: status || 'ACTIVE',
+    ...(categoryId && { categoryId }),
+    ...(search && { name: { [Op.iLike]: `%${search}%` } }),
+    ...(typeof isBestseller !== 'undefined' && {
+      isBestseller: isBestseller === 'true' || isBestseller === true,
+    }),
+    ...(typeof isNew !== 'undefined' && { isNew: isNew === 'true' || isNew === true }),
+    ...(typeof isCustomerFavourites !== 'undefined' && {
+      isCustomerFavourites:
+        isCustomerFavourites === 'true' || isCustomerFavourites === true,
+    }),
+  };
+
+  const total = await Product.count({ where: countWhere });
+
+  const currentPage = Math.floor(parsedOffset / parsedLimit) + 1;
 
   return {
     products: formattedProducts,
     total,
-    page: Math.floor(offset / limit) + 1,
-    totalPages: Math.ceil(total / limit),
+    page: currentPage,
+    limit: parsedLimit,
+    totalPages: Math.ceil(total / parsedLimit),
   };
 };
 
