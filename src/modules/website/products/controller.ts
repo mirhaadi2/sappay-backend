@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { createHash } from 'crypto';
 import {
   createProductService,
   getProductDetailsService,
@@ -50,6 +51,16 @@ export const getProductDetailsHandler = async (
   try {
     const { id } = req.params;
     const product = await getProductDetailsService(id);
+
+    const payload = JSON.stringify(product);
+    const etag = createHash('md5').update(payload).digest('hex');
+    res.setHeader('ETag', etag);
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch && ifNoneMatch.toString() === etag) {
+      return res.status(304).end();
+    }
+
     res.json({ success: true, data: product });
   } catch (error) {
     next(error);
@@ -63,6 +74,17 @@ export const fetchProductsHandler = async (
 ) => {
   try {
     const result = await fetchProductsService(req.query);
+
+    const payload = JSON.stringify(result);
+    const etag = createHash('md5').update(payload).digest('hex');
+
+    res.setHeader('ETag', etag);
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch && ifNoneMatch.toString() === etag) {
+      return res.status(304).end();
+    }
+
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -89,6 +111,17 @@ export const getCategoriesHandler = async (
 ) => {
   try {
     const result = await getCategoriesService(req.query);
+
+    const payload = JSON.stringify(result);
+    const etag = createHash('md5').update(payload).digest('hex');
+
+    res.setHeader('ETag', etag);
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch && ifNoneMatch.toString() === etag) {
+      return res.status(304).end();
+    }
+
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);

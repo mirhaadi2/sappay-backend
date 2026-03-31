@@ -6,6 +6,8 @@ import { SellerProduct } from "../../admin/products/seller-product/model";
 import { AppError } from "../../../utils/AppError";
 import { sequelize } from "../../../db/sequelize";
 import { QueryTypes, Op } from "sequelize";
+import { createHash } from "crypto";
+import { redisClient } from "../../../config/session";
 
 export const createProduct = async (data: any) => {
   return await Product.create(data);
@@ -114,17 +116,76 @@ const resolveR2Url = async (key: string) => {
  * Interface defining the expected filters
  */
 interface ProductFilters {
-  categoryId?: string | number;
-  status?: string;
-  limit?: string | number;
-  page?: string | number;
-  search?: string;
-  isBestseller?: boolean | string;
-  isNew?: boolean | string;
-  isCustomerFavourites?: boolean | string;
+  [key: string]: any;
 }
 
+const PRODUCT_LIST_CACHE_TTL = 60 * 2; // 2 minutes
+
+const getProductsCacheKey = (filters: ProductFilters): string => {
+  const normalized = Object.keys(filters || {})
+    .sort()
+    .reduce((acc: any, key) => {
+      acc[key] = filters[key];
+      return acc;
+    }, {});
+
+  const hash = createHash("md5")
+    .update(JSON.stringify(normalized))
+    .digest("hex");
+
+  return `website:products:${hash}`;
+};
+
+const getCategoriesCacheKey = (filters: any): string => {
+  const normalized = Object.keys(filters || {})
+    .sort()
+    .reduce((acc: any, key) => {
+      acc[key] = filters[key];
+      return acc;
+    }, {});
+
+  const hash = createHash("md5")
+    .update(JSON.stringify(normalized))
+    .digest("hex");
+
+  return `website:categories:${hash}`;
+};
+
+export const invalidateProductsCache = async () => {
+  try {
+    if (!redisClient.isOpen) return;
+    const keys = await redisClient.keys("website:products:*");
+    if (keys.length === 0) return;
+    await redisClient.del(keys);
+  } catch (err: any) {
+    console.warn("Failed to invalidate products cache:", err?.message || err);
+  }
+};
+export const invalidateCategoriesCache = async () => {
+  try {
+    if (!redisClient.isOpen) return;
+    const keys = await redisClient.keys("website:categories:*");
+    if (keys.length === 0) return;
+    await redisClient.del(keys);
+  } catch (err: any) {
+    console.warn("Failed to invalidate categories cache:", err?.message || err);
+  }
+};
 export const findAllProducts = async (filters: ProductFilters) => {
+  const cacheKey = getProductsCacheKey(filters || {});
+
+  // Try to return from Redis cache first
+  try {
+    if (redisClient.isOpen) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    }
+  } catch (err: any) {
+    console.warn('Redis cache read failed in findAllProducts:', err?.message || err);
+  }
+
   // 1. Destructure with Defaults
   const { 
     limit = 20, 
@@ -164,13 +225,25 @@ export const findAllProducts = async (filters: ProductFilters) => {
   // 5. Post-Processing Logic
   const formattedProducts = await formatProductData(products);
 
-  return {
+  const result = {
     products: formattedProducts,
     total,
     page: Math.max(Number(page), 1),
     limit: parsedLimit,
     totalPages: Math.ceil(total / parsedLimit),
   };
+
+  try {
+    if (redisClient.isOpen) {
+      await redisClient.set(cacheKey, JSON.stringify(result), {
+        EX: PRODUCT_LIST_CACHE_TTL,
+      });
+    }
+  } catch (err: any) {
+    console.warn('Redis cache write failed in findAllProducts:', err?.message || err);
+  }
+
+  return result;
 };
 
 /**
@@ -217,9 +290,16 @@ function buildProductConditions(filters: any) {
 function generateMainQuery(whereClause: string) {
   return `
     SELECT
-      p.id, p.name, p.slug, p.category_id as "categoryId",
-      c.name as "category", p.description, p.images, p.gst_rate,
-      p.is_new as "isNew", p.is_customer_favourites as "isCustomerFavourites",
+      p.id, 
+      p.name, 
+      p.slug, 
+      p.category_id as "categoryId",
+      c.name as "category", 
+      p.description, 
+      p.images, 
+      p.gst_rate,
+      p.is_new as "isNew", 
+      p.is_customer_favourites as "isCustomerFavourites",
       p.is_best_seller as "isBestseller",
       COALESCE(JSON_AGG(
         JSON_BUILD_OBJECT(
@@ -367,13 +447,38 @@ export const findCategoryById = async (id: string) => {
 };
 
 export const findAllCategories = async (filters: any) => {
+  const cacheKey = getCategoriesCacheKey(filters || {});
+
+  try {
+    if (redisClient.isOpen) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    }
+  } catch (err: any) {
+    console.warn('Redis cache read failed in findAllCategories:', err?.message || err);
+  }
+
   const { isActive = true, limit = 100, offset = 0 } = filters;
-  return await Category.findAll({
+  const rows = await Category.findAll({
     where: { isActive },
     limit,
     offset,
     order: [["displayOrder", "ASC"]],
   });
+
+  try {
+    if (redisClient.isOpen) {
+      await redisClient.set(cacheKey, JSON.stringify(rows), {
+        EX: PRODUCT_LIST_CACHE_TTL,
+      });
+    }
+  } catch (err: any) {
+    console.warn('Redis cache write failed in findAllCategories:', err?.message || err);
+  }
+
+  return rows;
 };
 
 export const createSellerProduct = async (data: any) => {

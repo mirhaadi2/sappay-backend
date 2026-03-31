@@ -15,6 +15,8 @@ import {
   updateSellerProduct,
   createCategory,
   createProductVariants,
+  invalidateProductsCache,
+  invalidateCategoriesCache,
 } from './repository';
 import { generateSku, normalizeSku } from '../../../utils/sku';
 
@@ -29,6 +31,8 @@ const calculateDiscountedPercent = (
 
 import { initializeInventoryService, initializeAdminProductStockService } from '../../sellers/inventory/service';
 import { AppError } from '../../../utils/AppError';
+
+export { invalidateProductsCache, invalidateCategoriesCache } from './repository';
 
 export const createProductService = async (data: any) => {
   const { name, slug, categoryId, stock = 0 } = data;
@@ -94,6 +98,9 @@ export const createProductService = async (data: any) => {
   if (stock && parseInt(stock) > 0) {
     await initializeAdminProductStockService(product.id, parseInt(stock), data?.addedBy);
   }
+
+  // Invalidate product list cache for consistent reads across categories/flows
+  await invalidateProductsCache();
 
   return product;
 };
@@ -228,7 +235,9 @@ export const createCategoryService = async (data: any) => {
     throw new AppError('BadRequest', 400, 'Name and slug are required');
   }
 
-  return await createCategory(data);
+  const category = await createCategory(data);
+  await invalidateCategoriesCache();
+  return category;
 };
 
 export const getCategoriesService = async (filters: any = {}) => {
@@ -258,7 +267,9 @@ export const updateSellerProductPriceService = async (
     throw new AppError('BadRequest', 400, 'Selling price cannot be less than cost price');
   }
 
-  return await updateSellerProduct(sellerProductId, updates);
+  const updated = await updateSellerProduct(sellerProductId, updates);
+  await invalidateProductsCache();
+  return updated;
 };
 
 export const updateSellerProductStatusService = async (
@@ -279,5 +290,7 @@ export const updateSellerProductStatusService = async (
     throw new AppError('BadRequest', 400, 'Invalid status value');
   }
 
-  return await updateSellerProduct(sellerProductId, { status });
+  const updated = await updateSellerProduct(sellerProductId, { status });
+  await invalidateProductsCache();
+  return updated;
 };

@@ -12,6 +12,11 @@ import {
 import { getR2SignedUrl } from "../../uploads/r2-utils";
 import { sequelize } from "../../../db/sequelize";
 import { QueryTypes } from "sequelize";
+import { redisClient } from "../../../config/session";
+import { createHash } from "crypto";
+
+const HOMEPAGE_CACHE_KEY = "website:homepage:data";
+const HOMEPAGE_CACHE_TTL = 60 * 2; // 2 minutes
 
 // ===================== BANNER SERVICES =====================
 export const getActiveBanners = async (status?: boolean) => {
@@ -672,7 +677,17 @@ export const deletePageByType = async (type: PageType) => {
 
 // ===================== HOMEPAGE DATA AGGREGATOR =====================
 export const getHomepageData = async () => {
-    console.log("Fetching homepage data...");
+    if (redisClient.isOpen) {
+        try {
+            const cached = await redisClient.get(HOMEPAGE_CACHE_KEY);
+            if (cached) {
+                return JSON.parse(cached);
+            }
+        } catch (err: any) {
+            console.warn("Redis homepage cache read failed:", err?.message || String(err));
+        }
+    }
+
     const [banners, hero, sections, testimonials, instagramPosts] =
         await Promise.all([
             getActiveBanners(true),
@@ -682,13 +697,25 @@ export const getHomepageData = async () => {
             getActiveInstagramPosts(true),
         ]);
 
-    return {
+    const result = {
         banners,
         hero,
         sections,
         testimonials,
         instagramPosts,
     };
+
+    if (redisClient.isOpen) {
+        try {
+            await redisClient.set(HOMEPAGE_CACHE_KEY, JSON.stringify(result), {
+                EX: HOMEPAGE_CACHE_TTL,
+            });
+        } catch (err: any) {
+            console.warn("Redis homepage cache write failed:", err?.message || String(err));
+        }
+    }
+
+    return result;
 };
 
 // ===================== WEBSITE DATA AGGREGATOR =====================

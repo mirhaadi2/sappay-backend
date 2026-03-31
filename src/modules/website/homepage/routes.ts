@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createHash } from 'crypto';
 import {
     getAllPages,
     getHomepageData,
@@ -14,6 +15,15 @@ const router = Router();
 router.get('/', async (req, res) => {
     try {
         const data = await getHomepageData();
+        const payload = JSON.stringify(data);
+        const etag = createHash('md5').update(payload).digest('hex');
+
+        res.setHeader('ETag', etag);
+        const ifNoneMatch = req.headers['if-none-match'];
+        if (ifNoneMatch && ifNoneMatch.toString() === etag) {
+            return res.status(304).end();
+        }
+
         res.json({
             success: true,
             data

@@ -48,6 +48,7 @@ redisClient.on('ready', () => {
   console.log('✅ Redis ready to serve requests');
 });
 
+export { redisClient };
 
 // Factory to create session options for each portal
 export function getSessionOptionsForPortal(portal: Portal): session.SessionOptions {

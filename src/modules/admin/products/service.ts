@@ -26,6 +26,7 @@ import {
 import {
   createProductService,
   generateProductVariantsWithSku,
+  invalidateProductsCache,
 } from "../../website/products/service";
 import {
   findProductBySku,
@@ -231,6 +232,8 @@ export const adminUpdateProduct = async (
       await upsertProductVariants(id, variantUpdateData);
     }
 
+    await invalidateProductsCache();
+
     logger.info("Product updated", { productId: id, updates });
     return await adminGetProduct(id);
   } catch (error) {
@@ -245,6 +248,7 @@ export const adminDeleteProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, "Product");
     await softDelete(id);
+    await invalidateProductsCache();
     logger.info("Product deleted", { productId: id });
     return { success: true, message: "Product deleted successfully" };
   } catch (error) {
@@ -259,6 +263,7 @@ export const adminPublishProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, "Product");
     await updateStatus(id, "ACTIVE");
+    await invalidateProductsCache();
     logger.info("Product published", { productId: id });
     return await adminGetProduct(id);
   } catch (error) {
@@ -273,6 +278,7 @@ export const adminUnpublishProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, "Product");
     await updateStatus(id, "INACTIVE");
+    await invalidateProductsCache();
     logger.info("Product unpublished", { productId: id });
     return await adminGetProduct(id);
   } catch (error) {
@@ -287,6 +293,7 @@ export const adminFeatureProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, "Product");
     await updateMetadata(id, "featured", true);
+    await invalidateProductsCache();
     logger.info("Product featured", { productId: id });
     return await adminGetProduct(id);
   } catch (error) {
@@ -359,6 +366,7 @@ export const adminUnfeatureProduct = async (id: string): Promise<any> => {
   try {
     await requireProductExists(id, "Product");
     await removeMetadata(id, "featured");
+    await invalidateProductsCache();
     logger.info("Product unfeatured", { productId: id });
     return await adminGetProduct(id);
   } catch (error) {
