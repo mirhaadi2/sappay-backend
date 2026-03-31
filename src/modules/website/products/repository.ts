@@ -123,7 +123,8 @@ export const findAllProducts = async (filters: any) => {
     isCustomerFavourites,
   } = filters || {};
 
-  const parsedLimit = Number(limit) > 0 ? Number(limit) : 20;
+  const rawLimit = Number(limit) > 0 ? Number(limit) : 20;
+  const parsedLimit = Math.min(rawLimit, 100); // cap to 100 for performance
   const parsedOffset =
     Number.isInteger(Number(offset)) && Number(offset) >= 0
       ? Number(offset)
