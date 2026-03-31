@@ -110,157 +110,153 @@ const resolveR2Url = async (key: string) => {
   }
 };
 
-export const findAllProducts = async (filters: any) => {
-  const {
-    categoryId,
-    status,
-    limit = 20,
-    offset,
-    page = 1,
-    search,
-    isBestseller,
-    isNew,
-    isCustomerFavourites,
+/**
+ * Interface defining the expected filters
+ */
+interface ProductFilters {
+  categoryId?: string | number;
+  status?: string;
+  limit?: string | number;
+  page?: string | number;
+  search?: string;
+  isBestseller?: boolean | string;
+  isNew?: boolean | string;
+  isCustomerFavourites?: boolean | string;
+}
+
+export const findAllProducts = async (filters: ProductFilters) => {
+  // 1. Destructure with Defaults
+  const { 
+    limit = 20, 
+    page = 1, 
+    search, 
+    categoryId, 
+    status = 'ACTIVE' 
   } = filters || {};
 
-  const rawLimit = Number(limit) > 0 ? Number(limit) : 20;
-  const parsedLimit = Math.min(rawLimit, 100); // cap to 100 for performance
-  const parsedOffset =
-    Number.isInteger(Number(offset)) && Number(offset) >= 0
-      ? Number(offset)
-      : (Number(page) > 0 ? (Number(page) - 1) * parsedLimit : 0);
+  // 2. Normalize Pagination
+  const parsedLimit = Math.min(Math.max(Number(limit), 1), 100);
+  const parsedOffset = (Math.max(Number(page), 1) - 1) * parsedLimit;
 
-  const conditions: string[] = ['p.status = \'ACTIVE\''];
-  const replacements: any = {
-    limit: parsedLimit,
-    offset: parsedOffset,
-  };
-
-  if (categoryId) {
-    conditions.push('p.category_id = :categoryId');
-    replacements.categoryId = categoryId;
-  }
-
-  if (status) {
-    conditions.push('p.status = :status');
-    replacements.status = status;
-  }
-
-  if (typeof isBestseller !== 'undefined') {
-    conditions.push('p.is_best_seller = :isBestseller');
-    replacements.isBestseller = isBestseller === 'true' || isBestseller === true;
-  }
-
-  if (typeof isNew !== 'undefined') {
-    conditions.push('p.is_new = :isNew');
-    replacements.isNew = isNew === 'true' || isNew === true;
-  }
-
-  if (typeof isCustomerFavourites !== 'undefined') {
-    conditions.push('p.is_customer_favourites = :isCustomerFavourites');
-    replacements.isCustomerFavourites =
-      isCustomerFavourites === 'true' || isCustomerFavourites === true;
-  }
-
-  if (search) {
-    conditions.push('p.name ILIKE :search');
-    replacements.search = `%${search}%`;
-  }
+  // 3. Dynamic Filter Builder
+  // We separate conditions and replacements to reuse them for both Data and Count queries
+  const { conditions, replacements } = buildProductConditions({
+    ...filters,
+    status, // Ensure status defaults to ACTIVE if not provided
+  });
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const query = `
+  // 4. Execute Queries in Parallel (Performance Boost)
+  const [products, countResult]: [any[], any[]] = await Promise.all([
+    sequelize.query(generateMainQuery(whereClause), {
+      replacements: { ...replacements, limit: parsedLimit, offset: parsedOffset },
+      type: QueryTypes.SELECT,
+    }),
+    sequelize.query(`SELECT COUNT(p.id) as total FROM products p ${whereClause}`, {
+      replacements,
+      type: QueryTypes.SELECT,
+    }),
+  ]);
+
+  const total = Number(countResult[0]?.total || 0);
+
+  // 5. Post-Processing Logic
+  const formattedProducts = await formatProductData(products);
+
+  return {
+    products: formattedProducts,
+    total,
+    page: Math.max(Number(page), 1),
+    limit: parsedLimit,
+    totalPages: Math.ceil(total / parsedLimit),
+  };
+};
+
+/**
+ * HELPER: Build dynamic SQL fragments
+ */
+function buildProductConditions(filters: any) {
+  const conditions: string[] = [];
+  const replacements: any = {};
+
+  const addFilter = (col: string, param: string, value: any, operator = '=') => {
+    if (value !== undefined && value !== null && value !== '') {
+      conditions.push(`${col} ${operator} :${param}`);
+      replacements[param] = value;
+    }
+  };
+
+  addFilter('p.status', 'status', filters.status);
+  addFilter('p.category_id', 'categoryId', filters.categoryId);
+  
+  if (filters.search) {
+    addFilter('p.name', 'search', `%${filters.search}%`, 'ILIKE');
+  }
+
+  // Handle Boolean Strings
+  const booleans = [
+    { key: 'isBestseller', col: 'p.is_best_seller' },
+    { key: 'isNew', col: 'p.is_new' },
+    { key: 'isCustomerFavourites', col: 'p.is_customer_favourites' },
+  ];
+
+  booleans.forEach(({ key, col }) => {
+    if (filters[key] !== undefined) {
+      conditions.push(`${col} = :${key}`);
+      replacements[key] = filters[key] === 'true' || filters[key] === true;
+    }
+  });
+
+  return { conditions, replacements };
+}
+
+/**
+ * HELPER: Main SQL String
+ */
+function generateMainQuery(whereClause: string) {
+  return `
     SELECT
-      p.id,
-      p.name,
-      p.slug,
-      p.category_id as "categoryId",
-      c.name as "category",
-      p.description,
-      p.images,
-      p.gst_rate,
-      p.is_new as "isNew",
-      p.is_customer_favourites as "isCustomerFavourites",
+      p.id, p.name, p.slug, p.category_id as "categoryId",
+      c.name as "category", p.description, p.images, p.gst_rate,
+      p.is_new as "isNew", p.is_customer_favourites as "isCustomerFavourites",
       p.is_best_seller as "isBestseller",
-      JSON_AGG(
+      COALESCE(JSON_AGG(
         JSON_BUILD_OBJECT(
-          'id', pv.id,
-          'sku', pv.sku,
-          'price', pv.price,
+          'id', pv.id, 'sku', pv.sku, 'price', pv.price,
           'discountedPrice', pv.discounted_price,
-          'discountedPercent', pv.discounted_percent,
-          'weight', pv.weight,
-          'weightUnit', pv.weight_unit
+          'weight', pv.weight, 'weightUnit', pv.weight_unit
         )
-      ) as "variants"
+      ) FILTER (WHERE pv.id IS NOT NULL), '[]') as "variants"
     FROM products p
     LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
     LEFT JOIN categories c ON c.id = p.category_id
     ${whereClause}
     GROUP BY p.id, c.name
     ORDER BY p.created_at DESC
-    LIMIT :limit
-    OFFSET :offset
+    LIMIT :limit OFFSET :offset
   `;
-  const products: any = await sequelize?.query(query, {
-    replacements,
-    type: QueryTypes.SELECT,
-    logging(sql, timing) {
-      console.log("Executed SQL:", sql);
-      if (timing) console.log("Execution time:", timing, "ms");
-    },
-    benchmark: true,
-  });
+}
 
-  const formattedProducts = await Promise.all(
-    products.map(async (product: any) => {
-      const resolvedImages = Array.isArray(product.images)
-        ? await Promise.all(
-            product.images.map((imgKey: string) => resolveR2Url(imgKey)),
-          )
-        : [];
+/**
+ * HELPER: Formatting and Async Image Resolution
+ */
+async function formatProductData(products: any[]) {
+  return Promise.all(products.map(async (product) => {
+    const images = Array.isArray(product.images) 
+      ? await Promise.all(product.images.map(resolveR2Url)) 
+      : [];
 
-      const variants = product.variants || [];
-      const prices = variants.map((v: any) => Number(v.price)).filter(Boolean);
-      const minPrice = prices.length
-        ? Math.min(...prices)
-        : Number(product.base_price || 0);
-
-      return {
-        ...product,
-        images: resolvedImages,
-        price: minPrice,
-        variantCount: variants.length,
-      };
-    }),
-  );
-
-  const countWhere: any = {
-    status: status || 'ACTIVE',
-    ...(categoryId && { categoryId }),
-    ...(search && { name: { [Op.iLike]: `%${search}%` } }),
-    ...(typeof isBestseller !== 'undefined' && {
-      isBestseller: isBestseller === 'true' || isBestseller === true,
-    }),
-    ...(typeof isNew !== 'undefined' && { isNew: isNew === 'true' || isNew === true }),
-    ...(typeof isCustomerFavourites !== 'undefined' && {
-      isCustomerFavourites:
-        isCustomerFavourites === 'true' || isCustomerFavourites === true,
-    }),
-  };
-
-  const total = await Product.count({ where: countWhere });
-
-  const currentPage = Math.floor(parsedOffset / parsedLimit) + 1;
-
-  return {
-    products: formattedProducts,
-    total,
-    page: currentPage,
-    limit: parsedLimit,
-    totalPages: Math.ceil(total / parsedLimit),
-  };
-};
+    const prices = product.variants.map((v: any) => Number(v.price));
+    
+    return {
+      ...product,
+      images,
+      price: prices.length ? Math.min(...prices) : 0,
+      variantCount: product.variants.length,
+    };
+  }));
+}
 
 export const findAllProductsCatalog = async (filters: any) => {
   const {
