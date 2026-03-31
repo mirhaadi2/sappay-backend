@@ -11,6 +11,7 @@ import {
   updateSellerProduct,
   findProductById,
   findAllProductsCatalog,
+  invalidateProductsCache,
 } from '../../website/products/repository';
 import { initializeInventoryService } from '../inventory/service';
 import { AppError } from '../../../utils/AppError';
@@ -57,6 +58,9 @@ export const addProductToSellerService = async (
     images,
     status,
   });
+
+  // Invalidate product cache so catalog-based pages reflect this seller addition
+  await invalidateProductsCache();
 
   // Initialize inventory for this seller product with the provided stock
   const inventory = await initializeInventoryService(sellerProduct.id, stock);
@@ -120,6 +124,8 @@ export const updateSellerProductPriceService = async (
     throw new AppError('Forbidden', 403, 'Unauthorized');
   }
 
+  await invalidateProductsCache();
+
   return await updateSellerProduct(sellerProductId, updates);
 }
 
@@ -143,6 +149,8 @@ export const updateSellerProductStatusService = async (
   if (!['ACTIVE', 'INACTIVE'].includes(status)) {
     throw new AppError('BadRequest', 400, 'Invalid status value');
   }
+
+  await invalidateProductsCache();
 
   return await updateSellerProduct(sellerProductId, { status });
 };
