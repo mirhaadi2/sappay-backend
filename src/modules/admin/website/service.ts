@@ -14,7 +14,7 @@ import { sequelize } from "../../../db/sequelize";
 import { QueryTypes } from "sequelize";
 
 // ===================== BANNER SERVICES =====================
-export const getActiveBanners = async () => {
+export const getActiveBanners = async (status?: boolean) => {
     const query = `
         SELECT 
             id, 
@@ -24,6 +24,7 @@ export const getActiveBanners = async () => {
             "created_at" AS "createdAt", 
             "updated_at" AS "updatedAt"
         FROM "homepage_banners"
+        ${status !== undefined ? `WHERE "is_active" = :status` : ''}
         ORDER BY "created_at" DESC
     `;
 
@@ -31,6 +32,7 @@ export const getActiveBanners = async () => {
     try {
         banners = await sequelize.query(query, { 
             type: QueryTypes.SELECT,
+            replacements: status !== undefined ? { status } : {},
             logging(sql, timing) {
                 console.log(`[SQL - ${timing}ms]: ${sql}`);
             },
@@ -71,7 +73,7 @@ export const deleteBanner = async (id: string) => {
     await banner.destroy();
 };
 
-export const getActiveHero = async () => {
+export const getActiveHero = async (status?: boolean) => {
     try {
         const query = `
             SELECT
@@ -86,11 +88,13 @@ export const getActiveHero = async () => {
                 "created_at" AS "createdAt",
                 "updated_at" AS "updatedAt"
             FROM "homepage_hero"
+            ${status !== undefined ? `WHERE "is_active" = :status` : ''}
             ORDER BY "created_at" DESC
         `;
 
         const heroes: HomepageHero[] = await sequelize.query(query, {
             type: QueryTypes.SELECT,
+            replacements: status !== undefined ? { status } : {},
             logging(sql, timing) {
                 console.log(`[SQL - ${timing}ms]: ${sql}`);
             },
@@ -179,7 +183,7 @@ export const deleteHero = async (id: string) => {
 };
 
 // ===================== SECTION SERVICES =====================
-export const getActiveSections = async () => {
+export const getActiveSections = async (status?: boolean) => {
     const query = `
         SELECT
             id,
@@ -197,12 +201,13 @@ export const getActiveSections = async () => {
             created_at AS "createdAt",
             updated_at AS "updatedAt"
         FROM homepage_sections
-        WHERE is_active = true  -- CRITICAL: Only fetch active items
+        ${status !== undefined ? `WHERE is_active = :status` : ''}
         ORDER BY "order" ASC, created_at DESC
     `;
 
     const sections = await sequelize.query<HomepageSection>(query, {
         type: QueryTypes.SELECT,
+        replacements: status !== undefined ? { status } : {},
         benchmark: true,
         logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
     });
@@ -349,13 +354,7 @@ export const deleteSection = async (id: string) => {
 };
 
 // ===================== TESTIMONIAL SERVICES =====================
-export const getActiveTestimonials = async () => {
-    // return await Testimonial.findAll({
-    //     order: [
-    //         ["order", "ASC"],
-    //         ["createdAt", "DESC"],
-    //     ],
-    // });
+export const getActiveTestimonials = async (status?: boolean) => {
     const query = `
         SELECT
             id,
@@ -369,12 +368,13 @@ export const getActiveTestimonials = async () => {
             "created_at" AS "createdAt",
             "updated_at" AS "updatedAt"
         FROM testimonials
-        WHERE is_active = true  AND deleted_at IS NULL
+        ${status !== undefined ? `WHERE is_active = :status` : ''}
         ORDER BY "order" ASC, created_at DESC
     `;
 
     const testimonials: Testimonial[] = await sequelize.query<Testimonial>(query, {
         type: QueryTypes.SELECT,
+        replacements: status !== undefined ? { status } : {},
         benchmark: true,
         logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
     });
@@ -422,25 +422,35 @@ export const deleteTestimonial = async (id: string) => {
 };
 
 // ===================== INSTAGRAM POST SERVICES =====================
-export const getActiveInstagramPosts = async () => {
-    const posts = await InstagramPost.findAll({
-        // where: { isActive: true },
-        raw: true,
-        order: [
-            ["order", "ASC"],
-            ["createdAt", "DESC"],
-        ],
+export const getActiveInstagramPosts = async (status?: boolean) => {
+    const query = `
+        SELECT
+            "id",
+            "image_url" AS "imageUrl",
+            "alt_text"  AS "altText",
+            "link",
+            "is_active" AS "isActive",
+            "order",
+            "created_at" AS "createdAt"
+        FROM "instagram_posts"
+        ${status !== undefined ? `WHERE "is_active" = :status ` : ''}
+        ORDER BY "created_at" DESC
+    `;
+
+    const posts: InstagramPost[] = await sequelize.query<InstagramPost>(query, {
+        type: QueryTypes.SELECT,
+        replacements: status !== undefined ? { status } : {},
+        benchmark: true,
+        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
     });
 
-    return await Promise.all(
-        posts.map(async (post) => {
-            const imageUrl = await resolveR2Url(post.imageUrl);
-            return {
-                ...post,
-                imageUrl
-            };
-        }),
+    const resolvedPosts = await Promise.all(
+        posts.map(async (post) => ({
+            ...post,
+            imageUrl: await resolveR2Url(post.imageUrl)
+        }))
     );
+    return resolvedPosts;
 };
 
 export const createInstagramPost = async (data: {
@@ -662,13 +672,14 @@ export const deletePageByType = async (type: PageType) => {
 
 // ===================== HOMEPAGE DATA AGGREGATOR =====================
 export const getHomepageData = async () => {
+    console.log("Fetching homepage data...");
     const [banners, hero, sections, testimonials, instagramPosts] =
         await Promise.all([
-            getActiveBanners(),
-            getActiveHero(),
-            getActiveSections(),
-            getActiveTestimonials(),
-            getActiveInstagramPosts(),
+            getActiveBanners(true),
+            getActiveHero(true),
+            getActiveSections(true),
+            getActiveTestimonials(true),
+            getActiveInstagramPosts(true),
         ]);
 
     return {
