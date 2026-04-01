@@ -1,17 +1,24 @@
-import { Model, DataTypes, Optional } from 'sequelize';
-import { sequelize } from '../../../db/sequelize';
+import { Model, DataTypes, Optional } from "sequelize";
+import { sequelize } from "../../../db/sequelize";
 
 interface OrderAttributes {
   id: string;
-  orderNumber: string;
+  orderNumber?: string;
   customerId: string;
-  status: 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'FAILED';
+  status:
+    | "PENDING"
+    | "CONFIRMED"
+    | "PROCESSING"
+    | "SHIPPED"
+    | "DELIVERED"
+    | "CANCELLED"
+    | "FAILED";
   totalAmount: number;
   discountAmount: number;
   taxAmount: number;
   shippingCost: number;
   finalAmount: number;
-  paymentStatus: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+  paymentStatus: "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
   paymentMethod?: string;
   shippingAddressId: string;
   deliveryDate?: Date;
@@ -24,29 +31,39 @@ interface OrderAttributes {
 
 type OrderCreationAttributes = Optional<
   OrderAttributes,
-  | 'id'
-  | 'status'
-  | 'discountAmount'
-  | 'taxAmount'
-  | 'shippingCost'
-  | 'paymentStatus'
-  | 'metadata'
-  | 'createdAt'
-  | 'updatedAt'
-  | 'deliveredAt'
+  | "id"
+  | "status"
+  | "discountAmount"
+  | "taxAmount"
+  | "shippingCost"
+  | "paymentStatus"
+  | "metadata"
+  | "createdAt"
+  | "updatedAt"
+  | "deliveredAt"
 >;
 
-export class Order extends Model<OrderAttributes, OrderCreationAttributes> implements OrderAttributes {
+export class Order
+  extends Model<OrderAttributes, OrderCreationAttributes>
+  implements OrderAttributes
+{
   public id!: string;
-  public orderNumber!: string;
+  public orderNumber?: string;
   public customerId!: string;
-  public status!: 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'FAILED';
+  public status!:
+    | "PENDING"
+    | "CONFIRMED"
+    | "PROCESSING"
+    | "SHIPPED"
+    | "DELIVERED"
+    | "CANCELLED"
+    | "FAILED";
   public totalAmount!: number;
   public discountAmount!: number;
   public taxAmount!: number;
   public shippingCost!: number;
   public finalAmount!: number;
-  public paymentStatus!: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+  public paymentStatus!: "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
   public paymentMethod?: string;
   public shippingAddressId!: string;
   public deliveryDate?: Date;
@@ -68,68 +85,76 @@ Order.init(
     },
     orderNumber: {
       type: DataTypes.STRING(50),
-      allowNull: false,
+      allowNull: true,
       unique: true,
-      field: 'order_number',
+      field: "order_number",
     },
     customerId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'customer_id',
+      field: "customer_id",
     },
     status: {
-      type: DataTypes.ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'FAILED'),
+      type: DataTypes.ENUM(
+        "PENDING",
+        "CONFIRMED",
+        "PROCESSING",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED",
+        "FAILED",
+      ),
       allowNull: false,
-      defaultValue: 'PENDING',
+      defaultValue: "PENDING",
     },
     totalAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
-      field: 'total_amount',
+      field: "total_amount",
     },
     discountAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
       defaultValue: 0,
-      field: 'discount_amount',
+      field: "discount_amount",
     },
     taxAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
       defaultValue: 0,
-      field: 'tax_amount',
+      field: "tax_amount",
     },
     shippingCost: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
       defaultValue: 0,
-      field: 'shipping_cost',
+      field: "shipping_cost",
     },
     finalAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
-      field: 'final_amount',
+      field: "final_amount",
     },
     paymentStatus: {
-      type: DataTypes.ENUM('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'),
+      type: DataTypes.ENUM("PENDING", "COMPLETED", "FAILED", "REFUNDED"),
       allowNull: false,
-      defaultValue: 'PENDING',
-      field: 'payment_status',
+      defaultValue: "PENDING",
+      field: "payment_status",
     },
     paymentMethod: {
       type: DataTypes.STRING(50),
       allowNull: true,
-      field: 'payment_method',
+      field: "payment_method",
     },
     shippingAddressId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'shipping_address_id',
+      field: "shipping_address_id",
     },
     deliveryDate: {
       type: DataTypes.DATE,
       allowNull: true,
-      field: 'delivery_date',
+      field: "delivery_date",
     },
     notes: {
       type: DataTypes.TEXT,
@@ -144,25 +169,57 @@ Order.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-      field: 'created_at',
+      field: "created_at",
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-      field: 'updated_at',
+      field: "updated_at",
     },
     deliveredAt: {
       type: DataTypes.DATE,
       allowNull: true,
-      field: 'delivered_at'
+      field: "delivered_at",
     },
   },
   {
     sequelize,
-    tableName: 'orders',
+    tableName: "orders",
     timestamps: true,
-  }
+    hooks: {
+      beforeCreate: async (order: Order, options: any) => {
+        const START_NUMBER = 1000000;
+        const PREFIX = "ORD";
+
+        // IMPORTANT: We use the transaction from 'options' to ensure data integrity
+        const lastOrder = await Order.findOne({
+          attributes: ["orderNumber"],
+          order: [["orderNumber", "DESC"]],
+          transaction: options.transaction,
+          raw: true,
+        });
+
+        let nextNumber: number;
+
+        if (!lastOrder || !lastOrder.orderNumber) {
+          nextNumber = START_NUMBER + 1;
+        } else {
+          // Use regex to remove any non-numeric characters for safety
+          const lastNumericPart = parseInt(
+            lastOrder.orderNumber.replace(/\D/g, ""),
+            10,
+          );
+          nextNumber = isNaN(lastNumericPart)
+            ? START_NUMBER + 1
+            : lastNumericPart + 1;
+        }
+
+        order.orderNumber = `${PREFIX}${nextNumber}`;
+        console.log("Assigned order number to new order:", order);
+      },
+    },
+  },
 );
 
 export default Order;

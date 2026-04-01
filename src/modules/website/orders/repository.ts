@@ -1,9 +1,15 @@
 import { default as Order } from '../../admin/orders/order.model';
 import { OrderItem } from '../../admin/orders/order-item.model';
 import { AppError } from '../../../utils/AppError';
+import { Transaction } from 'sequelize';
 
-export const createOrder = async (data: any) => {
-  return await Order.create(data);
+export const createOrder = async (data: any, transaction: Transaction) => {
+  try {
+    const order = await Order.create(data, { transaction });
+    return order;
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const findOrderById = async (id: string) => {
@@ -39,8 +45,8 @@ export const updateOrderStatus = async (id: string, status: string) => {
   return await order.update({ status: status as any });
 };
 
-export const createOrderItem = async (data: any) => {
-  return await OrderItem.create(data);
+export const createOrderItem = async (data: any, transaction: Transaction) => {
+  return await OrderItem.create(data, { transaction });
 };
 
 export const findOrderItems = async (orderId: string) => {

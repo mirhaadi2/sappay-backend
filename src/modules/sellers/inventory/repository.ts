@@ -2,10 +2,10 @@ import { Inventory } from './model';
 import { SellerProduct } from '../../admin/products/seller-product/model';
 import { AppError } from '../../../utils/AppError';
 import { sequelize } from '../../../db/sequelize';
-import { QueryTypes } from 'sequelize';
+import { QueryTypes, Transaction } from 'sequelize';
 
-export const findInventoryByProductId = async (productId: string) => {
-  return await Inventory.findOne({ where: { productId } });
+export const findInventoryByProductId = async (productId: string, transaction?: Transaction) => {
+  return await Inventory.findOne({ where: { productId }, ...(transaction ? { transaction } : {}) });
 };
 
 export const createInventory = async (data: any) => {
@@ -96,8 +96,8 @@ export const decrementStock = async (sellerProductId: string, quantity: number) 
   });
 };
 
-export const reserveStockByProductIdRepo = async (productId: string, quantity: number) => {
-  const inventory = await findInventoryByProductId(productId);
+export const reserveStockByProductIdRepo = async (productId: string, quantity: number, transaction?: Transaction) => {
+  const inventory = await findInventoryByProductId(productId, transaction);
   if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
 
   if (inventory?.dataValues?.availableStock < quantity) {
@@ -107,7 +107,7 @@ export const reserveStockByProductIdRepo = async (productId: string, quantity: n
   return await inventory.update({
     availableStock: inventory.availableStock - quantity,
     reservedStock: inventory.reservedStock + quantity,
-  });
+  }, transaction ? { transaction } : {});
 };
 
 

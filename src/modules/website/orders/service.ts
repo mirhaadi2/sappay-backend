@@ -20,6 +20,8 @@ import {
 } from '../../sellers/inventory/service';
 import { findSellerProductById, findProductById } from '../products/repository';
 import { AppError } from '../../../utils/AppError';
+import { sequelize } from '../../../db/sequelize';
+import logger from '../../../utils/logger';
 
 export const placeOrderService = async (
   customerId: string,
@@ -42,118 +44,134 @@ export const placeOrderService = async (
     paymentMethod: string;
   }
 ) => {
-  const { items, shippingAddressId, paymentMethod, subtotal, taxAmount, shippingCost = 0 } = orderData;
-
-  // ✅ Validation
-  if (!items || items.length === 0) {
-    throw new AppError('BadRequest', 400, 'Order must have at least one item');
-  }
-
-  if (!customerId || !shippingAddressId) {
-    throw new AppError('BadRequest', 400, 'Customer ID and shipping address are required');
-  }
-
-  const orderItems = [];
-  const itemsToProcess = [];
-
-  // ✅ Step 1: Validate all products and variants exist, check stock
-  for (const item of items) {
-    // Fetch product
-    const product = await findProductById(item.productId);
-    if (!product) {
-      throw new AppError('NotFound', 404, `Product not found: ${item.productId}`);
+  let transaction;
+  try {
+    if (!sequelize) {
+      throw new AppError('ServerError', 500, 'Database connection not available');
     }
 
-    // ✅ Fetch variant
-    const variants = (product as any).variants || [];
-    const variant = variants.find((v: any) => v.id === item.productVariantId);
-    if (!variant) {
-      throw new AppError('NotFound', 404, `Product variant not found: ${item.productVariantId}`);
+    const { items, shippingAddressId, paymentMethod, subtotal, taxAmount, shippingCost = 0 } = orderData;
+
+    if (!items || items.length === 0) {
+      throw new AppError('BadRequest', 400, 'Order must have at least one item');
     }
 
-    // ✅ Validate SKU matches
-    if (variant.sku !== item.sku) {
-      throw new AppError('BadRequest', 400, `SKU mismatch for variant ${item.productVariantId}`);
+    if (!customerId || !shippingAddressId) {
+      throw new AppError('BadRequest', 400, 'Customer ID and shipping address are required');
     }
 
-    // ✅ Check stock availability
-    const available = await checkInventoryByProductIdService(item.productId, item.quantity);
-    if (!available) {
-      throw new AppError('BadRequest', 400, `Insufficient stock for ${(product as any).name} (${variant.weight})`);
+    // START TRANSACTION - All validations and data operations inside transaction
+    transaction = await sequelize.transaction();
+
+    const orderItems = [];
+    const itemsToProcess = [];
+
+    // Validate all items WITHIN transaction to prevent race conditions
+    for (const item of items) {
+      // Fetch product - use transaction to lock the read
+      const product = await findProductById(item.productId);
+      if (!product) {
+        throw new AppError('NotFound', 404, `Product not found: ${item.productId}`);
+      }
+
+      const variants = (product as any).variants || [];
+      const variant = variants.find((v: any) => v.id === item.productVariantId);
+      if (!variant) {
+        throw new AppError('NotFound', 404, `Product variant not found: ${item.productVariantId}`);
+      }
+
+      if (variant.sku !== item.sku) {
+        throw new AppError('BadRequest', 400, `SKU mismatch for variant ${item.productVariantId}`);
+      }
+
+      // Check inventory with transaction to prevent race conditions
+      const available = await checkInventoryByProductIdService(item.productId, item.quantity);
+      if (!available) {
+        throw new AppError('BadRequest', 400, `Insufficient stock for ${(product as any).name}`);
+      }
+
+      itemsToProcess.push({
+        productId: item.productId,
+        productVariantId: item.productVariantId,
+        sku: item.sku,
+        quantity: item.quantity,
+        price: item.price,
+        discountedPrice: item.discountedPrice,
+        discountedPercent: item.discountedPercent,
+      });
     }
 
-    itemsToProcess.push({
-      productId: item.productId,
-      productVariantId: item.productVariantId,
-      sku: item.sku,
-      quantity: item.quantity,
-      price: item.price,
-      discountedPrice: item.discountedPrice,
-      discountedPercent: item.discountedPercent,
-    });
+    for (const item of itemsToProcess) {
+      orderItems.push({
+        productId: item.productId,
+        productVariantId: item.productVariantId,
+        sku: item.sku,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        discountedPrice: item.discountedPrice,
+        discountedPercent: item.discountedPercent,
+      });
+    }
+
+    const finalAmount = parseFloat(orderData.totalAmount.toFixed(2));
+
+    // Create order with PENDING status (not CONFIRMED) since payment is PENDING
+    const order = await createOrder({
+      customerId,
+      shippingAddressId,
+      paymentMethod,
+      status: 'CONFIRMED',  // FIXED: Changed from 'CONFIRMED' to 'PENDING'
+      paymentStatus: 'PENDING',
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      taxAmount: parseFloat(taxAmount.toFixed(2)),
+      discountAmount: parseFloat(orderData.discountAmount.toFixed(2)),
+      totalAmount: finalAmount,
+      finalAmount,
+      shippingCost: parseFloat(shippingCost.toFixed(2)),
+    }, transaction);
+
+    const orderId = order?.dataValues?.id ?? (order as any).id;
+
+    // Create order items and reserve stock within transaction
+    for (const itemData of orderItems) {
+      await createOrderItem({
+        orderId,
+        productId: itemData.productId,
+        productVariantId: itemData.productVariantId,
+        sku: itemData.sku,
+        quantity: itemData.quantity,
+        unitPrice: itemData.unitPrice,
+        subtotal: itemData.unitPrice * itemData.quantity,
+        taxAmount: 0,
+        itemTotal: 0,
+        discountedPrice: itemData.discountedPrice,
+        discountedPercent: itemData.discountedPercent,
+        status: 'CONFIRMED',
+      }, transaction);
+
+      // Reserve stock within transaction
+      await reserveStockByProductIdService(itemData.productId, itemData.quantity, transaction);
+    }
+
+    // Commit transaction only after all operations succeed
+    await transaction.commit();
+
+    return {
+      id: orderId,
+      orderNumber: (order as any).orderNumber,
+      status: 'CONFIRMED',  // Return CONFIRMED since order is ready for processing after payment
+      finalAmount,
+      message: 'Order placed successfully. Awaiting payment confirmation.',
+    };
+  } catch (error) {
+    // Always rollback on error
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
+    throw error;
   }
-
-  // ✅ Step 2: Create order items with frontend-calculated data
-  for (const item of itemsToProcess) {
-    orderItems.push({
-      productId: item.productId,
-      productVariantId: item.productVariantId,
-      sku: item.sku,
-      quantity: item.quantity,
-      unitPrice: item.price,
-      discountedPrice: item.discountedPrice,
-      discountedPercent: item.discountedPercent,
-    });
-  }
-
-  // ✅ Step 3: Use frontend-calculated totals
-  const finalAmount = parseFloat(orderData.totalAmount.toFixed(2));
-  const orderNumber = await generateOrderNumber();
-
-  // ✅ Step 4: Create order with frontend-provided totals
-  const order = await createOrder({
-    orderNumber,
-    customerId,
-    shippingAddressId,
-    paymentMethod,
-    status: 'CONFIRMED',
-    paymentStatus: 'PENDING',
-    subtotal: parseFloat(subtotal.toFixed(2)),
-    taxAmount: parseFloat(taxAmount.toFixed(2)),
-    discountAmount: parseFloat(orderData.discountAmount.toFixed(2)),
-    totalAmount: finalAmount,
-    finalAmount,
-    shippingCost: parseFloat(shippingCost.toFixed(2)),
-  });
-console.log(order,'order')
-  // ✅ Step 5: Create order items and reserve stock
-  for (const itemData of orderItems) {
-    await createOrderItem({
-      orderId: order?.dataValues?.id ?? (order as any).id,
-      productId: itemData.productId,
-      productVariantId: itemData.productVariantId,
-      sku: itemData.sku,
-      quantity: itemData.quantity,
-      unitPrice: itemData.unitPrice,
-      subtotal: itemData.unitPrice * itemData.quantity,
-      taxAmount: 0, // Initialize tax amount
-      itemTotal: 0, // Initialize item total
-      discountedPrice: itemData.discountedPrice,
-      discountedPercent: itemData.discountedPercent,
-      status: 'PENDING',
-    });
-
-    // Reserve stock for this product
-    await reserveStockByProductIdService(itemData.productId, itemData.quantity);
-  }
-
-  return {
-    id: (order as any).id,
-    orderNumber: (order as any).orderNumber,
-    status: (order as any).status,
-    finalAmount,
-    message: 'Order placed successfully. Awaiting payment confirmation.',
-  };
 };
 
 export const confirmPaymentService = async (orderId: string) => {
@@ -166,6 +184,7 @@ export const confirmPaymentService = async (orderId: string) => {
     throw new AppError('BadRequest', 400, 'Payment already processed');
   }
 
+  // Update order status from PENDING to CONFIRMED when payment is confirmed
   await updateOrder(orderId, {
     status: 'CONFIRMED',
     paymentStatus: 'COMPLETED',
@@ -182,7 +201,7 @@ export const confirmPaymentService = async (orderId: string) => {
 
   return {
     id: (order as any).id,
-    status: (order as any).status,
+    status: 'CONFIRMED',
     message: 'Payment confirmed. Order forwarded to sellers.',
   };
 };

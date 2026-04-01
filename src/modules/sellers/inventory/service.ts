@@ -12,6 +12,7 @@ import {
 import { createHistoryRecord } from "./histories";
 import { AppError } from "../../../utils/AppError";
 import { buildPaginatedResponse } from "../../shared/pagination";
+import { Transaction } from "sequelize";
 
 export const initializeInventoryService = async (
   sellerProductId: string,
@@ -69,8 +70,9 @@ export const updateStockService = async (
 export const reserveStockByProductIdService = async (
   productId: string,
   quantity: number,
+  transaction?: Transaction,
 ) => {
-  return await reserveStockByProductIdRepo(productId, quantity);
+  return await reserveStockByProductIdRepo(productId, quantity, transaction);
 };
 
 export const reserveStockService = async (
