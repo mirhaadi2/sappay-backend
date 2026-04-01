@@ -1,7 +1,8 @@
 import { default as Order } from '../../admin/orders/order.model';
 import { OrderItem } from '../../admin/orders/order-item.model';
 import { AppError } from '../../../utils/AppError';
-import { Transaction } from 'sequelize';
+import { QueryTypes, Transaction } from 'sequelize';
+import { sequelize } from '../../../db/sequelize';
 
 export const createOrder = async (data: any, transaction: Transaction) => {
   try {
@@ -26,6 +27,18 @@ export const findCustomerOrders = async (customerId: string, filters: any = {}) 
   if (status) where.status = status;
 
   return await Order.findAll({
+    attributes: {
+      include: [
+        [
+          sequelize.literal(`(
+          SELECT COUNT(*)
+          FROM "order_items" AS items
+          WHERE items."order_id" = "Order".id
+        )`),
+          'itemsCount'
+        ]
+      ]
+    },
     where,
     limit,
     offset,
@@ -34,10 +47,67 @@ export const findCustomerOrders = async (customerId: string, filters: any = {}) 
 };
 
 export const findCustomerOrder = async (customerId: string, orderId: string) => {
-  return await Order.findOne({
-    where: { id: orderId, customerId },
-    include: [{ model: OrderItem, as: 'items' }],
+  // return await Order.findOne({
+  //   where: { id: orderId, customerId },
+  //   include: [{ model: OrderItem, as: 'items', attributes: { exclude: ['createdAt', 'updatedAt'] } }],
+  // });
+
+  const query = `
+    SELECT 
+      o.id,
+      o.order_number AS "orderNumber",
+      o.delivered_at AS "deliveryDate",
+      o.delivery_date AS "scheduledDeliveryDate",
+      o.discount_amount AS "discountAmount",
+      o.final_amount AS "finalAmount",
+      o.payment_method AS "paymentMethod",
+      o.payment_status AS "paymentStatus",
+      o.status    AS "status",
+      o.total_amount AS "totalAmount",
+      o.shipping_cost AS "shippingCost",
+      o.tax_amount AS "taxAmount",
+      o.shipping_address_id AS "shippingAddressId",
+      o.created_at AS "createdAt",
+      (SELECT COUNT(*) FROM order_items AS items WHERE items.order_id = o.id) AS "itemsCount",
+      sa.type AS "shippingAddressType",
+      sa.address_line1 AS "shippingAddressLine1",
+      sa.address_line2 AS "shippingAddressLine2",
+      sa.city AS "shippingCity",
+      sa.state AS "shippingState",
+      sa.postal_code AS "shippingPostalCode",
+      sa.country AS "shippingCountry",
+      sa.phone AS "shippingPhone",
+      (SELECT json_agg(json_build_object(
+        'id', oi.id,
+        'productId', oi.product_id,
+        'productName', p.name,
+        'productVariantId', oi.product_variant_id,
+        -- Concatenate weight and unit with a space in between
+        'weight', (pv.weight::TEXT || ' ' || pv.weight_unit::TEXT),
+        'sku', oi.sku,
+        'quantity', oi.quantity,
+        'unitPrice', oi.unit_price,
+        'subtotal', oi.subtotal,
+        'taxAmount', oi.tax_amount,
+        'itemTotal', oi.item_total,
+        -- 'discountedPrice', oi.discounted_price,
+        -- 'discountedPercent', oi.discounted_percent,
+        'status', oi.status
+      )) FROM order_items oi 
+      LEFT JOIN products p ON oi.product_id = p.id
+      LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
+      WHERE oi.order_id = o.id) AS items
+    FROM orders o
+    LEFT JOIN "addresses" sa ON o.shipping_address_id = sa.id
+    WHERE o.id = :orderId AND o.customer_id = :customerId
+    LIMIT 1
+  `;
+
+  const orders = await sequelize.query(query, {
+    replacements: { orderId, customerId },
+    type: QueryTypes.SELECT,
   });
+  return orders[0];
 };
 
 export const updateOrder = async (id: string, data: any) => {
