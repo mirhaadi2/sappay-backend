@@ -6,6 +6,7 @@ import {
   cancelOrderService,
   getSellerOrdersService,
   updateItemStatusService,
+  getCustomerOrderService,
 } from './service';
 import { findById } from '../../sellers/repository';
 import { AppError } from '../../../utils/AppError';
@@ -60,6 +61,32 @@ export const getOrdersHandler = async (
     }
 
     const result = await getCustomerOrdersService(customerId, req.query);
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getOrderHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const customerId = req.session?.user?.id;
+    const orderId = req.params.id;
+    if (!customerId) {
+      throw new AppError('Unauthorized', 401, 'Please login first');
+    }
+
+    if (!orderId) {
+      throw new AppError('BadRequest', 400, 'Order ID is required');
+    }
+
+    const result = await getCustomerOrderService(customerId, orderId);
     res.json({
       success: true,
       data: result,

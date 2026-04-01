@@ -6,6 +6,7 @@ import {
   cancelOrderHandler,
   getSellerOrdersHandler,
   updateItemStatusHandler,
+  getOrderHandler,
 } from './controller';
 import { requireAuth } from "../../../middleware/auth.middleware";
 
@@ -16,6 +17,7 @@ router.use(requireAuth);
 // Customer endpoints
 router.post('/', placeOrderHandler);
 router.get('/', getOrdersHandler);
+router.get('/:id', getOrderHandler); // Get specific order details
 router.post('/:id/confirm-payment', confirmPaymentHandler);
 router.post('/:id/cancel', cancelOrderHandler);
 

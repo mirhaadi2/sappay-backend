@@ -1,5 +1,6 @@
 import { Model, DataTypes, Optional } from "sequelize";
 import { sequelize } from "../../../db/sequelize";
+import { OrderItem } from "./order-item.model";
 
 interface OrderAttributes {
   id: string;
@@ -221,5 +222,14 @@ Order.init(
     },
   },
 );
+
+// Define associations
+Order.hasMany(OrderItem, { 
+  foreignKey: 'orderId', 
+  as: 'items',
+  onDelete: 'CASCADE'
+});
+
+OrderItem.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 
 export default Order;

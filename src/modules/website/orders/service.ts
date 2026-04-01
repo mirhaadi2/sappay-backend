@@ -9,6 +9,7 @@ import {
   updateOrderStatus,
   findCustomerOrders,
   getSellerOrderItems,
+  findCustomerOrder,
 } from './repository';
 import {
   checkAvailabilityService,
@@ -209,6 +210,11 @@ export const confirmPaymentService = async (orderId: string) => {
 export const getCustomerOrdersService = async (customerId: string, filters: any) => {
   return await findCustomerOrders(customerId, filters);
 };
+
+export const getCustomerOrderService = async (customerId: string, orderId: string) => {
+  return await findCustomerOrder(customerId, orderId);
+};
+
 
 export const cancelOrderService = async (orderId: string, reason: string) => {
   const order = await findOrderById(orderId);

@@ -1,5 +1,6 @@
 import { Model, DataTypes, Optional } from 'sequelize';
 import { sequelize } from '../../../db/sequelize';
+import Order from './order.model';
 
 interface OrderItemAttributes {
   id: string;

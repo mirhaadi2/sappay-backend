@@ -25,11 +25,18 @@ export const findCustomerOrders = async (customerId: string, filters: any = {}) 
   const where: any = { customerId };
   if (status) where.status = status;
 
-  return await Order.findAndCountAll({
+  return await Order.findAll({
     where,
     limit,
     offset,
     order: [['createdAt', 'DESC']],
+  });
+};
+
+export const findCustomerOrder = async (customerId: string, orderId: string) => {
+  return await Order.findOne({
+    where: { id: orderId, customerId },
+    include: [{ model: OrderItem, as: 'items' }],
   });
 };
 
