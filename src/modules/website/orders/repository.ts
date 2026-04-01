@@ -106,6 +106,13 @@ export const findCustomerOrder = async (customerId: string, orderId: string) => 
   const orders = await sequelize.query(query, {
     replacements: { orderId, customerId },
     type: QueryTypes.SELECT,
+    logging(sql, timing) {
+      console.log('Executed SQL:', sql);
+      if (timing) {
+        console.log('Execution time:', timing, 'ms');
+      }
+    },
+    benchmark: true
   });
   return orders[0];
 };
