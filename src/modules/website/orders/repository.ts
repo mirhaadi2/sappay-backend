@@ -117,16 +117,16 @@ export const findCustomerOrder = async (customerId: string, orderId: string) => 
   return orders[0];
 };
 
-export const updateOrder = async (id: string, data: any) => {
+export const updateOrder = async (id: string, data: any, transaction?: Transaction) => {
   const order = await findOrderById(id);
   if (!order) throw new AppError('NotFound', 404, 'Order not found');
-  return await order.update(data);
+  return await order.update(data, transaction ? { transaction } : {});
 };
 
-export const updateOrderStatus = async (id: string, status: string) => {
+export const updateOrderStatus = async (id: string, status: string, transaction?: Transaction) => {
   const order = await findOrderById(id);
   if (!order) throw new AppError('NotFound', 404, 'Order not found');
-  return await order.update({ status: status as any });
+  return await order.update({ status: status as any }, transaction ? { transaction } : {});
 };
 
 export const createOrderItem = async (data: any, transaction: Transaction) => {
@@ -137,10 +137,10 @@ export const findOrderItems = async (orderId: string) => {
   return await OrderItem.findAll({ where: { orderId } });
 };
 
-export const updateOrderItem = async (id: string, data: any) => {
+export const updateOrderItem = async (id: string, data: any, transaction?: Transaction) => {
   const item = await OrderItem.findByPk(id);
   if (!item) throw new AppError('NotFound', 404, 'Order item not found');
-  return await item.update(data);
+  return await item.update(data, transaction ? { transaction } : {});
 };
 
 export const getSellerOrderItems = async (sellerId: string, filters: any = {}) => {

@@ -122,8 +122,9 @@ export const adminUpdateUser = async (
   id: string,
   data: { name?: string; phone?: string }
 ) => {
+  const transaction = await sequelize.transaction();
   try {
-    const user = await User.findByPk(id);
+    const user = await User.findByPk(id, { transaction });
 
     if (!user) {
       throw new AppError('NotFoundError', 404, 'User not found');
@@ -134,12 +135,14 @@ export const adminUpdateUser = async (
     if (data.phone !== undefined) updateData.phone = data.phone;
 
     if (Object.keys(updateData).length > 0) {
-      await user.update(updateData);
+      await user.update(updateData, { transaction });
     }
 
+    await transaction.commit();
     logger.info('User updated by admin', { userId: id, changes: updateData });
     return adminGetUser(id);
   } catch (error: any) {
+    await transaction.rollback();
     logger.error('Error updating admin user', { userId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'User not found');
@@ -147,17 +150,20 @@ export const adminUpdateUser = async (
 };
 
 export const adminDeleteUser = async (id: string) => {
+  const transaction = await sequelize.transaction();
   try {
-    const user = await User.findByPk(id);
+    const user = await User.findByPk(id, { transaction });
 
     if (!user) {
       throw new AppError('NotFoundError', 404, 'User not found');
     }
 
-    await user.destroy();
+    await user.destroy({ transaction });
+    await transaction.commit();
     logger.info('User deleted by admin', { userId: id });
     return { success: true, message: 'User deleted successfully' };
   } catch (error: any) {
+    await transaction.rollback();
     logger.error('Error deleting admin user', { userId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'User not found');

@@ -14,6 +14,7 @@ import { sequelize } from "../../../db/sequelize";
 import { QueryTypes } from "sequelize";
 import { redisClient } from "../../../config/session";
 import { createHash } from "crypto";
+import logger from "../../../utils/logger";
 
 const HOMEPAGE_CACHE_KEY = "website:homepage:data";
 const HOMEPAGE_CACHE_TTL = 60 * 2; // 2 minutes
@@ -56,26 +57,58 @@ export const createBanner = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    return await HomepageBanner.create({
-        ...data,
-        isActive: data.isActive ?? true,
-        order: data.order ?? 0,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+        const banner = await HomepageBanner.create(
+            {
+                ...data,
+                isActive: data.isActive ?? true,
+                order: data.order ?? 0,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Banner created in admin', { bannerId: banner.id });
+        return banner;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating banner in admin', { error });
+        throw error;
+    }
 };
 
 export const updateBanner = async (
     id: string,
     data: Partial<{ text: string; isActive: boolean; order: number }>,
 ) => {
-    const banner = await HomepageBanner.findByPk(id);
-    if (!banner) throw new Error("Banner not found");
-    return await banner.update(data);
+    const transaction = await sequelize.transaction();
+    try {
+        const banner = await HomepageBanner.findByPk(id, { transaction });
+        if (!banner) throw new Error("Banner not found");
+        const updated = await banner.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Banner updated in admin', { bannerId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating banner in admin', { bannerId: id, error });
+        throw error;
+    }
 };
 
 export const deleteBanner = async (id: string) => {
-    const banner = await HomepageBanner.findByPk(id);
-    if (!banner) throw new Error("Banner not found");
-    await banner.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const banner = await HomepageBanner.findByPk(id, { transaction });
+        if (!banner) throw new Error("Banner not found");
+        await banner.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Banner deleted in admin', { bannerId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting banner in admin', { bannerId: id, error });
+        throw error;
+    }
 };
 
 export const getActiveHero = async (status?: boolean) => {
@@ -143,17 +176,30 @@ export const createHero = async (data: {
     buttonLink: string;
     isActive?: boolean;
 }) => {
-    if (data.isActive) {
-        await HomepageHero.update(
-            { isActive: false },
-            { where: { isActive: true } },
-        );
-    }
+    const transaction = await sequelize.transaction();
+    try {
+        if (data.isActive) {
+            await HomepageHero.update(
+                { isActive: false },
+                { where: { isActive: true }, transaction },
+            );
+        }
 
-    return await HomepageHero.create({
-        ...data,
-        isActive: data.isActive ?? true,
-    });
+        const hero = await HomepageHero.create(
+            {
+                ...data,
+                isActive: data.isActive ?? true,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Hero created in admin', { heroId: hero.id });
+        return hero;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating hero in admin', { error });
+        throw error;
+    }
 };
 
 export const updateHero = async (
@@ -168,23 +214,42 @@ export const updateHero = async (
         isActive: boolean;
     }>,
 ) => {
-    const hero = await HomepageHero.findByPk(id);
-    if (!hero) throw new Error("Hero section not found");
+    const transaction = await sequelize.transaction();
+    try {
+        const hero = await HomepageHero.findByPk(id, { transaction });
+        if (!hero) throw new Error("Hero section not found");
 
-    if (data.isActive) {
-        await HomepageHero.update(
-            { isActive: false },
-            { where: { isActive: true } },
-        );
+        if (data.isActive) {
+            await HomepageHero.update(
+                { isActive: false },
+                { where: { isActive: true }, transaction },
+            );
+        }
+
+        const updated = await hero.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Hero updated in admin', { heroId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating hero in admin', { heroId: id, error });
+        throw error;
     }
-
-    return await hero.update(data);
 };
 
 export const deleteHero = async (id: string) => {
-    const hero = await HomepageHero.findByPk(id);
-    if (!hero) throw new Error("Hero section not found");
-    await hero.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const hero = await HomepageHero.findByPk(id, { transaction });
+        if (!hero) throw new Error("Hero section not found");
+        await hero.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Hero deleted in admin', { heroId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting hero in admin', { heroId: id, error });
+        throw error;
+    }
 };
 
 // ===================== SECTION SERVICES =====================
@@ -314,11 +379,24 @@ export const createSection = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    return await HomepageSection.create({
-        ...data,
-        isActive: data.isActive ?? true,
-        order: data.order ?? 0,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+        const section = await HomepageSection.create(
+            {
+                ...data,
+                isActive: data.isActive ?? true,
+                order: data.order ?? 0,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Section created in admin', { sectionId: section.id });
+        return section;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating section in admin', { error });
+        throw error;
+    }
 };
 
 export const updateSection = async (
@@ -347,15 +425,34 @@ export const updateSection = async (
         order: number;
     }>,
 ) => {
-    const section = await HomepageSection.findByPk(id);
-    if (!section) throw new Error("Section not found");
-    return await section.update(data);
+    const transaction = await sequelize.transaction();
+    try {
+        const section = await HomepageSection.findByPk(id, { transaction });
+        if (!section) throw new Error("Section not found");
+        const updated = await section.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Section updated in admin', { sectionId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating section in admin', { sectionId: id, error });
+        throw error;
+    }
 };
 
 export const deleteSection = async (id: string) => {
-    const section = await HomepageSection.findByPk(id);
-    if (!section) throw new Error("Section not found");
-    await section.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const section = await HomepageSection.findByPk(id, { transaction });
+        if (!section) throw new Error("Section not found");
+        await section.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Section deleted in admin', { sectionId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting section in admin', { sectionId: id, error });
+        throw error;
+    }
 };
 
 // ===================== TESTIMONIAL SERVICES =====================
@@ -396,11 +493,24 @@ export const createTestimonial = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    return await Testimonial.create({
-        ...data,
-        isActive: data.isActive ?? true,
-        order: data.order ?? 0,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+        const testimonial = await Testimonial.create(
+            {
+                ...data,
+                isActive: data.isActive ?? true,
+                order: data.order ?? 0,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Testimonial created in admin', { testimonialId: testimonial.id });
+        return testimonial;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating testimonial in admin', { error });
+        throw error;
+    }
 };
 
 export const updateTestimonial = async (
@@ -415,15 +525,34 @@ export const updateTestimonial = async (
         order: number;
     }>,
 ) => {
-    const testimonial = await Testimonial.findByPk(id);
-    if (!testimonial) throw new Error("Testimonial not found");
-    return await testimonial.update(data);
+    const transaction = await sequelize.transaction();
+    try {
+        const testimonial = await Testimonial.findByPk(id, { transaction });
+        if (!testimonial) throw new Error("Testimonial not found");
+        const updated = await testimonial.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Testimonial updated in admin', { testimonialId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating testimonial in admin', { testimonialId: id, error });
+        throw error;
+    }
 };
 
 export const deleteTestimonial = async (id: string) => {
-    const testimonial = await Testimonial.findByPk(id);
-    if (!testimonial) throw new Error("Testimonial not found");
-    await testimonial.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const testimonial = await Testimonial.findByPk(id, { transaction });
+        if (!testimonial) throw new Error("Testimonial not found");
+        await testimonial.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Testimonial deleted in admin', { testimonialId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting testimonial in admin', { testimonialId: id, error });
+        throw error;
+    }
 };
 
 // ===================== INSTAGRAM POST SERVICES =====================
@@ -465,11 +594,24 @@ export const createInstagramPost = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    return await InstagramPost.create({
-        ...data,
-        isActive: data.isActive ?? true,
-        order: data.order ?? 0,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+        const post = await InstagramPost.create(
+            {
+                ...data,
+                isActive: data.isActive ?? true,
+                order: data.order ?? 0,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Instagram post created in admin', { postId: post.id });
+        return post;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating Instagram post in admin', { error });
+        throw error;
+    }
 };
 
 export const updateInstagramPost = async (
@@ -482,15 +624,34 @@ export const updateInstagramPost = async (
         order: number;
     }>,
 ) => {
-    const post = await InstagramPost.findByPk(id);
-    if (!post) throw new Error("Instagram post not found");
-    return await post.update(data);
+    const transaction = await sequelize.transaction();
+    try {
+        const post = await InstagramPost.findByPk(id, { transaction });
+        if (!post) throw new Error("Instagram post not found");
+        const updated = await post.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Instagram post updated in admin', { postId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating Instagram post in admin', { postId: id, error });
+        throw error;
+    }
 };
 
 export const deleteInstagramPost = async (id: string) => {
-    const post = await InstagramPost.findByPk(id);
-    if (!post) throw new Error("Instagram post not found");
-    await post.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const post = await InstagramPost.findByPk(id, { transaction });
+        if (!post) throw new Error("Instagram post not found");
+        await post.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Instagram post deleted in admin', { postId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting Instagram post in admin', { postId: id, error });
+        throw error;
+    }
 };
 
 // ===================== WEBSITE SETTINGS SERVICES =====================
@@ -534,10 +695,23 @@ export const createWebsiteSetting = async (data: {
     description?: string;
     isActive?: boolean;
 }) => {
-    return await WebsiteSetting.create({
-        ...data,
-        isActive: data.isActive ?? true,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+        const setting = await WebsiteSetting.create(
+            {
+                ...data,
+                isActive: data.isActive ?? true,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Website setting created', { key: data.key, category: data.category });
+        return setting;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating website setting', { key: data.key, error });
+        throw error;
+    }
 };
 
 export const updateWebsiteSetting = async (
@@ -550,15 +724,34 @@ export const updateWebsiteSetting = async (
         isActive: boolean;
     }>,
 ) => {
-    const setting = await WebsiteSetting.findOne({ where: { key } });
-    if (!setting) throw new Error("Website setting not found");
-    return await setting.update(data);
+    const transaction = await sequelize.transaction();
+    try {
+        const setting = await WebsiteSetting.findOne({ where: { key }, transaction });
+        if (!setting) throw new Error("Website setting not found");
+        const updated = await setting.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Website setting updated', { key });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating website setting', { key, error });
+        throw error;
+    }
 };
 
 export const deleteWebsiteSetting = async (key: string) => {
-    const setting = await WebsiteSetting.findOne({ where: { key } });
-    if (!setting) throw new Error("Website setting not found");
-    await setting.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const setting = await WebsiteSetting.findOne({ where: { key }, transaction });
+        if (!setting) throw new Error("Website setting not found");
+        await setting.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Website setting deleted', { key });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting website setting', { key, error });
+        throw error;
+    }
 };
 
 // ===================== WEBSITE PAGES SERVICES =====================
@@ -596,11 +789,24 @@ export const createPage = async (data: {
     isPublished?: boolean;
     order?: number;
 }) => {
-    return await WebsitePage.create({
-        ...data,
-        isPublished: data.isPublished ?? false,
-        order: data.order ?? 0,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+        const page = await WebsitePage.create(
+            {
+                ...data,
+                isPublished: data.isPublished ?? false,
+                order: data.order ?? 0,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Website page created', { pageId: page.id, slug: data.slug });
+        return page;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating website page', { slug: data.slug, error });
+        throw error;
+    }
 };
 
 export const updatePage = async (
@@ -615,15 +821,34 @@ export const updatePage = async (
         order: number;
     }>,
 ) => {
-    const page = await WebsitePage.findByPk(id);
-    if (!page) throw new Error("Page not found");
-    return await page.update(data);
+    const transaction = await sequelize.transaction();
+    try {
+        const page = await WebsitePage.findByPk(id, { transaction });
+        if (!page) throw new Error("Page not found");
+        const updated = await page.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Website page updated', { pageId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating website page', { pageId: id, error });
+        throw error;
+    }
 };
 
 export const deletePage = async (id: string) => {
-    const page = await WebsitePage.findByPk(id);
-    if (!page) throw new Error("Page not found");
-    await page.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const page = await WebsitePage.findByPk(id, { transaction });
+        if (!page) throw new Error("Page not found");
+        await page.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Website page deleted', { pageId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting website page', { pageId: id, error });
+        throw error;
+    }
 };
 
 // ===================== UNIFIED PAGE SERVICES =====================
@@ -641,35 +866,62 @@ export const createOrUpdatePage = async (type: PageType, slug: string, data: {
     metaDescription?: string;
     isPublished?: boolean;
 }) => {
-    const existingPages = await Page.findAll({ where: { type } });
+    const transaction = await sequelize.transaction();
+    try {
+        const existingPages = await Page.findAll({ where: { type }, transaction });
 
-    if (existingPages.length > 0) {
-        const [primary, ...duplicates] = existingPages;
+        if (existingPages.length > 0) {
+            const [primary, ...duplicates] = existingPages;
 
-        // Ensure exactly one record exists per type by removing any accidental duplicates.
-        if (duplicates.length > 0) {
-            await Page.destroy({ where: { id: duplicates.map((page) => page.id) } });
+            // Ensure exactly one record exists per type by removing any accidental duplicates.
+            if (duplicates.length > 0) {
+                await Page.destroy({ 
+                    where: { id: duplicates.map((page) => page.id) },
+                    transaction 
+                });
+            }
+
+            const updated = await primary.update({
+                slug,
+                ...data,
+                isPublished: data.isPublished ?? false,
+            }, { transaction });
+            
+            await transaction.commit();
+            logger.info('Unified page updated', { pageId: primary.id, type });
+            return updated;
+        } else {
+            const created = await Page.create({
+                type,
+                slug,
+                ...data,
+                isPublished: data.isPublished ?? false,
+            }, { transaction });
+            
+            await transaction.commit();
+            logger.info('Unified page created', { pageId: created.id, type });
+            return created;
         }
-
-        return await primary.update({
-            slug,
-            ...data,
-            isPublished: data.isPublished ?? false,
-        });
-    } else {
-        return await Page.create({
-            type,
-            slug,
-            ...data,
-            isPublished: data.isPublished ?? false,
-        });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating/updating unified page', { type, error });
+        throw error;
     }
 };
 
 export const deletePageByType = async (type: PageType) => {
-    const page = await Page.findOne({ where: { type } });
-    if (page) {
-        await page.destroy();
+    const transaction = await sequelize.transaction();
+    try {
+        const page = await Page.findOne({ where: { type }, transaction });
+        if (page) {
+            await page.destroy({ transaction });
+        }
+        await transaction.commit();
+        logger.info('Unified page deleted', { type });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting unified page', { type, error });
+        throw error;
     }
 };
 

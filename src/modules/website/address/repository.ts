@@ -1,5 +1,7 @@
 import { Address, AddressType } from "../../admin/address/model";
 import { Op } from "sequelize";
+import { sequelize } from "../../../db/sequelize";
+import logger from "../../../utils/logger";
 
 export const create = async (addressData: {
   userId: string;
@@ -14,10 +16,23 @@ export const create = async (addressData: {
   phone: string;
   isDefault?: boolean;
 }) => {
-  return await Address.create({
-    ...addressData,
-    isDefault: addressData.isDefault || false,
-  });
+  const transaction = await sequelize.transaction();
+  try {
+    const address = await Address.create(
+      {
+        ...addressData,
+        isDefault: addressData.isDefault || false,
+      },
+      { transaction }
+    );
+    await transaction.commit();
+    logger.info('Address created', { addressId: address.id, userId: addressData.userId });
+    return address;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating address', { userId: addressData.userId, error });
+    throw error;
+  }
 };
 
 export const findByIdAndUserId = async (id: string, userId: string) => {
@@ -54,38 +69,79 @@ export const update = async (
     phone: string;
   }>
 ) => {
-  const address = await findByIdAndUserId(id, userId);
-  if (!address) return null;
+  const transaction = await sequelize.transaction();
+  try {
+    const address = await findByIdAndUserId(id, userId);
+    if (!address) return null;
 
-  return await address.update(addressData);
+    const updated = await address.update(addressData, { transaction });
+    await transaction.commit();
+    logger.info('Address updated', { addressId: id, userId });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating address', { addressId: id, userId, error });
+    throw error;
+  }
 };
 
 export const deleteAddress = async (id: string, userId: string) => {
-  const address = await findByIdAndUserId(id, userId);
-  if (!address) return false;
+  const transaction = await sequelize.transaction();
+  try {
+    const address = await findByIdAndUserId(id, userId);
+    if (!address) return false;
 
-  await address.destroy();
-  return true;
+    await address.destroy({ transaction });
+    await transaction.commit();
+    logger.info('Address deleted', { addressId: id, userId });
+    return true;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error deleting address', { addressId: id, userId, error });
+    throw error;
+  }
 };
 
 export const setAsDefault = async (id: string, userId: string) => {
-  await Address.update(
-    { isDefault: false },
-    {
-      where: { userId, isDefault: true },
-    }
-  );
+  const transaction = await sequelize.transaction();
+  try {
+    await Address.update(
+      { isDefault: false },
+      {
+        where: { userId, isDefault: true },
+        transaction
+      }
+    );
 
-  const address = await findByIdAndUserId(id, userId);
-  if (!address) return null;
+    const address = await findByIdAndUserId(id, userId);
+    if (!address) return null;
 
-  return await address.update({ isDefault: true });
+    const updated = await address.update({ isDefault: true }, { transaction });
+    await transaction.commit();
+    logger.info('Address set as default', { addressId: id, userId });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error setting address as default', { addressId: id, userId, error });
+    throw error;
+  }
 };
 
 export const deleteAllByUserId = async (userId: string) => {
-  return await Address.destroy({
-    where: { userId },
-  });
+  const transaction = await sequelize.transaction();
+  try {
+    const result = await Address.destroy({
+      where: { userId },
+      transaction
+    });
+    await transaction.commit();
+    logger.info('All addresses deleted for user', { userId, count: result });
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error deleting all addresses', { userId, error });
+    throw error;
+  }
 };
 
 export const countByUserId = async (userId: string) => {

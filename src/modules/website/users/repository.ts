@@ -1,5 +1,7 @@
 import { User, UserRole } from "../../admin/users/models";
 import { Otp, OtpType } from "../../admin/users/otp.model";
+import { sequelize } from '../../../db/sequelize';
+import logger from '../../../utils/logger';
 
 export const createUser = async (data: {
   email: string;
@@ -8,7 +10,17 @@ export const createUser = async (data: {
   phone?: string;
   role?: UserRole;
 }) => {
-  return User.create(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const user = await User.create(data, { transaction });
+    await transaction.commit();
+    logger.info('User created', { userId: user.id, email: data.email });
+    return user;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating user', { email: data.email, error });
+    throw error;
+  }
 };
 
 export const findUserByEmail = async (email: string) => {
@@ -30,9 +42,18 @@ export const createOtp = async (data: {
   type: OtpType;
   expiresAt: Date;
 }) => {
-  console.log("Creating OTP:", data);
-
-  return Otp.create(data);
+  const transaction = await sequelize.transaction();
+  try {
+    console.log("Creating OTP:", data);
+    const otp = await Otp.create(data, { transaction });
+    await transaction.commit();
+    logger.info('OTP created', { email: data.email, type: data.type });
+    return otp;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating OTP', { email: data.email, error });
+    throw error;
+  }
 };
 
 export const findOtpByEmail = async (email: string, type: OtpType) => {
@@ -46,15 +67,36 @@ export const findOtpByEmail = async (email: string, type: OtpType) => {
 };
 
 export const deleteOtp = async (id: string) => {
-  return Otp.destroy({ where: { id } });
+  const transaction = await sequelize.transaction();
+  try {
+    const result = await Otp.destroy({ where: { id }, transaction });
+    await transaction.commit();
+    logger.info('OTP deleted', { otpId: id });
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error deleting OTP', { otpId: id, error });
+    throw error;
+  }
 };
 
 export const cleanupExpiredOtps = async () => {
-  return Otp.destroy({
-    where: {
-      expiresAt: {
-        [require('sequelize').Op.lt]: new Date(),
+  const transaction = await sequelize.transaction();
+  try {
+    const result = await Otp.destroy({
+      where: {
+        expiresAt: {
+          [require('sequelize').Op.lt]: new Date(),
+        },
       },
-    },
-  });
+      transaction
+    });
+    await transaction.commit();
+    logger.info('Expired OTPs cleaned up', { count: result });
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error cleaning up expired OTPs', { error });
+    throw error;
+  }
 };

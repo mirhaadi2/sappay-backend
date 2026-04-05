@@ -3,13 +3,24 @@ import { SellerProduct } from '../../admin/products/seller-product/model';
 import { AppError } from '../../../utils/AppError';
 import { sequelize } from '../../../db/sequelize';
 import { QueryTypes, Transaction } from 'sequelize';
+import logger from '../../../utils/logger';
 
 export const findInventoryByProductId = async (productId: string, transaction?: Transaction) => {
   return await Inventory.findOne({ where: { productId }, ...(transaction ? { transaction } : {}) });
 };
 
 export const createInventory = async (data: any) => {
-  return await Inventory.create(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const inventory = await Inventory.create(data, { transaction });
+    await transaction.commit();
+    logger.info('Inventory created', { inventoryId: inventory.id });
+    return inventory;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating inventory', { error });
+    throw error;
+  }
 };
 
 export const findBySellerProductId = async (sellerProductId: string) => {
@@ -17,9 +28,19 @@ export const findBySellerProductId = async (sellerProductId: string) => {
 };
 
 export const updateInventory = async (id: string, data: any) => {
-  const inventory = await Inventory.findByPk(id);
-  if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
-  return await inventory.update(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const inventory = await Inventory.findByPk(id, { transaction });
+    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+    const updated = await inventory.update(data, { transaction });
+    await transaction.commit();
+    logger.info('Inventory updated', { inventoryId: id });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating inventory', { inventoryId: id, error });
+    throw error;
+  }
 };
 
 export const getSellerInventory = async (sellerId: string, filters: any = {}) => {
@@ -82,18 +103,39 @@ export const getSellerInventory = async (sellerId: string, filters: any = {}) =>
   }
 };
 
-export const decrementStock = async (sellerProductId: string, quantity: number) => {
-  const inventory = await findBySellerProductId(sellerProductId);
-  if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+export const decrementStock = async (sellerProductId: string, quantity: number, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction; // Only commit if we created the transaction
 
-  if (inventory.availableStock < quantity) {
-    throw new AppError('BadRequest', 400, 'Insufficient stock');
+  try {
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+
+    const inventory = await Inventory.findOne({ where: { sellerProductId }, transaction: txn });
+    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+
+    if (inventory.availableStock < quantity) {
+      throw new AppError('BadRequest', 400, 'Insufficient stock');
+    }
+
+    const updated = await inventory.update({
+      availableStock: inventory.availableStock - quantity,
+      soldStock: inventory.soldStock + quantity,
+    }, { transaction: txn });
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    logger.info('Stock decremented', { sellerProductId, quantity });
+    return updated;
+  } catch (error) {
+    if (needsCommit && txn) {
+      await txn.rollback();
+    }
+    logger.error('Error decrementing stock', { sellerProductId, quantity, error });
+    throw error;
   }
-
-  return await inventory.update({
-    availableStock: inventory.availableStock - quantity,
-    soldStock: inventory.soldStock + quantity,
-  });
 };
 
 export const reserveStockByProductIdRepo = async (productId: string, quantity: number, transaction?: Transaction) => {
@@ -111,26 +153,68 @@ export const reserveStockByProductIdRepo = async (productId: string, quantity: n
 };
 
 
-export const reserveStockRepo = async (sellerProductId: string, quantity: number) => {
-  const inventory = await findBySellerProductId(sellerProductId);
-  if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+export const reserveStockRepo = async (sellerProductId: string, quantity: number, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction; // Only commit if we created the transaction
 
-  if (inventory.availableStock < quantity) {
-    throw new AppError('BadRequest', 400, 'Insufficient stock');
+  try {
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+
+    const inventory = await Inventory.findOne({ where: { sellerProductId }, transaction: txn });
+    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+
+    if (inventory.availableStock < quantity) {
+      throw new AppError('BadRequest', 400, 'Insufficient stock');
+    }
+
+    const updated = await inventory.update({
+      availableStock: inventory.availableStock - quantity,
+      reservedStock: inventory.reservedStock + quantity,
+    }, { transaction: txn });
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    logger.info('Stock reserved', { sellerProductId, quantity });
+    return updated;
+  } catch (error) {
+    if (needsCommit && txn) {
+      await txn.rollback();
+    }
+    logger.error('Error reserving stock', { sellerProductId, quantity, error });
+    throw error;
   }
-
-  return await inventory.update({
-    availableStock: inventory.availableStock - quantity,
-    reservedStock: inventory.reservedStock + quantity,
-  });
 };
 
-export const releaseReservedStock = async (sellerProductId: string, quantity: number) => {
-  const inventory = await findBySellerProductId(sellerProductId);
-  if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+export const releaseReservedStock = async (sellerProductId: string, quantity: number, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction; // Only commit if we created the transaction
 
-  return await inventory.update({
-    availableStock: inventory.availableStock + quantity,
-    reservedStock: inventory.reservedStock - quantity,
-  });
+  try {
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+
+    const inventory = await Inventory.findOne({ where: { sellerProductId }, transaction: txn });
+    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+
+    const updated = await inventory.update({
+      availableStock: inventory.availableStock + quantity,
+      reservedStock: inventory.reservedStock - quantity,
+    }, { transaction: txn });
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    logger.info('Reserved stock released', { sellerProductId, quantity });
+    return updated;
+  } catch (error) {
+    if (needsCommit && txn) {
+      await txn.rollback();
+    }
+    logger.error('Error releasing reserved stock', { sellerProductId, quantity, error });
+    throw error;
+  }
 };

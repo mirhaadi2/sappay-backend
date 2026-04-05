@@ -8,9 +8,20 @@ import { sequelize } from "../../../db/sequelize";
 import { QueryTypes, Op } from "sequelize";
 import { createHash } from "crypto";
 import { redisClient } from "../../../config/session";
+import logger from "../../../utils/logger";
 
 export const createProduct = async (data: any) => {
-  return await Product.create(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const product = await Product.create(data, { transaction });
+    await transaction.commit();
+    logger.info('Product created', { productId: product.id, name: data.name });
+    return product;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating product', { name: data.name, error });
+    throw error;
+  }
 };
 
 export const findVariantsByProductId = async (productId: string) => {
@@ -387,37 +398,57 @@ export const findAllProductsCatalog = async (filters: any) => {
 };
 
 export const createProductVariant = async (productId: string, variant: any) => {
-  return await ProductVariant.create({
-    productId,
-    sku: variant.sku,
-    price: Number(variant.price),
-    weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
-    status: variant.status || "ACTIVE",
-  });
+  const transaction = await sequelize.transaction();
+  try {
+    const pv = await ProductVariant.create({
+      productId,
+      sku: variant.sku,
+      price: Number(variant.price),
+      weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
+      status: variant.status || "ACTIVE",
+    }, { transaction });
+    await transaction.commit();
+    logger.info('Product variant created', { variantId: pv.id, productId, sku: variant.sku });
+    return pv;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating product variant', { productId, sku: variant.sku, error });
+    throw error;
+  }
 };
 
 export const createProductVariants = async (
   productId: string,
   variants: any[],
 ) => {
-  if (!Array.isArray(variants)) return [];
-  const sanitized = variants
-    .filter((v) => v && v.price !== undefined)
-    .map((v) => ({
-      productId,
-      sku: v.sku,
-      price: Number(v.price),
-      discountedPrice:
-        v.discountedPrice !== undefined ? Number(v.discountedPrice) : undefined,
-      discountedPercent:
-        v.discountedPercent !== undefined
-          ? Number(v.discountedPercent)
-          : undefined,
-      weight: v.weight !== undefined ? Number(v.weight) : undefined,
-      weightUnit: v.weightUnit || "G",
-      status: v.status || "ACTIVE",
-    }));
-  return await ProductVariant.bulkCreate(sanitized);
+  const transaction = await sequelize.transaction();
+  try {
+    if (!Array.isArray(variants)) return [];
+    const sanitized = variants
+      .filter((v) => v && v.price !== undefined)
+      .map((v) => ({
+        productId,
+        sku: v.sku,
+        price: Number(v.price),
+        discountedPrice:
+          v.discountedPrice !== undefined ? Number(v.discountedPrice) : undefined,
+        discountedPercent:
+          v.discountedPercent !== undefined
+            ? Number(v.discountedPercent)
+            : undefined,
+        weight: v.weight !== undefined ? Number(v.weight) : undefined,
+        weightUnit: v.weightUnit || "G",
+        status: v.status || "ACTIVE",
+      }));
+    const result = await ProductVariant.bulkCreate(sanitized, { transaction });
+    await transaction.commit();
+    logger.info('Product variants created', { productId, count: result.length });
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating product variants', { productId, error });
+    throw error;
+  }
 };
 
 export const getProductVariants = async (productId: string) => {
@@ -428,19 +459,50 @@ export const getProductVariants = async (productId: string) => {
 };
 
 export const deleteProductVariantsByProduct = async (productId: string) => {
-  return await ProductVariant.destroy({
-    where: { productId },
-  });
+  const transaction = await sequelize.transaction();
+  try {
+    const result = await ProductVariant.destroy({
+      where: { productId },
+      transaction
+    });
+    await transaction.commit();
+    logger.info('Product variants deleted', { productId, count: result });
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error deleting product variants', { productId, error });
+    throw error;
+  }
 };
 
 export const updateProduct = async (id: string, data: any) => {
-  const product = await findProductById(id);
-  if (!product) throw new AppError("NotFound", 404, "Product not found");
-  return await product.update(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const product = await Product.findByPk(id, { transaction });
+    if (!product) throw new AppError("NotFound", 404, "Product not found");
+    const updated = await product.update(data, { transaction });
+    await transaction.commit();
+    logger.info('Product updated', { productId: id });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating product', { productId: id, error });
+    throw error;
+  }
 };
 
 export const createCategory = async (data: any) => {
-  return await Category.create(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const category = await Category.create(data, { transaction });
+    await transaction.commit();
+    logger.info('Category created', { categoryId: category.id, name: data.name });
+    return category;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating category', { name: data.name, error });
+    throw error;
+  }
 };
 
 export const findCategoryById = async (id: string) => {
@@ -483,7 +545,17 @@ export const findAllCategories = async (filters: any) => {
 };
 
 export const createSellerProduct = async (data: any) => {
-  return await SellerProduct.create(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const sellerProduct = await SellerProduct.create(data, { transaction });
+    await transaction.commit();
+    logger.info('Seller product created', { sellerProductId: sellerProduct.id, sellerId: data.sellerId });
+    return sellerProduct;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating seller product', { sellerId: data.sellerId, productId: data.productId, error });
+    throw error;
+  }
 };
 
 export const findSellerProduct = async (
@@ -568,7 +640,17 @@ export const getSellerProducts = async (sellerId: string, filters: any) => {
 };
 
 export const updateSellerProduct = async (id: string, data: any) => {
-  const sp = await findSellerProductById(id);
-  if (!sp) throw new AppError("NotFound", 404, "Seller product not found");
-  return await sp.update(data);
+  const transaction = await sequelize.transaction();
+  try {
+    const sp = await SellerProduct.findByPk(id, { transaction });
+    if (!sp) throw new AppError("NotFound", 404, "Seller product not found");
+    const updated = await sp.update(data, { transaction });
+    await transaction.commit();
+    logger.info('Seller product updated', { sellerProductId: id });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating seller product', { sellerProductId: id, error });
+    throw error;
+  }
 };

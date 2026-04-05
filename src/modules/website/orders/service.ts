@@ -176,35 +176,44 @@ export const placeOrderService = async (
 };
 
 export const confirmPaymentService = async (orderId: string) => {
-  const order = await findOrderById(orderId);
-  if (!order) {
-    throw new AppError('NotFound', 404, 'Order not found');
-  }
+  const transaction = await sequelize.transaction();
+  try {
+    const order = await findOrderById(orderId);
+    if (!order) {
+      throw new AppError('NotFound', 404, 'Order not found');
+    }
 
-  if ((order as any).paymentStatus !== 'PENDING') {
-    throw new AppError('BadRequest', 400, 'Payment already processed');
-  }
+    if ((order as any).paymentStatus !== 'PENDING') {
+      throw new AppError('BadRequest', 400, 'Payment already processed');
+    }
 
-  // Update order status from PENDING to CONFIRMED when payment is confirmed
-  await updateOrder(orderId, {
-    status: 'CONFIRMED',
-    paymentStatus: 'COMPLETED',
-  });
-
-  const items = await findOrderItems(orderId);
-  for (const item of items) {
-    await updateOrderItem((item as any).id, {
+    // Update order status from PENDING to CONFIRMED when payment is confirmed
+    await updateOrder(orderId, {
       status: 'CONFIRMED',
-    });
+      paymentStatus: 'COMPLETED',
+    }, transaction);
 
-    await confirmOrderService((item as any).sellerProductId, (item as any).quantity);
+    const items = await findOrderItems(orderId);
+    for (const item of items) {
+      await updateOrderItem((item as any).id, {
+        status: 'CONFIRMED',
+      }, transaction);
+
+      await confirmOrderService((item as any).sellerProductId, (item as any).quantity, transaction);
+    }
+
+    await transaction.commit();
+    logger.info('Payment confirmed', { orderId });
+    return {
+      id: (order as any).id,
+      status: 'CONFIRMED',
+      message: 'Payment confirmed. Order forwarded to sellers.',
+    };
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error confirming payment', { orderId, error });
+    throw error;
   }
-
-  return {
-    id: (order as any).id,
-    status: 'CONFIRMED',
-    message: 'Payment confirmed. Order forwarded to sellers.',
-  };
 };
 
 export const getCustomerOrdersService = async (customerId: string, filters: any) => {
@@ -217,25 +226,34 @@ export const getCustomerOrderService = async (customerId: string, orderId: strin
 
 
 export const cancelOrderService = async (orderId: string, reason: string) => {
-  const order = await findOrderById(orderId);
-  if (!order) {
-    throw new AppError('NotFound', 404, 'Order not found');
-  }
-
-  if (['SHIPPED', 'DELIVERED'].includes((order as any).status)) {
-    throw new AppError('BadRequest', 400, 'Cannot cancel shipped/delivered order');
-  }
-
-  const items = await findOrderItems(orderId);
-  for (const item of items) {
-    if (['PENDING', 'CONFIRMED'].includes((item as any).status)) {
-      await releaseStockService((item as any).sellerProductId, (item as any).quantity);
+  const transaction = await sequelize.transaction();
+  try {
+    const order = await findOrderById(orderId);
+    if (!order) {
+      throw new AppError('NotFound', 404, 'Order not found');
     }
+
+    if (['SHIPPED', 'DELIVERED'].includes((order as any).status)) {
+      throw new AppError('BadRequest', 400, 'Cannot cancel shipped/delivered order');
+    }
+
+    const items = await findOrderItems(orderId);
+    for (const item of items) {
+      if (['PENDING', 'CONFIRMED'].includes((item as any).status)) {
+        await releaseStockService((item as any).sellerProductId, (item as any).quantity, transaction);
+      }
+    }
+
+    await updateOrderStatus(orderId, 'CANCELLED', transaction);
+
+    await transaction.commit();
+    logger.info('Order cancelled', { orderId, reason });
+    return { id: orderId, status: 'CANCELLED' };
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error cancelling order', { orderId, reason, error });
+    throw error;
   }
-
-  await updateOrderStatus(orderId, 'CANCELLED');
-
-  return { id: orderId, status: 'CANCELLED' };
 };
 
 export const getSellerOrdersService = async (sellerId: string, filters: any) => {
@@ -248,39 +266,49 @@ export const updateItemStatusService = async (
   newStatus: string,
   updateData?: any
 ) => {
-  const items = await findOrderItems('');
-  const item = (items as any)?.find((i: any) => i.id === itemId);
+  const transaction = await sequelize.transaction();
+  try {
+    const items = await findOrderItems('');
+    const item = (items as any)?.find((i: any) => i.id === itemId);
 
-  if (!item) {
-    throw new AppError('NotFound', 404, 'Order item not found');
-  }
-
-  if ((item as any).sellerId !== sellerId) {
-    throw new AppError('Forbidden', 403, 'Unauthorized');
-  }
-
-  const validTransitions: any = {
-    PENDING: ['CONFIRMED', 'CANCELLED'],
-    CONFIRMED: ['PACKED'],
-    PACKED: ['SHIPPED'],
-    SHIPPED: ['DELIVERED'],
-    DELIVERED: [],
-    CANCELLED: [],
-  };
-
-  if (!validTransitions[(item as any).status]?.includes(newStatus)) {
-    throw new AppError('BadRequest', 400, `Cannot transition from ${(item as any).status} to ${newStatus}`);
-  }
-
-  const updateObj: any = { status: newStatus };
-  if (newStatus === 'SHIPPED') {
-    updateObj.shippedAt = new Date();
-    if (updateData?.trackerNumber) {
-      updateObj.trackerNumber = updateData.trackerNumber;
+    if (!item) {
+      throw new AppError('NotFound', 404, 'Order item not found');
     }
-  } else if (newStatus === 'DELIVERED') {
-    updateObj.deliveredAt = new Date();
-  }
 
-  return await updateOrderItem(itemId, updateObj);
+    if ((item as any).sellerId !== sellerId) {
+      throw new AppError('Forbidden', 403, 'Unauthorized');
+    }
+
+    const validTransitions: any = {
+      PENDING: ['CONFIRMED', 'CANCELLED'],
+      CONFIRMED: ['PACKED'],
+      PACKED: ['SHIPPED'],
+      SHIPPED: ['DELIVERED'],
+      DELIVERED: [],
+      CANCELLED: [],
+    };
+
+    if (!validTransitions[(item as any).status]?.includes(newStatus)) {
+      throw new AppError('BadRequest', 400, `Cannot transition from ${(item as any).status} to ${newStatus}`);
+    }
+
+    const updateObj: any = { status: newStatus };
+    if (newStatus === 'SHIPPED') {
+      updateObj.shippedAt = new Date();
+      if (updateData?.trackerNumber) {
+        updateObj.trackerNumber = updateData.trackerNumber;
+      }
+    } else if (newStatus === 'DELIVERED') {
+      updateObj.deliveredAt = new Date();
+    }
+
+    const result = await updateOrderItem(itemId, updateObj, transaction);
+    await transaction.commit();
+    logger.info('Order item status updated', { itemId, sellerId, newStatus });
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating order item status', { itemId, sellerId, newStatus, error });
+    throw error;
+  }
 };

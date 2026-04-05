@@ -1,5 +1,7 @@
 import { Seller, SellerStatus, BusinessType } from './model';
 import { AppError } from '../../utils/AppError';
+import { sequelize } from '../../db/sequelize';
+import logger from '../../utils/logger';
 
 export const create = async (sellerData: {
   // userId: string;
@@ -18,10 +20,23 @@ export const create = async (sellerData: {
   bankIfscCode: string;
   status?: SellerStatus;
 }) => {
-  return await Seller.create({
-    ...sellerData,
-    businessType: sellerData.businessType as unknown as BusinessType,
-  });
+  const transaction = await sequelize.transaction();
+  try {
+    const seller = await Seller.create(
+      {
+        ...sellerData,
+        businessType: sellerData.businessType as unknown as BusinessType,
+      },
+      { transaction }
+    );
+    await transaction.commit();
+    logger.info('Seller created', { sellerId: seller.id, businessName: sellerData.businessName });
+    return seller;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error creating seller', { businessName: sellerData.businessName, error });
+    throw error;
+  }
 };
 
 export const findById = async (sellerId: string, includeDeleted = false) => {
@@ -73,11 +88,21 @@ export const findAll = async (filters: {
 };
 
 export const update = async (sellerId: string, data: Partial<any>) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
+  const transaction = await sequelize.transaction();
+  try {
+    const seller = await Seller.findByPk(sellerId, { transaction });
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
+    const updated = await seller.update(data, { transaction });
+    await transaction.commit();
+    logger.info('Seller updated', { sellerId });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating seller', { sellerId, error });
+    throw error;
   }
-  return await seller.update(data);
 };
 
 export const updateStatus = async (
@@ -85,42 +110,71 @@ export const updateStatus = async (
   status: string,
   approvalData?: any
 ) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  const transaction = await sequelize.transaction();
+  try {
+    const seller = await Seller.findByPk(sellerId, { transaction });
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  if (status === 'APPROVED') {
-    return await seller.update({
-      status: SellerStatus.APPROVED,
-      approvedAt: new Date(),
-      rejectedReason: undefined,
-    });
-  } else if (status === 'REJECTED') {
-    return await seller.update({
-      status: SellerStatus.REJECTED,
-      rejectedReason: approvalData?.reason || 'Not specified',
-    });
-  } else if (status === 'SUSPENDED') {
-    return await seller.update({
-      status: SellerStatus.SUSPENDED,
-      metadata: {
-        ...seller.metadata,
-        suspensionReason: approvalData?.reason,
-        suspendedAt: new Date(),
-      },
-    });
-  }
+    if (status === 'APPROVED') {
+      const updated = await seller.update({
+        status: SellerStatus.APPROVED,
+        approvedAt: new Date(),
+        rejectedReason: undefined,
+      }, { transaction });
+      await transaction.commit();
+      logger.info('Seller approved', { sellerId });
+      return updated;
+    } else if (status === 'REJECTED') {
+      const updated = await seller.update({
+        status: SellerStatus.REJECTED,
+        rejectedReason: approvalData?.reason || 'Not specified',
+      }, { transaction });
+      await transaction.commit();
+      logger.info('Seller rejected', { sellerId });
+      return updated;
+    } else if (status === 'SUSPENDED') {
+      const updated = await seller.update({
+        status: SellerStatus.SUSPENDED,
+        metadata: {
+          ...seller.metadata,
+          suspensionReason: approvalData?.reason,
+          suspendedAt: new Date(),
+        },
+      }, { transaction });
+      await transaction.commit();
+      logger.info('Seller suspended', { sellerId });
+      return updated;
+    }
 
-  return await seller.update({ status: status as unknown as SellerStatus });
+    const updated = await seller.update({ status: status as unknown as SellerStatus }, { transaction });
+    await transaction.commit();
+    logger.info('Seller status updated', { sellerId, status });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating seller status', { sellerId, status, error });
+    throw error;
+  }
 };
 
 export const updateOnboardingStep = async (sellerId: string, step: number) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
+  const transaction = await sequelize.transaction();
+  try {
+    const seller = await Seller.findByPk(sellerId, { transaction });
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
+    const updated = await seller.update({ onboardingStep: step }, { transaction });
+    await transaction.commit();
+    logger.info('Seller onboarding step updated', { sellerId, step });
+    return updated;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating seller onboarding step', { sellerId, step, error });
+    throw error;
   }
-  return await seller.update({ onboardingStep: step });
 };
 
 export const getSellerStats = async (sellerId: string) => {
@@ -134,9 +188,18 @@ export const getSellerStats = async (sellerId: string) => {
 };
 
 export const deleteSeller = async (sellerId: string) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
+  const transaction = await sequelize.transaction();
+  try {
+    const seller = await Seller.findByPk(sellerId, { transaction });
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
+    await seller.destroy({ transaction });
+    await transaction.commit();
+    logger.info('Seller deleted', { sellerId });
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error deleting seller', { sellerId, error });
+    throw error;
   }
-  return await seller.destroy();
 };
