@@ -69,33 +69,55 @@ try {
 
   // Check if migration is pending
   log('\n🔍 Checking migration status...\n', 'blue');
-  const statusOutput = execSync('npx sequelize-cli db:migrate:status', { encoding: 'utf-8' });
   
-  const isPending = statusOutput.includes(`down ${matchedFile}`);
-  const isApplied = statusOutput.includes(`up ${matchedFile}`);
+  let statusOutput = '';
+  try {
+    statusOutput = execSync('npx sequelize-cli db:migrate:status', { encoding: 'utf-8' });
+  } catch (e) {
+    log('⚠️  Could not get migration status, attempting to run anyway...', 'yellow');
+  }
+  
+  const isPending = statusOutput.includes(`down ${matchedFile}`) || statusOutput.includes(`pending`);
+  const isApplied = statusOutput.includes(`up ${matchedFile}`) || statusOutput.includes(`executed`);
 
   if (isApplied) {
     log(`⚠️  Migration already applied: ${matchedFile}`, 'yellow');
-    process.exit(0);
-  }
-
-  if (!isPending) {
-    log(`⚠️  Migration status unknown. Current status:\n`, 'yellow');
+    log('If you need to re-run it, manually edit the _prisma_migrations table', 'yellow');
     process.exit(0);
   }
 
   log(`\n🚀 Running migration: ${matchedFile}`, 'blue');
   log('   (This runs all pending migrations in sequence)\n', 'yellow');
   
-  // Run migrations - this will run all pending ones in order
-  execSync('npx sequelize-cli db:migrate', { stdio: 'inherit' });
+  // Run migrations with error handling for idempotency
+  try {
+    execSync('npx sequelize-cli db:migrate', { stdio: 'inherit' });
+    log('\n✅ Migration executed successfully!', 'green');
+  } catch (migrationError) {
+    const errorMsg = migrationError.toString();
+    
+    // Check if error is due to already existing columns/constraints (idempotency issue)
+    if (errorMsg.includes('already exists') || errorMsg.includes('duplicate key') || errorMsg.includes('already defined')) {
+      log('\n⚠️  Migration may have already been applied or contains idempotent operations', 'yellow');
+      log('Continuing verification...', 'yellow');
+    } else {
+      throw migrationError;
+    }
+  }
 
-  log('\n✅ Migration executed!', 'green');
   log('\n📋 Verifying:\n', 'blue');
-  execSync('npx sequelize-cli db:migrate:status', { stdio: 'inherit' });
+  try {
+    execSync('npx sequelize-cli db:migrate:status', { stdio: 'inherit' });
+  } catch (e) {
+    log('⚠️  Could not verify status', 'yellow');
+  }
 
 } catch (error) {
   log('\n❌ Error:', 'red');
   log(error instanceof Error ? error.message : error, 'red');
+  log('\n💡 Troubleshooting:', 'blue');
+  log('  1. Check if migration is already applied: npm run migration:status', 'cyan');
+  log('  2. Verify database connection in .env file', 'cyan');
+  log('  3. For persistent issues, restore from backup: npm run migrate:restore', 'cyan');
   process.exit(1);
 }

@@ -3,7 +3,7 @@
  * Real database implementation for order management
  */
 
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
 import Order from '../../admin/orders/order.model';
 import { OrderItem } from '../../admin/orders/order-item.model';
 import { User } from '../../../models';
@@ -14,6 +14,7 @@ import { AppError } from '../../../utils/AppError';
 import { AdminOrderQuery, AdminOrder } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
+import { sequelize } from '../../../db/sequelize';
 
 /**
  * List all orders with customer and seller information
@@ -26,46 +27,70 @@ export const adminListOrders = async (query: AdminOrderQuery) => {
       100
     );
 
-    const where: any = {};
+    // 1. Build Dynamic Where Clause for Raw SQL
+    let whereClause = 'WHERE 1=1';
+    const replacements: any = { limit, offset };
 
-    // Filter by order status
     if (query.status) {
-      where.status = query.status.toUpperCase();
+      whereClause += ' AND o.status = :status';
+      replacements.status = query.status.toUpperCase();
     }
 
-    // Search by order number
     if (query.search) {
-      where[Op.or] = [
-        { orderNumber: { [Op.iLike]: `%${query.search}%` } },
-      ];
+      whereClause += ' AND (o.order_number ILIKE :search OR c.name ILIKE :search OR c.email ILIKE :search)';
+      replacements.search = `%${query.search}%`;
     }
 
-    // Get orders
-    const { count, rows } = await Order.findAndCountAll({
-      where,
-      offset,
-      limit,
-      order: [['createdAt', (query.sortOrder || 'desc').toUpperCase()]],
-      raw: false,
+    const sql = `
+      SELECT
+        o.id,
+        o.order_number AS "orderNumber",
+        o.customer_id AS "customerId",
+        o.status,
+        o.final_amount AS "finalAmount",
+        o.created_at AS "createdAt",
+        o.updated_at AS "updatedAt",
+        o.total_amount AS "totalAmount",
+        o.discount_amount AS "discountAmount",
+        o.tax_amount AS "taxAmount",
+        o.shipping_cost AS "shippingCost",
+        o.payment_status AS "paymentStatus",
+        o.delivery_date AS "deliveryDate",
+        o.shipping_address_id AS "shippingAddressId",
+        c.name AS "customerName",
+        c.email AS "customerEmail", 
+        c.phone AS "customerPhone",
+        address.phone AS "customerAddressPhone",
+        address.address_line1 AS "customerAddressLine1",
+        address.address_line2 AS "customerAddressLine2",
+        address.city AS "customerCity",
+        address.state AS "customerState",
+        address.postal_code AS "customerPostalCode",
+        address.country AS "customerCountry",
+        COUNT(*) OVER() AS "total_count" 
+      FROM orders o
+      LEFT JOIN users c ON o.customer_id = c.id
+      LEFT JOIN addresses address ON o.shipping_address_id = address.id
+      ${whereClause}
+      ORDER BY o.created_at DESC
+      LIMIT :limit OFFSET :offset
+    `;
+
+    const orders: any[] = await sequelize.query(sql, {
+      replacements,
+      type: QueryTypes.SELECT,
+      logging: (sql, timing) => logger.info('Admin Order Search', { sql, timing }),
+      benchmark: true,
     });
 
-    // Transform to admin format
-    const orders: AdminOrder[] = rows.map((order: any) => ({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      customerId: order.customerId,
-      customerName: 'Unknown',
-      customerEmail: '',
-      sellerId: '',
-      sellerName: 'Unknown',
-      items: [],
-      status: (order.status.toLowerCase() as any),
-      totalAmount: Number(order.finalAmount),
-      createdAt: order.createdAt?.toISOString() || new Date().toISOString(),
-      updatedAt: order.updatedAt?.toISOString() || new Date().toISOString(),
-    }));
+    // 3. Extract count from the first row (Postgres returns count as string)
+    const totalCount = orders.length > 0 ? parseInt(orders[0].total_count) : 0;
 
-    return buildPaginatedResponse(orders, count, { page, limit, offset });
+    // Optional: Clean up the total_count property from rows if you want a clean object
+    const sanitizedOrders = orders.map(({ total_count, ...order }) => order);
+
+    return buildPaginatedResponse(sanitizedOrders, totalCount, { page, limit, offset });
+
   } catch (error: any) {
     logger.error('Error listing admin orders', { error });
     throw new AppError('OrderError', 500, error.message || 'Failed to list orders');
@@ -75,32 +100,93 @@ export const adminListOrders = async (query: AdminOrderQuery) => {
 /**
  * Get single order with all items and seller information
  */
-export const adminGetOrder = async (id: string): Promise<AdminOrder> => {
+export const adminGetOrder = async (id: string): Promise<any> => {
   try {
-    const order = await Order.findByPk(id);
+    const sql = `
+      SELECT 
+        o.id,
+        o.order_number AS "orderNumber",
+        o.customer_id AS "customerId",
+        o.status,
+        o.total_amount AS "totalAmount",
+        o.discount_amount AS "discountAmount",
+        o.tax_amount AS "taxAmount",
+        o.shipping_cost AS "shippingCost",
+        o.final_amount AS "finalAmount",
+        o.payment_status AS "paymentStatus",
+        o.payment_method AS "paymentMethod",
+        o.delivery_date AS "deliveryDate",
+        o.delivered_at AS "deliveredAt",
+        o.created_at AS "createdAt",
+        o.updated_at AS "updatedAt",
+        
+        -- Customer Details
+        c.name AS "customerName",
+        c.email AS "customerEmail",
+        c.phone AS "customerPhone",
 
-    if (!order) {
+        -- Shipping Address Details
+        sa.address_line1 AS "shippingAddressLine1",
+        sa.address_line2 AS "shippingAddressLine2",
+        sa.city AS "shippingCity",
+        sa.state AS "shippingState",
+        sa.postal_code AS "shippingPostalCode",
+        sa.country AS "shippingCountry",
+        sa.phone AS "shippingAddressPhone",
+
+        -- Nested Order Items with Product/Variant details
+        (
+          SELECT json_agg(json_build_object(
+            'id', oi.id,
+            'productId', oi.product_id,
+            'productName', p.name,
+            'productImage', p.images, -- Assuming you have this for the UI
+            'variantId', oi.product_variant_id,
+            'sku', oi.sku,
+            'quantity', oi.quantity,
+            'unitPrice', oi.unit_price,
+            'subtotal', oi.subtotal,
+            'taxAmount', oi.tax_amount,
+            'itemTotal', oi.item_total,
+            'status', oi.status,
+            'weight', (pv.weight::TEXT || ' ' || pv.weight_unit::TEXT)
+          ))
+          FROM order_items oi
+          LEFT JOIN products p ON oi.product_id = p.id
+          LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
+          WHERE oi.order_id = o.id
+        ) AS items
+
+      FROM orders o
+      LEFT JOIN users c ON o.customer_id = c.id
+      LEFT JOIN addresses sa ON o.shipping_address_id = sa.id
+      WHERE o.id = :id
+      LIMIT 1
+    `;
+
+    const results = await sequelize.query(sql, {
+      replacements: { id },
+      type: QueryTypes.SELECT,
+      plain: true, // Returns a single object instead of an array
+    });
+
+    if (!results) {
       throw new AppError('NotFoundError', 404, 'Order not found');
     }
 
+    // Transform status to lowercase for frontend consistency if needed
     return {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      customerId: order.customerId,
-      customerName: 'Unknown',
-      customerEmail: '',
-      sellerId: '',
-      sellerName: 'Unknown',
-      items: [],
-      status: (order.status.toLowerCase() as any),
-      totalAmount: Number(order.finalAmount),
-      createdAt: order.createdAt?.toISOString() || new Date().toISOString(),
-      updatedAt: order.updatedAt?.toISOString() || new Date().toISOString(),
+      ...results,
+      // // Ensure the items array exists even if the subquery returned null
+      // items: results.items || [],
+      // // Optional: Match your frontend's expected status casing
+      // status: results.status.toLowerCase() S
     };
+
   } catch (error: any) {
-    logger.error('Error fetching admin order', { orderId: id, error });
+    logger.error('Error fetching admin order details', { orderId: id, error });
     if (error instanceof AppError) throw error;
-    throw new AppError('NotFoundError', 404, 'Order not found');
+    throw new AppError('InternalError', 500, 'Failed to fetch order details');
   }
 };
 
@@ -109,41 +195,82 @@ export const adminGetOrder = async (id: string): Promise<AdminOrder> => {
  */
 export const adminUpdateOrderStatus = async (
   id: string,
-  data: { status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded' }
+  data: { 
+    status: string; 
+    trackingNumber?: string; 
+    statusReason?: string; 
+  }
 ): Promise<AdminOrder> => {
   try {
+    console.log('Admin updating order status', { id, data });
+    
     const order = await Order.findByPk(id);
-
     if (!order) {
       throw new AppError('NotFoundError', 404, 'Order not found');
     }
 
-    // Map admin status to database status
-    const statusMap: any = {
+    // 1. Comprehensive Status Mapping
+    const statusMap: Record<string, string> = {
       pending: 'PENDING',
+      confirmed: 'CONFIRMED',
       processing: 'PROCESSING',
+      packed: 'PACKED',
+      handover: 'HANDOVER', // Critical: The moment responsibility shifts to courier
       shipped: 'SHIPPED',
+      out_for_delivery: 'OUT_FOR_DELIVERY',
       delivered: 'DELIVERED',
+      delivery_failed: 'DELIVERY_FAILED',
+      rto: 'RTO',
       cancelled: 'CANCELLED',
-      refunded: 'CANCELLED', // Refunded maps to cancelled with payment status change
+      refunded: 'CANCELLED',
     };
 
-    const newStatus = statusMap[data.status] || data.status.toUpperCase();
+    const newStatus = statusMap[data.status.toLowerCase()] || data.status.toUpperCase();
 
-    // Update order status
-    await order.update({ status: newStatus as any });
-
-    // If refunding, also update payment status
-    if (data.status === 'refunded') {
-      await order.update({ paymentStatus: 'REFUNDED' });
+    // 2. Logic Validation: Prevent Handover/Shipping without Tracking Info
+    // This stops "ghost" shipments that can't be tracked later
+    const requiresTracking = ['HANDOVER', 'SHIPPED', 'OUT_FOR_DELIVERY'].includes(newStatus);
+    if (requiresTracking && !data.trackingNumber && !order.trackingNumber) {
+      throw new AppError('ValidationError', 400, `Tracking ID (AWB) is required to move to ${newStatus} status`);
     }
 
-    logger.info('Order status updated by admin', { orderId: id, newStatus, oldStatus: order.status });
+    // 3. Prepare Single Update Object (Optimized for one DB hit)
+    const updateData: any = { 
+      status: newStatus 
+    };
+
+    if (data.trackingNumber) {
+      updateData.trackingNumber = data.trackingNumber;
+    }
+
+    if (data.statusReason) {
+      updateData.statusReason = data.statusReason;
+    }
+
+    // Handle special payment status transitions
+    if (data.status.toLowerCase() === 'refunded') {
+      updateData.paymentStatus = 'REFUNDED';
+    }
+
+    // 4. Perform the Update
+    await order.update(updateData);
+
+    logger.info('Order status updated by admin', { 
+      orderId: id, 
+      newStatus, 
+      hasTracking: !!(data.trackingNumber || order.trackingNumber),
+      reason: data.statusReason 
+    });
+
+    // 5. Return fresh data
     return adminGetOrder(id);
+
   } catch (error: any) {
     logger.error('Error updating admin order status', { orderId: id, error });
+    
+    // Maintain existing error structure
     if (error instanceof AppError) throw error;
-    throw new AppError('NotFoundError', 404, 'Order not found');
+    throw new AppError('InternalError', 500, error.message || 'Failed to update order');
   }
 };
 

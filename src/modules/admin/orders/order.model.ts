@@ -10,10 +10,17 @@ interface OrderAttributes {
     | "PENDING"
     | "CONFIRMED"
     | "PROCESSING"
+    | "PACKED" // Added: Warehouse completed packing
+    | "HANDOVER" // Added: Courier collected the parcel
     | "SHIPPED"
+    | "OUT_FOR_DELIVERY" // Added: Last mile transition
     | "DELIVERED"
+    | "DELIVERY_FAILED" // Added: Specific failure state
+    | "RTO" // Added: Return to Origin
     | "CANCELLED"
     | "FAILED";
+  trackingNumber?: string; // Added: AWB/Tracking ID
+  statusReason?: string; // Added: Reason for FAILED/RTO/CANCELLED
   totalAmount: number;
   discountAmount: number;
   taxAmount: number;
@@ -34,6 +41,8 @@ type OrderCreationAttributes = Optional<
   OrderAttributes,
   | "id"
   | "status"
+  | "trackingNumber"
+  | "statusReason"
   | "discountAmount"
   | "taxAmount"
   | "shippingCost"
@@ -55,10 +64,17 @@ export class Order
     | "PENDING"
     | "CONFIRMED"
     | "PROCESSING"
+    | "PACKED"
+    | "HANDOVER"
     | "SHIPPED"
+    | "OUT_FOR_DELIVERY" // Added: Last mile transition
     | "DELIVERED"
+    | "DELIVERY_FAILED" // Added: Failed attempt tracking
+    | "RTO" // Added: Return to Origin
     | "CANCELLED"
     | "FAILED";
+  public trackingNumber?: string;
+  public statusReason?: string;
   public totalAmount!: number;
   public discountAmount!: number;
   public taxAmount!: number;
@@ -100,14 +116,31 @@ Order.init(
         "PENDING",
         "CONFIRMED",
         "PROCESSING",
+        "PACKED",            // New: Warehouse packing done
+        "HANDOVER",          // New: Courier received
         "SHIPPED",
+        "OUT_FOR_DELIVERY",  // New: Last mile transit
         "DELIVERED",
+        "DELIVERY_FAILED",   // New: Specific failure
+        "RTO",               // New: Return to Origin
         "CANCELLED",
-        "FAILED",
+        "FAILED"
       ),
       allowNull: false,
       defaultValue: "PENDING",
     },
+    // --- NEW LOGISTICS COLUMNS ---
+    trackingNumber: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: "tracking_number",
+    },
+    statusReason: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: "status_reason",
+    },
+    // ----------------------------
     totalAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
@@ -193,7 +226,6 @@ Order.init(
         const START_NUMBER = 1000000;
         const PREFIX = "ORD";
 
-        // IMPORTANT: We use the transaction from 'options' to ensure data integrity
         const lastOrder = await Order.findOne({
           attributes: ["orderNumber"],
           order: [["orderNumber", "DESC"]],
@@ -206,7 +238,6 @@ Order.init(
         if (!lastOrder || !lastOrder.orderNumber) {
           nextNumber = START_NUMBER + 1;
         } else {
-          // Use regex to remove any non-numeric characters for safety
           const lastNumericPart = parseInt(
             lastOrder.orderNumber.replace(/\D/g, ""),
             10,
@@ -217,19 +248,19 @@ Order.init(
         }
 
         order.orderNumber = `${PREFIX}${nextNumber}`;
-        console.log("Assigned order number to new order:", order);
+        console.log("Assigned order number to new order:", order.orderNumber);
       },
     },
   },
 );
 
 // Define associations
-Order.hasMany(OrderItem, { 
-  foreignKey: 'orderId', 
-  as: 'items',
-  onDelete: 'CASCADE'
+Order.hasMany(OrderItem, {
+  foreignKey: "orderId",
+  as: "items",
+  onDelete: "CASCADE",
 });
 
-OrderItem.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+OrderItem.belongsTo(Order, { foreignKey: "orderId", as: "order" });
 
 export default Order;
