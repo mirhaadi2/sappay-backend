@@ -43,6 +43,13 @@ export const placeOrderService = async (
     shippingCost?: number;
     shippingAddressId: string;
     paymentMethod: string;
+    promotionId?: string;
+    promotionDetails?: {
+      id: string;
+      title: string;
+      type: string;
+      discount: number;
+    };
   }
 ) => {
   let transaction;
@@ -51,7 +58,7 @@ export const placeOrderService = async (
       throw new AppError('ServerError', 500, 'Database connection not available');
     }
 
-    const { items, shippingAddressId, paymentMethod, subtotal, taxAmount, shippingCost = 0 } = orderData;
+    const { items, shippingAddressId, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails } = orderData;
 
     if (!items || items.length === 0) {
       throw new AppError('BadRequest', 400, 'Order must have at least one item');
@@ -129,6 +136,15 @@ export const placeOrderService = async (
       totalAmount: finalAmount,
       finalAmount,
       shippingCost: parseFloat(shippingCost.toFixed(2)),
+      metadata: promotionDetails ? {
+        promotion: {
+          id: promotionDetails.id,
+          title: promotionDetails.title,
+          type: promotionDetails.type,
+          discountAmount: promotionDetails.discount,
+        },
+        appliedAt: new Date().toISOString(),
+      } : undefined,
     }, transaction);
 
     const orderId = order?.dataValues?.id ?? (order as any).id;
