@@ -44,8 +44,9 @@ export const getOrderHandler = async (req: AuthenticatedRequest, res: Response) 
 export const updateOrderStatusHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { status, notes } = req.body;
-    const order = await adminUpdateOrderStatus(id, { status });
+    const { status, notes, trackingNumber, statusReason } = req.body;
+    const staffId = req.staff?.id;
+    const order = await adminUpdateOrderStatus(id, { status, trackingNumber, statusReason }, staffId);
     res.json({ success: true, data: order });
   } catch (error: any) {
     logger.error('Update order status error', { error });

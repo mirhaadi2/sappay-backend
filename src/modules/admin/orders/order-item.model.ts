@@ -1,6 +1,6 @@
-import { Model, DataTypes, Optional } from 'sequelize';
-import { sequelize } from '../../../db/sequelize';
-import Order from './order.model';
+import { Model, DataTypes, Optional } from "sequelize";
+import { sequelize } from "../../../db/sequelize";
+import Order from "./order.model";
 
 interface OrderItemAttributes {
   id: string;
@@ -13,10 +13,25 @@ interface OrderItemAttributes {
   subtotal: number;
   taxAmount?: number;
   itemTotal?: number;
-  status: 'PENDING' | 'CONFIRMED' | 'PACKED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'RETURNED';
+  status:
+    | "PENDING"
+    | "CONFIRMED"
+    | "PROCESSING"
+    | "PACKED" // Added: Warehouse completed packing
+    | "HANDOVER" // Added: Courier collected the parcel
+    | "SHIPPED"
+    | "OUT_FOR_DELIVERY" // Added: Last mile transition
+    | "DELIVERED"
+    | "DELIVERY_FAILED" // Added: Specific failure state
+    | "RTO" // Added: Return to Origin
+    | "CANCELLED"
+    | "FAILED";
   trackerNumber?: string;
   shippedAt?: Date;
   deliveredAt?: Date;
+  statusReason?: string;
+  statusUpdatedAt?: Date;
+  statusUpdatedBy?: string;
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -24,10 +39,21 @@ interface OrderItemAttributes {
 
 type OrderItemCreationAttributes = Optional<
   OrderItemAttributes,
-  'id' | 'status' | 'taxAmount' | 'metadata' | 'createdAt' | 'updatedAt'
+  | "id"
+  | "status"
+  | "taxAmount"
+  | "metadata"
+  | "statusReason"
+  | "statusUpdatedAt"
+  | "statusUpdatedBy"
+  | "createdAt"
+  | "updatedAt"
 >;
 
-export class OrderItem extends Model<OrderItemAttributes, OrderItemCreationAttributes> implements OrderItemAttributes {
+export class OrderItem
+  extends Model<OrderItemAttributes, OrderItemCreationAttributes>
+  implements OrderItemAttributes
+{
   public id!: string;
   public orderId!: string;
   public productId!: string;
@@ -38,10 +64,25 @@ export class OrderItem extends Model<OrderItemAttributes, OrderItemCreationAttri
   public subtotal!: number;
   public taxAmount?: number;
   public itemTotal?: number;
-  public status!: 'PENDING' | 'CONFIRMED' | 'PACKED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'RETURNED';
+  public status!:
+    | "PENDING"
+    | "CONFIRMED"
+    | "PROCESSING"
+    | "PACKED"
+    | "HANDOVER"
+    | "SHIPPED"
+    | "OUT_FOR_DELIVERY" // Added: Last mile transition
+    | "DELIVERED"
+    | "DELIVERY_FAILED" // Added: Failed attempt tracking
+    | "RTO" // Added: Return to Origin
+    | "CANCELLED"
+    | "FAILED";
   public trackerNumber?: string;
   public shippedAt?: Date;
   public deliveredAt?: Date;
+  public statusReason?: string;
+  public statusUpdatedAt?: Date;
+  public statusUpdatedBy?: string;
   public metadata?: Record<string, any>;
 
   public readonly createdAt!: Date;
@@ -59,17 +100,17 @@ OrderItem.init(
     orderId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'order_id',
+      field: "order_id",
     },
     productId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'product_id',
+      field: "product_id",
     },
     productVariantId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'product_variant_id',
+      field: "product_variant_id",
     },
     sku: {
       type: DataTypes.STRING(100),
@@ -82,52 +123,73 @@ OrderItem.init(
     unitPrice: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
-      field: 'unit_price',
+      field: "unit_price",
     },
     subtotal: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
-      field: 'subtotal',
+      field: "subtotal",
     },
     taxAmount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
       defaultValue: 0,
-      field: 'tax_amount',
+      field: "tax_amount",
     },
     itemTotal: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
       defaultValue: 0,
-      field: 'item_total',                  
+      field: "item_total",
     },
     status: {
       type: DataTypes.ENUM(
-        'PENDING',
-        'CONFIRMED',
-        'PACKED',
-        'SHIPPED',
-        'DELIVERED',
-        'CANCELLED',
-        'RETURNED'
+        "PENDING",
+        "CONFIRMED",
+        "PROCESSING",
+        "PACKED", // New: Warehouse packing done
+        "HANDOVER", // New: Courier received
+        "SHIPPED",
+        "OUT_FOR_DELIVERY", // New: Last mile transit
+        "DELIVERED",
+        "DELIVERY_FAILED", // New: Specific failure
+        "RTO", // New: Return to Origin
+        "CANCELLED",
+        "FAILED",
       ),
       allowNull: false,
-      defaultValue: 'PENDING',
+      defaultValue: "PENDING",
     },
     trackerNumber: {
       type: DataTypes.STRING(100),
       allowNull: true,
-      field: 'tracker_number',
+      field: "tracker_number",
     },
     shippedAt: {
       type: DataTypes.DATE,
       allowNull: true,
-      field: 'shipped_at',
+      field: "shipped_at",
     },
     deliveredAt: {
       type: DataTypes.DATE,
       allowNull: true,
-      field: 'delivered_at',
+      field: "delivered_at",
+    },
+    statusReason: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: "status_reason",
+    },
+    statusUpdatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW,
+      field: "status_updated_at",
+    },
+    statusUpdatedBy: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: "status_updated_by",
     },
     metadata: {
       type: DataTypes.JSON,
@@ -138,20 +200,20 @@ OrderItem.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-      field: 'created_at',
+      field: "created_at",
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-      field: 'updated_at',
+      field: "updated_at",
     },
   },
   {
     sequelize,
-    tableName: 'order_items',
+    tableName: "order_items",
     timestamps: true,
-  }
+  },
 );
 
 export default OrderItem;

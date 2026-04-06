@@ -229,6 +229,7 @@ export const adminUpdateOrderStatus = async (
     trackingNumber?: string;
     statusReason?: string;
   },
+  staffId?: string,
 ): Promise<AdminOrder> => {
   try {
     console.log("Admin updating order status", { id, data });
@@ -253,9 +254,13 @@ export const adminUpdateOrderStatus = async (
       cancelled: "CANCELLED",
       refunded: "CANCELLED",
     };
+    console.log(statusMap);
+
 
     const newStatus =
       statusMap[data.status.toLowerCase()] || data.status.toUpperCase();
+
+          console.log(newStatus,'newStatus');
 
     // 2. Logic Validation: Prevent Handover/Shipping without Tracking Info
     // This stops "ghost" shipments that can't be tracked later
@@ -293,14 +298,42 @@ export const adminUpdateOrderStatus = async (
     // 4. Perform the Update
     await order.update(updateData);
 
+    // 5. Update all order items (product variants) status to match order status
+    const itemStatusMap: Record<string, string> = {
+      "PENDING": "PENDING",
+      "CONFIRMED": "CONFIRMED",
+      "PROCESSING": "CONFIRMED",
+      "PACKED": "PACKED",
+      "HANDOVER": "SHIPPED",
+      "SHIPPED": "SHIPPED",
+      "OUT_FOR_DELIVERY": "SHIPPED",
+      "DELIVERED": "DELIVERED",
+      "DELIVERY_FAILED": "DELIVERY_FAILED",
+      "RTO": "RETURNED",
+      "CANCELLED": "CANCELLED",
+    };
+
+    const itemStatus = itemStatusMap[newStatus] || "PENDING";
+
+    await OrderItem.update(
+      { 
+        status: itemStatus,
+        statusReason: data.statusReason || `Order status updated to ${newStatus}`,
+        statusUpdatedAt: new Date(),
+        statusUpdatedBy: staffId || "ADMIN",
+      },
+      { where: { orderId: id } }
+    );
+
     logger.info("Order status updated by admin", {
       orderId: id,
       newStatus,
+      itemStatus,
       hasTracking: !!(data.trackingNumber || order.trackingNumber),
       reason: data.statusReason,
     });
 
-    // 5. Return fresh data
+    // 6. Return fresh data
     return adminGetOrder(id);
   } catch (error: any) {
     logger.error("Error updating admin order status", { orderId: id, error });
@@ -340,7 +373,13 @@ export const adminRefundOrder = async (
       metadata,
     });
 
-    logger.info("Order refunded by admin", { orderId: id, reason });
+    // Update all order items (variants) status to CANCELLED
+    await OrderItem.update(
+      { status: "CANCELLED" },
+      { where: { orderId: id } }
+    );
+
+    logger.info("Order refunded by admin", { orderId: id, reason, itemsUpdated: true });
     return adminGetOrder(id);
   } catch (error: any) {
     logger.error("Error refunding admin order", { orderId: id, error });
@@ -372,7 +411,13 @@ export const adminCancelOrder = async (
       metadata,
     });
 
-    logger.info("Order cancelled by admin", { orderId: id, reason });
+    // Update all order items (variants) status to CANCELLED
+    await OrderItem.update(
+      { status: "CANCELLED" },
+      { where: { orderId: id } }
+    );
+
+    logger.info("Order cancelled by admin", { orderId: id, reason, itemsUpdated: true });
     return adminGetOrder(id);
   } catch (error: any) {
     logger.error("Error cancelling admin order", { orderId: id, error });
