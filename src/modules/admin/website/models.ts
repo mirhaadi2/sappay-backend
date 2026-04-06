@@ -292,7 +292,7 @@ interface WebsitePageAttributes {
     order: number;
     createdAt: Date;
     updatedAt: Date;
-    deletedAt?: Date;
+    deletedAt?: Date | null;
 }
 
 type WebsitePageCreationAttributes = Optional<WebsitePageAttributes, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'metaTitle' | 'metaDescription'>;
@@ -308,7 +308,7 @@ export class WebsitePage extends Model<WebsitePageAttributes, WebsitePageCreatio
     public order!: number;
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
-    public readonly deletedAt?: Date;
+    public readonly deletedAt?: Date | null;
 }
 
 WebsitePage.init(
@@ -503,7 +503,7 @@ export interface PromotionAttributes {
     
     createdAt: Date;
     updatedAt: Date;
-    deletedAt?: Date;
+    deletedAt?: Date | null;
 }
 
 type PromotionCreationAttributes = Optional<PromotionAttributes, 
@@ -541,7 +541,7 @@ export class Promotion extends Model<PromotionAttributes, PromotionCreationAttri
     public badgeIcon?: string;
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
-    public readonly deletedAt?: Date;
+    public readonly deletedAt?: Date | null;
 }
 
 Promotion.init(

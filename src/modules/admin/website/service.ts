@@ -14,7 +14,7 @@ import {
 } from "./models";
 import { getR2SignedUrl } from "../../uploads/r2-utils";
 import { sequelize } from "../../../db/sequelize";
-import { QueryTypes } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import { redisClient } from "../../../config/session";
 import { createHash } from "crypto";
 import logger from "../../../utils/logger";
@@ -33,7 +33,8 @@ export const getActiveBanners = async (status?: boolean) => {
             "created_at" AS "createdAt", 
             "updated_at" AS "updatedAt"
         FROM "homepage_banners"
-        ${status !== undefined ? `WHERE "is_active" = :status` : ''}
+        WHERE "deleted_at" IS NULL
+        ${status !== undefined ? `AND "is_active" = :status` : ''}
         ORDER BY "created_at" DESC
     `;
 
@@ -129,7 +130,8 @@ export const getActiveHero = async (status?: boolean) => {
                 "created_at" AS "createdAt",
                 "updated_at" AS "updatedAt"
             FROM "homepage_hero"
-            ${status !== undefined ? `WHERE "is_active" = :status` : ''}
+            WHERE "deleted_at" IS NULL
+            ${status !== undefined ? `AND "is_active" = :status` : ''}
             ORDER BY "created_at" DESC
         `;
 
@@ -274,7 +276,8 @@ export const getActiveSections = async (status?: boolean) => {
             created_at AS "createdAt",
             updated_at AS "updatedAt"
         FROM homepage_sections
-        ${status !== undefined ? `WHERE is_active = :status` : ''}
+        WHERE deleted_at IS NULL
+        ${status !== undefined ? `AND is_active = :status` : ''}
         ORDER BY "order" ASC, created_at DESC
     `;
 
@@ -325,7 +328,7 @@ export const getSectionsByType = async (sectionType: string) => {
             created_at AS "createdAt",
             updated_at AS "updatedAt"
         FROM homepage_sections
-        WHERE is_active = true  
+        WHERE is_active = true AND deleted_at IS NULL 
         AND section_type = :sectionType
         ORDER BY "order" ASC, created_at DESC
     `;
@@ -473,7 +476,8 @@ export const getActiveTestimonials = async (status?: boolean) => {
             "created_at" AS "createdAt",
             "updated_at" AS "updatedAt"
         FROM testimonials
-        ${status !== undefined ? `WHERE is_active = :status` : ''}
+        WHERE deleted_at IS NULL
+        ${status !== undefined ? `AND is_active = :status` : ''}
         ORDER BY "order" ASC, created_at DESC
     `;
 
@@ -570,7 +574,8 @@ export const getActiveInstagramPosts = async (status?: boolean) => {
             "order",
             "created_at" AS "createdAt"
         FROM "instagram_posts"
-        ${status !== undefined ? `WHERE "is_active" = :status ` : ''}
+        WHERE deleted_at IS NULL
+        ${status !== undefined ? `AND "is_active" = :status` : ''}
         ORDER BY "created_at" DESC
     `;
 
@@ -770,6 +775,7 @@ export const getPublishedPages = async () => {
 
 export const getAllPages = async () => {
     return await WebsitePage.findAll({
+        where: { deletedAt: null },
         order: [
             ["order", "ASC"],
             ["createdAt", "DESC"],
@@ -998,8 +1004,9 @@ export const getActivePromotions = async () => {
     const promotions = await Promotion.findAll({
         where: {
             isActive: true,
-            validFrom: { [sequelize.Sequelize.Op.lte]: now },
-            validUntil: { [sequelize.Sequelize.Op.gte]: now },
+            deletedAt: null,
+            validFrom: { [Op.lte]: now },
+            validUntil: { [Op.gte]: now },
         },
         order: [['priority', 'DESC'], ['createdAt', 'DESC']],
         logging: (sql, timing) => {
@@ -1028,8 +1035,8 @@ export const getApplicablePromotions = async (cartValue: number = 0) => {
         where: {
             isActive: true,
             displayOnHomepage: true,
-            validFrom: { [sequelize.Sequelize.Op.lte]: now },
-            validUntil: { [sequelize.Sequelize.Op.gte]: now },
+            validFrom: { [Op.lte]: now },
+            validUntil: { [Op.gte]: now },
         },
         order: [['priority', 'DESC']],
     });
@@ -1053,15 +1060,20 @@ export const getApplicablePromotions = async (cartValue: number = 0) => {
 export const createPromotion = async (data: Partial<PromotionAttributes>) => {
     const transaction = await sequelize.transaction();
     try {
+        // Filter out undefined properties and cast to ensure type safety
+        const filteredData = Object.fromEntries(
+            Object.entries(data).filter(([, value]) => value !== undefined)
+        ) as Record<string, any>;
+
         const promotion = await Promotion.create(
             {
-                ...data,
+                ...filteredData,
                 currentUsage: 0,
-                isActive: data.isActive ?? true,
-                displayOnHomepage: data.displayOnHomepage ?? true,
-                displayOnCheckout: data.displayOnCheckout ?? true,
-                priority: data.priority ?? 0,
-            },
+                isActive: filteredData.isActive ?? true,
+                displayOnHomepage: filteredData.displayOnHomepage ?? true,
+                displayOnCheckout: filteredData.displayOnCheckout ?? true,
+                priority: filteredData.priority ?? 0,
+            } as any,
             { transaction }
         );
         await transaction.commit();
