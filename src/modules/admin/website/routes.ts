@@ -15,6 +15,8 @@ import {
     getWebsiteSettings, getWebsiteSetting, createWebsiteSetting, updateWebsiteSetting, deleteWebsiteSetting,
     // Page services
     getAllPages, getPageBySlug, createPage, updatePage, deletePage,
+    // Promotion services
+    getActivePromotions, getApplicablePromotions, getAllPromotions, getPromotionById, createPromotion, updatePromotion, deletePromotion,
     // Generic page service
     getPage, createOrUpdatePage, deletePageByType,
     // Data aggregators
@@ -511,6 +513,93 @@ router.get('/homepage-preview', requireAuth, requireActiveStaff, requirePermissi
         res.json({ success: true, data });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===================== PROMOTION/OFFER MANAGEMENT =====================
+
+/**
+ * GET /admin/website/promotions
+ * Get all promotions (admin view with pagination)
+ * Query params: limit, offset
+ */
+router.get('/promotions', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit as string) || 20;
+        const offset = parseInt(req.query.offset as string) || 0;
+        const data = await getAllPromotions(limit, offset);
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/website/promotions/active
+ * Get active promotions (public endpoint for customers)
+ * Query params: cartValue (optional)
+ */
+router.get('/promotions/active', async (req, res) => {
+    try {
+        const cartValue = parseFloat(req.query.cartValue as string) || 0;
+        const promotions = cartValue > 0 
+            ? await getApplicablePromotions(cartValue)
+            : await getActivePromotions();
+        res.json({ success: true, data: promotions });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /admin/website/promotions/:id
+ * Get promotion by ID
+ */
+router.get('/promotions/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+    try {
+        const promotion = await getPromotionById(req.params.id);
+        res.json({ success: true, data: promotion });
+    } catch (error: any) {
+        res.status(404).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /admin/website/promotions
+ * Create new promotion
+ */
+router.post('/promotions', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        const promotion = await createPromotion(req.body);
+        res.json({ success: true, data: promotion });
+    } catch (error: any) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * PUT /admin/website/promotions/:id
+ * Update promotion
+ */
+router.put('/promotions/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        const promotion = await updatePromotion(req.params.id, req.body);
+        res.json({ success: true, data: promotion });
+    } catch (error: any) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * DELETE /admin/website/promotions/:id
+ * Delete promotion
+ */
+router.delete('/promotions/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        await deletePromotion(req.params.id);
+        res.json({ success: true, message: 'Promotion deleted successfully' });
+    } catch (error: any) {
+        res.status(400).json({ success: false, error: error.message });
     }
 });
 

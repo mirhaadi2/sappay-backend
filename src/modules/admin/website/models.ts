@@ -453,3 +453,159 @@ Page.init(
         ],
     }
 );
+
+// ===================== PROMOTION/OFFER MODEL =====================
+export enum PromotionType {
+    FIXED_DISCOUNT = 'fixed_discount',           // ₹X discount
+    PERCENTAGE_DISCOUNT = 'percentage_discount', // X% discount
+    FREE_GIFT = 'free_gift',                     // Free item
+    FREE_SHIPPING = 'free_shipping',             // Free shipping
+    BUNDLE = 'bundle',                           // Buy X get Y
+    TIERED = 'tiered',                           // Different discounts per tier
+}
+
+export interface PromotionAttributes {
+    id: string;
+    title: string;                          // e.g., "Shop above ₹1,399 and get FREE gift"
+    description?: string;                   // Detailed description
+    type: PromotionType;                    // Type of promotion
+    bannerText: string;                     // Short text for homepage banner/notification
+    
+    // Conditions
+    minOrderValue?: number;                 // Minimum order value to qualify (e.g., 1399)
+    maxOrderValue?: number;                 // Maximum order value (null = no limit)
+    minQuantity?: number;                   // Minimum items to buy
+    maxQuantity?: number;                   // Maximum items eligible
+    applicableCategories?: string[];        // JSON array of category IDs (null = all)
+    applicableProducts?: string[];          // JSON array of product IDs (null = all)
+    excludeProducts?: string[];             // Products excluded from promo
+    
+    // Discount Details
+    discountValue?: number;                 // Discount amount or percentage
+    giftProductId?: string;                 // Product ID for free gift
+    freeText?: string;                      // Free text (e.g., "100g handpicked gift pouch")
+    
+    // Validity
+    validFrom: Date;                        // Start date
+    validUntil: Date;                       // End date
+    
+    // Tracking & Management
+    usageLimit?: number;                    // Max uses of this promo (null = unlimited)
+    currentUsage: number;                   // Current number of uses
+    isActive: boolean;                      // Enable/disable promotion
+    priority: number;                       // Higher = shown first (0-100)
+    
+    // Display Settings
+    displayOnHomepage: boolean;              // Show banner on homepage
+    displayOnCheckout: boolean;              // Show at checkout
+    displayOnProductPages: boolean;          // Show on product pages
+    badgeIcon?: string;                     // Icon/emoji for badge (e.g., "🎁", "💰")
+    
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
+}
+
+type PromotionCreationAttributes = Optional<PromotionAttributes, 
+    'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'description' | 
+    'minOrderValue' | 'maxOrderValue' | 'minQuantity' | 'maxQuantity' | 
+    'applicableCategories' | 'applicableProducts' | 'excludeProducts' |
+    'discountValue' | 'giftProductId' | 'freeText' | 'usageLimit' | 
+    'currentUsage' | 'badgeIcon'>;
+
+export class Promotion extends Model<PromotionAttributes, PromotionCreationAttributes> implements PromotionAttributes {
+    public id!: string;
+    public title!: string;
+    public description?: string;
+    public type!: PromotionType;
+    public bannerText!: string;
+    public minOrderValue?: number;
+    public maxOrderValue?: number;
+    public minQuantity?: number;
+    public maxQuantity?: number;
+    public applicableCategories?: string[];
+    public applicableProducts?: string[];
+    public excludeProducts?: string[];
+    public discountValue?: number;
+    public giftProductId?: string;
+    public freeText?: string;
+    public validFrom!: Date;
+    public validUntil!: Date;
+    public usageLimit?: number;
+    public currentUsage!: number;
+    public isActive!: boolean;
+    public priority!: number;
+    public displayOnHomepage!: boolean;
+    public displayOnCheckout!: boolean;
+    public displayOnProductPages!: boolean;
+    public badgeIcon?: string;
+    public readonly createdAt!: Date;
+    public readonly updatedAt!: Date;
+    public readonly deletedAt?: Date;
+}
+
+Promotion.init(
+    {
+        id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+        title: { type: DataTypes.STRING(255), allowNull: false },
+        description: { type: DataTypes.TEXT, allowNull: true },
+        type: { type: DataTypes.ENUM(...Object.values(PromotionType)), allowNull: false },
+        bannerText: { type: DataTypes.STRING(500), allowNull: false, field: 'banner_text' },
+        minOrderValue: { type: DataTypes.DECIMAL(10, 2), allowNull: true, field: 'min_order_value' },
+        maxOrderValue: { type: DataTypes.DECIMAL(10, 2), allowNull: true, field: 'max_order_value' },
+        minQuantity: { type: DataTypes.INTEGER, allowNull: true, field: 'min_quantity' },
+        maxQuantity: { type: DataTypes.INTEGER, allowNull: true, field: 'max_quantity' },
+        applicableCategories: { 
+            type: DataTypes.JSON, 
+            allowNull: true, 
+            defaultValue: null,
+            field: 'applicable_categories'
+        },
+        applicableProducts: { 
+            type: DataTypes.JSON, 
+            allowNull: true, 
+            defaultValue: null,
+            field: 'applicable_products'
+        },
+        excludeProducts: { 
+            type: DataTypes.JSON, 
+            allowNull: true, 
+            defaultValue: null,
+            field: 'exclude_products'
+        },
+        discountValue: { type: DataTypes.DECIMAL(10, 2), allowNull: true, field: 'discount_value' },
+        giftProductId: { type: DataTypes.UUID, allowNull: true, field: 'gift_product_id' },
+        freeText: { type: DataTypes.STRING(255), allowNull: true, field: 'free_text' },
+        validFrom: { type: DataTypes.DATE, allowNull: false, field: 'valid_from' },
+        validUntil: { type: DataTypes.DATE, allowNull: false, field: 'valid_until' },
+        usageLimit: { type: DataTypes.INTEGER, allowNull: true, field: 'usage_limit' },
+        currentUsage: { type: DataTypes.INTEGER, defaultValue: 0, field: 'current_usage' },
+        isActive: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'is_active' },
+        priority: { type: DataTypes.INTEGER, defaultValue: 0 },
+        displayOnHomepage: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'display_on_homepage' },
+        displayOnCheckout: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'display_on_checkout' },
+        displayOnProductPages: { type: DataTypes.BOOLEAN, defaultValue: false, field: 'display_on_product_pages' },
+        badgeIcon: { type: DataTypes.STRING(10), allowNull: true, field: 'badge_icon' },
+        createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'created_at' },
+        updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'updated_at' },
+        deletedAt: { type: DataTypes.DATE, allowNull: true, field: 'deleted_at' },
+    },
+    {
+        sequelize,
+        tableName: 'promotions',
+        timestamps: true,
+        paranoid: true,
+        underscored: true,
+        indexes: [
+            {
+                fields: ['is_active', 'valid_from', 'valid_until'],
+            },
+            {
+                fields: ['priority'],
+            },
+            {
+                fields: ['type'],
+            }
+        ],
+    }
+);

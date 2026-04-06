@@ -8,6 +8,9 @@ import {
     WebsitePage,
     Page,
     PageType,
+    Promotion,
+    PromotionType,
+    PromotionAttributes,
 } from "./models";
 import { getR2SignedUrl } from "../../uploads/r2-utils";
 import { sequelize } from "../../../db/sequelize";
@@ -983,6 +986,180 @@ export const getWebsiteData = async () => {
         settings,
         pages,
     };
+};
+
+// ===================== PROMOTION/OFFER SERVICES =====================
+/**
+ * Get all active promotions
+ * Used by customers to see current available offers
+ */
+export const getActivePromotions = async () => {
+    const now = new Date();
+    const promotions = await Promotion.findAll({
+        where: {
+            isActive: true,
+            validFrom: { [sequelize.Sequelize.Op.lte]: now },
+            validUntil: { [sequelize.Sequelize.Op.gte]: now },
+        },
+        order: [['priority', 'DESC'], ['createdAt', 'DESC']],
+        logging: (sql, timing) => {
+            console.log(`[SQL - ${timing}ms]: ${sql}`);
+        },
+    });
+    return promotions;
+};
+
+/**
+ * Get promotion by ID with full details
+ */
+export const getPromotionById = async (id: string) => {
+    const promotion = await Promotion.findByPk(id);
+    if (!promotion) throw new Error('Promotion not found');
+    return promotion;
+};
+
+/**
+ * Get promotions applicable for a specific cart value
+ * For homepage banner display
+ */
+export const getApplicablePromotions = async (cartValue: number = 0) => {
+    const now = new Date();
+    const promotions = await Promotion.findAll({
+        where: {
+            isActive: true,
+            displayOnHomepage: true,
+            validFrom: { [sequelize.Sequelize.Op.lte]: now },
+            validUntil: { [sequelize.Sequelize.Op.gte]: now },
+        },
+        order: [['priority', 'DESC']],
+    });
+
+    // Filter by cart value if provided
+    if (cartValue > 0) {
+        return promotions.filter(p => {
+            const qualifies = 
+                (!p.minOrderValue || cartValue >= Number(p.minOrderValue)) &&
+                (!p.maxOrderValue || cartValue <= Number(p.maxOrderValue));
+            return qualifies;
+        });
+    }
+
+    return promotions;
+};
+
+/**
+ * Create new promotion
+ */
+export const createPromotion = async (data: Partial<PromotionAttributes>) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const promotion = await Promotion.create(
+            {
+                ...data,
+                currentUsage: 0,
+                isActive: data.isActive ?? true,
+                displayOnHomepage: data.displayOnHomepage ?? true,
+                displayOnCheckout: data.displayOnCheckout ?? true,
+                priority: data.priority ?? 0,
+            },
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Promotion created in admin', { promotionId: promotion.id });
+        return promotion;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating promotion', { error });
+        throw error;
+    }
+};
+
+/**
+ * Update promotion
+ */
+export const updatePromotion = async (
+    id: string,
+    data: Partial<PromotionAttributes>
+) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const promotion = await Promotion.findByPk(id, { transaction });
+        if (!promotion) throw new Error('Promotion not found');
+        
+        const updated = await promotion.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Promotion updated in admin', { promotionId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating promotion', { promotionId: id, error });
+        throw error;
+    }
+};
+
+/**
+ * Delete promotion (soft delete)
+ */
+export const deletePromotion = async (id: string) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const promotion = await Promotion.findByPk(id, { transaction });
+        if (!promotion) throw new Error('Promotion not found');
+        
+        await promotion.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Promotion deleted in admin', { promotionId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting promotion', { promotionId: id, error });
+        throw error;
+    }
+};
+
+/**
+ * Get all promotions (admin view with pagination)
+ */
+export const getAllPromotions = async (limit = 20, offset = 0) => {
+    const { count, rows } = await Promotion.findAndCountAll({
+        limit,
+        offset,
+        order: [['priority', 'DESC'], ['createdAt', 'DESC']],
+    });
+    
+    return {
+        total: count,
+        promotions: rows,
+        page: Math.floor(offset / limit) + 1,
+        pageSize: limit,
+    };
+};
+
+/**
+ * Increment promotion usage
+ * Called when a customer qualifies for the promotion
+ */
+export const incrementPromotionUsage = async (promotionId: string) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const promotion = await Promotion.findByPk(promotionId, { transaction });
+        if (!promotion) throw new Error('Promotion not found');
+        
+        const newUsage = (promotion.currentUsage || 0) + 1;
+        
+        // Check if usage limit exceeded
+        if (promotion.usageLimit && newUsage > promotion.usageLimit) {
+            throw new Error('Promotion usage limit exceeded');
+        }
+        
+        await promotion.update({ currentUsage: newUsage }, { transaction });
+        await transaction.commit();
+        
+        return promotion;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error incrementing promotion usage', { promotionId, error });
+        throw error;
+    }
 };
 
 // ===================== HELPER FUNCTIONS =====================
