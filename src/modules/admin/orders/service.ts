@@ -130,6 +130,7 @@ export const adminGetOrder = async (id: string): Promise<any> => {
         o.payment_method AS "paymentMethod",
         o.delivery_date AS "deliveryDate",
         o.delivered_at AS "deliveredAt",
+        o.metadata AS "metadata",
         o.created_at AS "createdAt",
         o.updated_at AS "updatedAt",
         
@@ -317,7 +318,7 @@ export const adminUpdateOrderStatus = async (
 
     await OrderItem.update(
       { 
-        status: itemStatus,
+        status: itemStatus as any,
         statusReason: data.statusReason || `Order status updated to ${newStatus}`,
         statusUpdatedAt: new Date(),
         statusUpdatedBy: staffId || "ADMIN",

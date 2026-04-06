@@ -1140,7 +1140,7 @@ export const getAllPromotions = async (limit = 20, offset = 0) => {
     
     return {
         total: count,
-        promotions: rows,
+        data: rows,
         page: Math.floor(offset / limit) + 1,
         pageSize: limit,
     };
