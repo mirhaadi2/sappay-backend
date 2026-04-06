@@ -67,6 +67,7 @@ export const findCustomerOrder = async (customerId: string, orderId: string) => 
       o.shipping_cost AS "shippingCost",
       o.tax_amount AS "taxAmount",
       o.shipping_address_id AS "shippingAddressId",
+      o.metadata AS "metadata",
       o.created_at AS "createdAt",
       (SELECT COUNT(*) FROM order_items AS items WHERE items.order_id = o.id) AS "itemsCount",
       sa.type AS "shippingAddressType",
