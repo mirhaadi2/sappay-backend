@@ -3,18 +3,22 @@
  * Real database implementation for order management
  */
 
-import { Op, QueryTypes } from 'sequelize';
-import Order from '../../admin/orders/order.model';
-import { OrderItem } from '../../admin/orders/order-item.model';
-import { User } from '../../../models';
-import { Seller } from '../../sellers/model';
-import SellerProduct from '../../admin/products/seller-product/model';
-import Product from '../products/model';
-import { AppError } from '../../../utils/AppError';
-import { AdminOrderQuery, AdminOrder } from './types';
-import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
-import logger from '../../../utils/logger';
-import { sequelize } from '../../../db/sequelize';
+import { Op, QueryTypes } from "sequelize";
+import Order from "../../admin/orders/order.model";
+import { OrderItem } from "../../admin/orders/order-item.model";
+import { User } from "../../../models";
+import { Seller } from "../../sellers/model";
+import SellerProduct from "../../admin/products/seller-product/model";
+import Product from "../products/model";
+import { AppError } from "../../../utils/AppError";
+import { AdminOrderQuery, AdminOrder } from "./types";
+import {
+  calculatePagination,
+  buildPaginatedResponse,
+} from "../../shared/pagination";
+import logger from "../../../utils/logger";
+import { sequelize } from "../../../db/sequelize";
+import { resolveR2Url } from "../products/transformer";
 
 /**
  * List all orders with customer and seller information
@@ -24,20 +28,21 @@ export const adminListOrders = async (query: AdminOrderQuery) => {
   try {
     const { page, limit, offset } = calculatePagination(
       { page: query.page, limit: query.limit },
-      100
+      100,
     );
 
     // 1. Build Dynamic Where Clause for Raw SQL
-    let whereClause = 'WHERE 1=1';
+    let whereClause = "WHERE 1=1";
     const replacements: any = { limit, offset };
 
     if (query.status) {
-      whereClause += ' AND o.status = :status';
+      whereClause += " AND o.status = :status";
       replacements.status = query.status.toUpperCase();
     }
 
     if (query.search) {
-      whereClause += ' AND (o.order_number ILIKE :search OR c.name ILIKE :search OR c.email ILIKE :search)';
+      whereClause +=
+        " AND (o.order_number ILIKE :search OR c.name ILIKE :search OR c.email ILIKE :search)";
       replacements.search = `%${query.search}%`;
     }
 
@@ -79,7 +84,8 @@ export const adminListOrders = async (query: AdminOrderQuery) => {
     const orders: any[] = await sequelize.query(sql, {
       replacements,
       type: QueryTypes.SELECT,
-      logging: (sql, timing) => logger.info('Admin Order Search', { sql, timing }),
+      logging: (sql, timing) =>
+        logger.info("Admin Order Search", { sql, timing }),
       benchmark: true,
     });
 
@@ -89,11 +95,18 @@ export const adminListOrders = async (query: AdminOrderQuery) => {
     // Optional: Clean up the total_count property from rows if you want a clean object
     const sanitizedOrders = orders.map(({ total_count, ...order }) => order);
 
-    return buildPaginatedResponse(sanitizedOrders, totalCount, { page, limit, offset });
-
+    return buildPaginatedResponse(sanitizedOrders, totalCount, {
+      page,
+      limit,
+      offset,
+    });
   } catch (error: any) {
-    logger.error('Error listing admin orders', { error });
-    throw new AppError('OrderError', 500, error.message || 'Failed to list orders');
+    logger.error("Error listing admin orders", { error });
+    throw new AppError(
+      "OrderError",
+      500,
+      error.message || "Failed to list orders",
+    );
   }
 };
 
@@ -140,7 +153,7 @@ export const adminGetOrder = async (id: string): Promise<any> => {
             'id', oi.id,
             'productId', oi.product_id,
             'productName', p.name,
-            'productImage', p.images, -- Assuming you have this for the UI
+            'productImages', p.images, -- Assuming you have this for the UI
             'variantId', oi.product_variant_id,
             'sku', oi.sku,
             'quantity', oi.quantity,
@@ -164,29 +177,45 @@ export const adminGetOrder = async (id: string): Promise<any> => {
       LIMIT 1
     `;
 
-    const results = await sequelize.query(sql, {
+    const results: any = await sequelize.query(sql, {
       replacements: { id },
       type: QueryTypes.SELECT,
-      plain: true, // Returns a single object instead of an array
+      plain: true,
     });
 
     if (!results) {
-      throw new AppError('NotFoundError', 404, 'Order not found');
+      throw new AppError("NotFoundError", 404, "Order not found");
     }
+
+    await Promise.all(
+      results.items.map(async (item: any) => {
+        if (item?.productImages) {
+          try {
+            const imagePromises = Array.isArray(item.productImages)
+              ? item.productImages.map((img: any) => resolveR2Url(img))
+              : [];
+
+            const resolvedImages = await Promise.all(imagePromises);
+            item.productImage = resolvedImages?.[0] || "/placeholder.png";
+          } catch (err) {
+            logger.warn("Failed to parse product images for order item", {
+              itemId: item.id,
+              error: err,
+            });
+            item.productImage = [];
+          }
+        }
+      }),
+    );
 
     // Transform status to lowercase for frontend consistency if needed
     return {
       ...results,
-      // // Ensure the items array exists even if the subquery returned null
-      // items: results.items || [],
-      // // Optional: Match your frontend's expected status casing
-      // status: results.status.toLowerCase() S
     };
-
   } catch (error: any) {
-    logger.error('Error fetching admin order details', { orderId: id, error });
+    logger.error("Error fetching admin order details", { orderId: id, error });
     if (error instanceof AppError) throw error;
-    throw new AppError('InternalError', 500, 'Failed to fetch order details');
+    throw new AppError("InternalError", 500, "Failed to fetch order details");
   }
 };
 
@@ -195,48 +224,57 @@ export const adminGetOrder = async (id: string): Promise<any> => {
  */
 export const adminUpdateOrderStatus = async (
   id: string,
-  data: { 
-    status: string; 
-    trackingNumber?: string; 
-    statusReason?: string; 
-  }
+  data: {
+    status: string;
+    trackingNumber?: string;
+    statusReason?: string;
+  },
 ): Promise<AdminOrder> => {
   try {
-    console.log('Admin updating order status', { id, data });
-    
+    console.log("Admin updating order status", { id, data });
+
     const order = await Order.findByPk(id);
     if (!order) {
-      throw new AppError('NotFoundError', 404, 'Order not found');
+      throw new AppError("NotFoundError", 404, "Order not found");
     }
 
     // 1. Comprehensive Status Mapping
     const statusMap: Record<string, string> = {
-      pending: 'PENDING',
-      confirmed: 'CONFIRMED',
-      processing: 'PROCESSING',
-      packed: 'PACKED',
-      handover: 'HANDOVER', // Critical: The moment responsibility shifts to courier
-      shipped: 'SHIPPED',
-      out_for_delivery: 'OUT_FOR_DELIVERY',
-      delivered: 'DELIVERED',
-      delivery_failed: 'DELIVERY_FAILED',
-      rto: 'RTO',
-      cancelled: 'CANCELLED',
-      refunded: 'CANCELLED',
+      pending: "PENDING",
+      confirmed: "CONFIRMED",
+      processing: "PROCESSING",
+      packed: "PACKED",
+      handover: "HANDOVER", // Critical: The moment responsibility shifts to courier
+      shipped: "SHIPPED",
+      out_for_delivery: "OUT_FOR_DELIVERY",
+      delivered: "DELIVERED",
+      delivery_failed: "DELIVERY_FAILED",
+      rto: "RTO",
+      cancelled: "CANCELLED",
+      refunded: "CANCELLED",
     };
 
-    const newStatus = statusMap[data.status.toLowerCase()] || data.status.toUpperCase();
+    const newStatus =
+      statusMap[data.status.toLowerCase()] || data.status.toUpperCase();
 
     // 2. Logic Validation: Prevent Handover/Shipping without Tracking Info
     // This stops "ghost" shipments that can't be tracked later
-    const requiresTracking = ['HANDOVER', 'SHIPPED', 'OUT_FOR_DELIVERY'].includes(newStatus);
+    const requiresTracking = [
+      "HANDOVER",
+      "SHIPPED",
+      "OUT_FOR_DELIVERY",
+    ].includes(newStatus);
     if (requiresTracking && !data.trackingNumber && !order.trackingNumber) {
-      throw new AppError('ValidationError', 400, `Tracking ID (AWB) is required to move to ${newStatus} status`);
+      throw new AppError(
+        "ValidationError",
+        400,
+        `Tracking ID (AWB) is required to move to ${newStatus} status`,
+      );
     }
 
     // 3. Prepare Single Update Object (Optimized for one DB hit)
-    const updateData: any = { 
-      status: newStatus 
+    const updateData: any = {
+      status: newStatus,
     };
 
     if (data.trackingNumber) {
@@ -248,115 +286,127 @@ export const adminUpdateOrderStatus = async (
     }
 
     // Handle special payment status transitions
-    if (data.status.toLowerCase() === 'refunded') {
-      updateData.paymentStatus = 'REFUNDED';
+    if (data.status.toLowerCase() === "refunded") {
+      updateData.paymentStatus = "REFUNDED";
     }
 
     // 4. Perform the Update
     await order.update(updateData);
 
-    logger.info('Order status updated by admin', { 
-      orderId: id, 
-      newStatus, 
+    logger.info("Order status updated by admin", {
+      orderId: id,
+      newStatus,
       hasTracking: !!(data.trackingNumber || order.trackingNumber),
-      reason: data.statusReason 
+      reason: data.statusReason,
     });
 
     // 5. Return fresh data
     return adminGetOrder(id);
-
   } catch (error: any) {
-    logger.error('Error updating admin order status', { orderId: id, error });
-    
+    logger.error("Error updating admin order status", { orderId: id, error });
+
     // Maintain existing error structure
     if (error instanceof AppError) throw error;
-    throw new AppError('InternalError', 500, error.message || 'Failed to update order');
+    throw new AppError(
+      "InternalError",
+      500,
+      error.message || "Failed to update order",
+    );
   }
 };
 
 /**
  * Refund order and update payment status
  */
-export const adminRefundOrder = async (id: string, reason?: string): Promise<AdminOrder> => {
+export const adminRefundOrder = async (
+  id: string,
+  reason?: string,
+): Promise<AdminOrder> => {
   try {
     const order = await Order.findByPk(id);
 
     if (!order) {
-      throw new AppError('NotFoundError', 404, 'Order not found');
+      throw new AppError("NotFoundError", 404, "Order not found");
     }
 
     // Update payment status to refunded
     const metadata = order.metadata || {};
-    metadata.refundReason = reason || 'Admin initiated refund';
+    metadata.refundReason = reason || "Admin initiated refund";
     metadata.refundedAt = new Date().toISOString();
 
     await order.update({
-      paymentStatus: 'REFUNDED',
-      status: 'CANCELLED',
+      paymentStatus: "REFUNDED",
+      status: "CANCELLED",
       metadata,
     });
 
-    logger.info('Order refunded by admin', { orderId: id, reason });
+    logger.info("Order refunded by admin", { orderId: id, reason });
     return adminGetOrder(id);
   } catch (error: any) {
-    logger.error('Error refunding admin order', { orderId: id, error });
+    logger.error("Error refunding admin order", { orderId: id, error });
     if (error instanceof AppError) throw error;
-    throw new AppError('NotFoundError', 404, 'Order not found');
+    throw new AppError("NotFoundError", 404, "Order not found");
   }
 };
 
 /**
  * Cancel order
  */
-export const adminCancelOrder = async (id: string, reason?: string): Promise<AdminOrder> => {
+export const adminCancelOrder = async (
+  id: string,
+  reason?: string,
+): Promise<AdminOrder> => {
   try {
     const order = await Order.findByPk(id);
 
     if (!order) {
-      throw new AppError('NotFoundError', 404, 'Order not found');
+      throw new AppError("NotFoundError", 404, "Order not found");
     }
 
     const metadata = order.metadata || {};
-    metadata.cancellationReason = reason || 'Admin cancelled';
+    metadata.cancellationReason = reason || "Admin cancelled";
     metadata.cancelledAt = new Date().toISOString();
 
     await order.update({
-      status: 'CANCELLED',
+      status: "CANCELLED",
       metadata,
     });
 
-    logger.info('Order cancelled by admin', { orderId: id, reason });
+    logger.info("Order cancelled by admin", { orderId: id, reason });
     return adminGetOrder(id);
   } catch (error: any) {
-    logger.error('Error cancelling admin order', { orderId: id, error });
+    logger.error("Error cancelling admin order", { orderId: id, error });
     if (error instanceof AppError) throw error;
-    throw new AppError('NotFoundError', 404, 'Order not found');
+    throw new AppError("NotFoundError", 404, "Order not found");
   }
 };
 
 /**
  * Handle order dispute
  */
-export const adminDisputeOrder = async (id: string, resolution?: string): Promise<AdminOrder> => {
+export const adminDisputeOrder = async (
+  id: string,
+  resolution?: string,
+): Promise<AdminOrder> => {
   try {
     const order = await Order.findByPk(id);
 
     if (!order) {
-      throw new AppError('NotFoundError', 404, 'Order not found');
+      throw new AppError("NotFoundError", 404, "Order not found");
     }
 
     const metadata = order.metadata || {};
-    metadata.disputeStatus = 'RESOLVED';
-    metadata.disputeResolution = resolution || 'Resolved by admin';
+    metadata.disputeStatus = "RESOLVED";
+    metadata.disputeResolution = resolution || "Resolved by admin";
     metadata.resolvedAt = new Date().toISOString();
 
     await order.update({ metadata });
 
-    logger.info('Order dispute resolved by admin', { orderId: id, resolution });
+    logger.info("Order dispute resolved by admin", { orderId: id, resolution });
     return adminGetOrder(id);
   } catch (error: any) {
-    logger.error('Error resolving admin order dispute', { orderId: id, error });
+    logger.error("Error resolving admin order dispute", { orderId: id, error });
     if (error instanceof AppError) throw error;
-    throw new AppError('NotFoundError', 404, 'Order not found');
+    throw new AppError("NotFoundError", 404, "Order not found");
   }
 };

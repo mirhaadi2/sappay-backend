@@ -11,7 +11,7 @@ import { AdminProduct, AdminProductVariantDetail, AdminProductSellerOffering } f
 /**
  * Resolves R2 URLs with better fallback and parallel execution support
  */
-const resolveR2Url = async (key: string): Promise<string> => {
+export const resolveR2Url = async (key: string): Promise<string> => {
   if (!key) return '';
   if (key.startsWith('http')) return key;
 
