@@ -105,6 +105,7 @@ export const loginUser = async (email: string, password: string) => {
 
   const payload: UserPayload = {
     id: user.id,
+    name: user.name,
     email: user.email,
     role: user.role as UserRole,
   };

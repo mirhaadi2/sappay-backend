@@ -273,8 +273,12 @@ function buildProductConditions(filters: any) {
   addFilter('p.status', 'status', filters.status);
   addFilter('p.category_id', 'categoryId', filters.categoryId);
   
-  if (filters.search) {
-    addFilter('p.name', 'search', `%${filters.search}%`, 'ILIKE');
+  // Full-text search using PostgreSQL tsvector for better performance & relevance
+  if (filters.search && filters.search.trim()) {
+    // Sanitize search input for security
+    const sanitizedSearch = filters.search.trim().replace(/[;&|!<>]/g, '');
+    conditions.push(`p.search_vector @@ plainto_tsquery('english', :searchQuery)`);
+    replacements.searchQuery = sanitizedSearch;
   }
 
   // Handle Boolean Strings
@@ -295,13 +299,18 @@ function buildProductConditions(filters: any) {
     'newest': 'p.created_at DESC',
     'price-asc': 'min_price ASC',
     'price-desc': 'min_price DESC',
-    'rating': 'p.rating DESC', // Ensure your table has a rating column
+    'rating': 'p.rating DESC',
     'default': 'p.created_at DESC'
   };
 
-  const orderBy = sortMapping[filters.sort] || sortMapping['default'];
+  // When searching, prioritize by relevance score, then by selected sort
+  let orderBy = sortMapping[filters.sort] || sortMapping['default'];
+  if (filters.search && filters.search.trim()) {
+    const sanitizedSearch = filters.search.trim().replace(/[;&|!<>]/g, '');
+    orderBy = `ts_rank(p.search_vector, plainto_tsquery('english', '${sanitizedSearch}')) DESC, ${orderBy}`;
+  }
 
-  return { conditions, replacements, orderBy }; // Return orderBy
+  return { conditions, replacements, orderBy };
 }
 
 /**

@@ -91,6 +91,63 @@ export const fetchProductsHandler = async (
   }
 };
 
+/**
+ * Dedicated search handler using PostgreSQL Full-Text Search
+ * Uses `q` parameter instead of `search` for semantic clarity
+ * Applies aggressive caching for better performance
+ */
+export const searchProductsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Map 'q' parameter to 'search' for the service
+    const searchParams = {
+      ...req.query,
+      search: req.query.q || req.query.search, // Support both 'q' and 'search'
+    };
+
+    // Validate search query
+    const searchQuery = (searchParams.search as string)?.trim();
+    if (!searchQuery || searchQuery.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Search query cannot be empty',
+        code: 'EMPTY_SEARCH_QUERY'
+      });
+    }
+
+    if (searchQuery.length < 2) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Search query must be at least 2 characters',
+        code: 'SEARCH_QUERY_TOO_SHORT'
+      });
+    }
+
+    // Fetch results using full-text search
+    const result = await fetchProductsService(searchParams);
+
+    // Generate ETag for aggressive caching (search results are deterministic)
+    const payload = JSON.stringify(result);
+    const etag = createHash('md5').update(payload).digest('hex');
+
+    res.setHeader('ETag', etag);
+    // Cache search results for 1 hour (search results are stable)
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch && ifNoneMatch.toString() === etag) {
+      return res.status(304).end();
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createCategoryHandler = async (
   req: Request,
   res: Response,
