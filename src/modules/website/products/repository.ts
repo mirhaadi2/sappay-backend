@@ -204,7 +204,8 @@ export const findAllProducts = async (filters: ProductFilters) => {
     page = 1, 
     search, 
     categoryId, 
-    status = 'ACTIVE' 
+    status = 'ACTIVE',
+    sort = 'default'
   } = filters || {};
 
   // 2. Normalize Pagination
@@ -213,16 +214,13 @@ export const findAllProducts = async (filters: ProductFilters) => {
 
   // 3. Dynamic Filter Builder
   // We separate conditions and replacements to reuse them for both Data and Count queries
-  const { conditions, replacements } = buildProductConditions({
-    ...filters,
-    status, // Ensure status defaults to ACTIVE if not provided
-  });
+  const { conditions, replacements, orderBy } = buildProductConditions(filters);
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // 4. Execute Queries in Parallel (Performance Boost)
   const [products, countResult]: [any[], any[]] = await Promise.all([
-    sequelize.query(generateMainQuery(whereClause), {
+    sequelize.query(generateMainQuery(whereClause, orderBy), {
       replacements: { ...replacements, limit: parsedLimit, offset: parsedOffset },
       type: QueryTypes.SELECT,
     }),
@@ -293,13 +291,23 @@ function buildProductConditions(filters: any) {
     }
   });
 
-  return { conditions, replacements };
+  const sortMapping: Record<string, string> = {
+    'newest': 'p.created_at DESC',
+    'price-asc': 'min_price ASC',
+    'price-desc': 'min_price DESC',
+    'rating': 'p.rating DESC', // Ensure your table has a rating column
+    'default': 'p.created_at DESC'
+  };
+
+  const orderBy = sortMapping[filters.sort] || sortMapping['default'];
+
+  return { conditions, replacements, orderBy }; // Return orderBy
 }
 
 /**
  * HELPER: Main SQL String
  */
-function generateMainQuery(whereClause: string) {
+function generateMainQuery(whereClause: string, orderBy: string) {
   return `
     SELECT
       p.id, 
@@ -313,6 +321,7 @@ function generateMainQuery(whereClause: string) {
       p.is_new as "isNew", 
       p.is_customer_favourites as "isCustomerFavourites",
       p.is_best_seller as "isBestseller",
+      MIN(pv.price) as min_price,
       COALESCE(JSON_AGG(
         JSON_BUILD_OBJECT(
           'id', pv.id, 'sku', pv.sku, 'price', pv.price,
@@ -325,7 +334,7 @@ function generateMainQuery(whereClause: string) {
     LEFT JOIN categories c ON c.id = p.category_id
     ${whereClause}
     GROUP BY p.id, c.name
-    ORDER BY p.created_at DESC
+    ORDER BY ${orderBy}
     LIMIT :limit OFFSET :offset
   `;
 }
