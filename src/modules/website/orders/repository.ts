@@ -82,6 +82,7 @@ export const findCustomerOrder = async (customerId: string, orderId: string) => 
         'id', oi.id,
         'productId', oi.product_id,
         'productName', p.name,
+        'productImage', (p.images->>0),
         'productVariantId', oi.product_variant_id,
         -- Concatenate weight and unit with a space in between
         'weight', (pv.weight::TEXT || ' ' || pv.weight_unit::TEXT),
