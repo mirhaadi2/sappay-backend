@@ -20,6 +20,7 @@ import {
   reserveStockByProductIdService,
 } from '../../sellers/inventory/service';
 import { findSellerProductById, findProductById } from '../products/repository';
+import { resolveR2Url } from '../../admin/products/transformer';
 import { AppError } from '../../../utils/AppError';
 import { sequelize } from '../../../db/sequelize';
 import logger from '../../../utils/logger';
@@ -237,7 +238,32 @@ export const getCustomerOrdersService = async (customerId: string, filters: any)
 };
 
 export const getCustomerOrderService = async (customerId: string, orderId: string) => {
-  return await findCustomerOrder(customerId, orderId);
+  const order = await findCustomerOrder(customerId, orderId);
+  
+  if (!order) {
+    throw new AppError('NotFound', 404, 'Order not found');
+  }
+
+  // Process items to resolve R2 URLs for product images
+  if (order?.items && Array.isArray(order.items)) {
+    await Promise.all(
+      order.items.map(async (item: any) => {
+        if (item?.productImage) {
+          try {
+            item.productImage = await resolveR2Url(item.productImage);
+          } catch (err) {
+            logger.warn('Failed to resolve product image for order item', {
+              itemId: item.id,
+              error: err,
+            });
+            item.productImage = '';
+          }
+        }
+      }),
+    );
+  }
+
+  return order;
 };
 
 
