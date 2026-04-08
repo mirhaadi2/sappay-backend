@@ -238,7 +238,7 @@ export const getCustomerOrdersService = async (customerId: string, filters: any)
 };
 
 export const getCustomerOrderService = async (customerId: string, orderId: string) => {
-  const order = await findCustomerOrder(customerId, orderId);
+  const order: any = await findCustomerOrder(customerId, orderId);
   
   if (!order) {
     throw new AppError('NotFound', 404, 'Order not found');
