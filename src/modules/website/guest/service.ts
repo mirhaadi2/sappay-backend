@@ -5,6 +5,9 @@ import { SendOTPRequest, SendOTPResponse, VerifyOTPRequest, VerifyOTPResponse, G
 import { redisClient as baseRedisClient } from '../../../config/session';
 import { AppError } from '../../../utils/AppError';
 import { awsSNSService, emailService, whatsappService } from '../../notifications';
+import { findCustomerByEmail, findCustomerByPhone, findCustomerByWhatsapp } from '../guests/customer.service';
+import { findCustomerAddresses } from '../orders/shipping-address.repository';
+import Order from '../../admin/orders/order.model';
 
 // Type-safe Redis client
 const redisClient = baseRedisClient as any;
@@ -112,6 +115,36 @@ const sendOTPViaChannel = async (contact: string, contactType: string, otp: stri
     logger.error('✗ Failed to send OTP via channel', { channel: activeChannel, error });
     throw new AppError('OTPSendFailed', 500, `Failed to send OTP via ${activeChannel}. Please try again.`);
   }
+};
+
+export const findCustomerByContact = async (
+  contact: string,
+  contactType: 'email' | 'phone' | 'whatsapp'
+): Promise<{ customer: any | null; addresses: any[]; orderCount: number }> => {
+  validateContact(contact, contactType);
+
+  let customer = null;
+
+  if (contactType === 'email') {
+    customer = await findCustomerByEmail(contact);
+  } else if (contactType === 'phone') {
+    customer = await findCustomerByPhone(contact);
+  } else if (contactType === 'whatsapp') {
+    customer = await findCustomerByWhatsapp(contact);
+  }
+
+  if (!customer) {
+    return { customer: null, addresses: [], orderCount: 0 };
+  }
+
+  const addresses = await findCustomerAddresses(customer.id);
+  const orderCount = await Order.count({ where: { customerId: customer.id } });
+
+  return {
+    customer,
+    addresses,
+    orderCount,
+  };
 };
 
 /**

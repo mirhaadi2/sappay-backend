@@ -62,7 +62,7 @@ export const completeRegistration = async (
     password: hashed,
     name,
     phone,
-    role: UserRole.USER
+    role: UserRole.D2C_CUSTOMER
   });
 
   const payload: UserPayload = {
@@ -84,7 +84,7 @@ export const registerUser = async (email: string, password: string) => {
   }
 
   const hashed = await hashPassword(password);
-  const user = await createUser({ email, password: hashed, role: UserRole.USER });
+  const user = await createUser({ email, password: hashed, role: UserRole.D2C_CUSTOMER });
   return {
     id: user.id,
     email: user.email,

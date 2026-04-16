@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  findCustomerHandler,
   getConfigHandler,
   sendOTPHandler,
   verifyOTPHandler,
@@ -19,5 +20,8 @@ router.post('/send-otp', sendOTPHandler);
 
 // Verify OTP and get guest token
 router.post('/verify-otp', verifyOTPHandler);
+
+// Lookup existing guest customer by email/phone/whatsapp and return saved addresses
+router.get('/lookup', findCustomerHandler);
 
 export default router;

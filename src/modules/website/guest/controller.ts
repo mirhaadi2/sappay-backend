@@ -84,6 +84,26 @@ export const verifyOTPHandler = async (req: Request, res: Response, next: NextFu
   }
 };
 
+export const findCustomerHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const contact = req.query.contact?.toString();
+    const contactType = req.query.type?.toString() as 'email' | 'phone' | 'whatsapp';
+
+    if (!contact || !contactType || !['email', 'phone', 'whatsapp'].includes(contactType)) {
+      throw new AppError('MissingContact', 400, 'Contact and valid contact type are required');
+    }
+
+    const result = await guestService.findCustomerByContact(contact.trim(), contactType);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Helper: Map notification channel to contact type
  */

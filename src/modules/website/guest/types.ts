@@ -25,6 +25,35 @@ export interface VerifyOTPResponse {
   message: string;
 }
 
+export interface FindCustomerByContactRequest {
+  contact: string;
+  contactType: 'email' | 'phone' | 'whatsapp';
+}
+
+export interface FindCustomerByContactResponse {
+  success: boolean;
+  customer: {
+    id: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+    name?: string;
+    orderCount: number;
+  } | null;
+  addresses: Array<{
+    id: string;
+    name?: string;
+    phone: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    isDefault: boolean;
+  }>;
+}
+
 export interface GuestCheckoutData {
   contact: string;
   contactType: 'email' | 'phone' | 'whatsapp';

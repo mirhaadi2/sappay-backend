@@ -94,6 +94,13 @@ export const findCustomerByPhone = async (phone: string) => {
 };
 
 /**
+ * Find customer by WhatsApp
+ */
+export const findCustomerByWhatsapp = async (whatsapp: string) => {
+  return await Customer.findOne({ where: { whatsapp } });
+};
+
+/**
  * Find customer by ID
  */
 export const findCustomerById = async (id: string) => {
