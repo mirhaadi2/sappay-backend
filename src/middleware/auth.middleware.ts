@@ -3,6 +3,8 @@ import { UserRole } from "../types/user";
 import { AppError } from "../utils/AppError";
 import { verifyJwt } from "../config/jwt";
 import { portalConfigs, Portal } from "../config/portal-config";
+import jwt from "jsonwebtoken";
+import { config } from "../config";
 
 declare module "express-session" {
   interface SessionData {
@@ -26,6 +28,11 @@ declare global {
         id: string;
         email: string;
         role: UserRole;
+      };
+      guestCheckout?: {
+        contact: string;
+        contactType: 'email' | 'phone' | 'whatsapp';
+        isGuest: true;
       };
     }
   }
@@ -62,9 +69,9 @@ export const requireJwtAuth = (req: Request, res: Response, next: NextFunction) 
 
     // Set user on request
     req.user = {
-      id: payload.sub,
-      email: payload.email,
-      role: payload.role as UserRole,
+      id: payload.sub!,
+      email: payload.email!,
+      role: payload.role! as UserRole,
     };
 
     next();
@@ -88,4 +95,46 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   // User is authenticated via session
   req.user = req.session.user;
   next();
+};
+
+/**
+ * Optional Auth Middleware (for Guest Checkout)
+ * Allows EITHER:
+ * 1. Authenticated users via session
+ * 2. Guest users with valid guestToken in Authorization header
+ *
+ * Format: Authorization: Bearer <guestToken>
+ * where guestToken is a JWT signed with guest claims
+ */
+export const allowAuthOrGuest = (req: Request, res: Response, next: NextFunction) => {
+  // First try session-based auth
+  if (req.session?.user) {
+    req.user = req.session.user;
+    return next();
+  }
+
+  // Try guest token from Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+
+    try {
+      const decoded = jwt.verify(token, config.jwt.secret || 'change_me') as any;
+
+      // Check if this is a guest token
+      if (decoded.isGuest && decoded.contact && decoded.contactType) {
+        req.guestCheckout = {
+          contact: decoded.contact,
+          contactType: decoded.contactType,
+          isGuest: true as const,
+        };
+        return next();
+      }
+    } catch (error) {
+      // Token verification failed, fall through to error
+    }
+  }
+
+  // Neither session auth nor guest token found
+  return next(new AppError("UnauthorizedError", 401, "Authentication required. Please login or complete OTP verification."));
 };

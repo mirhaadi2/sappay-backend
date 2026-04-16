@@ -16,7 +16,7 @@ router.get(
   '/',
   requireAuth,
   requireActiveStaff,
-  requirePermission('admin.users.read'),
+  requirePermission('admin.customers.read'),
   listUsersHandler
 );
 
@@ -24,7 +24,7 @@ router.post(
   '/',
   requireAuth,
   requireActiveStaff,
-  requirePermission('admin.users.create'),
+  requirePermission('admin.customers.create'),
   createUserHandler
 );
 
@@ -32,7 +32,7 @@ router.get(
   '/:id',
   requireAuth,
   requireActiveStaff,
-  requirePermission('admin.users.read'),
+  requirePermission('admin.customers.read'),
   getUserHandler
 );
 
@@ -40,7 +40,7 @@ router.put(
   '/:id',
   requireAuth,
   requireActiveStaff,
-  requirePermission('admin.users.update'),
+  requirePermission('admin.customers.update'),
   updateUserHandler
 );
 
@@ -48,7 +48,7 @@ router.delete(
   '/:id',
   requireAuth,
   requireActiveStaff,
-  requirePermission('admin.users.delete'),
+  requirePermission('admin.customers.delete'),
   deleteUserHandler
 );
 
@@ -56,7 +56,7 @@ router.post(
   '/:id/ban',
   requireAuth,
   requireActiveStaff,
-  requirePermission('admin.users.suspend'),
+  requirePermission('admin.customers.suspend'),
   banUserHandler
 );
 
@@ -64,7 +64,7 @@ router.post(
   '/:id/unban',
   requireAuth,
   requireActiveStaff,
-  requirePermission('admin.users.suspend'),
+  requirePermission('admin.customers.suspend'),
   unbanUserHandler
 );
 

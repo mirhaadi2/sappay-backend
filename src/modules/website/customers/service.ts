@@ -4,7 +4,7 @@ import { hashPassword, comparePassword } from "../../../utils/password";
 import { signJwt } from "../../../config/jwt";
 import { AppError } from "../../../utils/AppError";
 import { sendOtpToEmail, verifyOtp } from "./otp.service";
-import { OtpType } from "../../admin/users/otp.model";
+import { OtpType } from "../../admin/customers/otp.model";
 
 export const checkUserExists = async (email: string, phone: string) => {
   const existingEmail = await findUserByEmail(email);

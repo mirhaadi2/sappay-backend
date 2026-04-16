@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { OtpType } from '../../admin/users/otp.model';
+import { OtpType } from '../../admin/customers/otp.model';
 import { createOtp, findOtpByEmail, deleteOtp, cleanupExpiredOtps } from './repository';
 import { AppError } from '../../../utils/AppError';
 import { sendOtpToEmail as sendOtpEmail } from '../../../utils/sendEmail';

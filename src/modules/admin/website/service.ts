@@ -1027,18 +1027,19 @@ export const getPromotionById = async (id: string) => {
 
 /**
  * Get promotions applicable for a specific cart value
- * For homepage banner display
+ * Used by checkout page to display relevant promotions
  */
 export const getApplicablePromotions = async (cartValue: number = 0) => {
     const now = new Date();
     const promotions = await Promotion.findAll({
         where: {
             isActive: true,
-            displayOnHomepage: true,
+            displayOnCheckout: true,
             validFrom: { [Op.lte]: now },
             validUntil: { [Op.gte]: now },
         },
         order: [['priority', 'DESC']],
+        raw: true,
     });
 
     // Filter by cart value if provided

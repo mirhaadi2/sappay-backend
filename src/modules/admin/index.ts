@@ -7,7 +7,7 @@ import { Router } from 'express';
 import { requireAuth, requireActiveStaff } from './middleware';
 import { adminRouter } from './routes';
 import { adminCrudRouter } from './admin.routes';
-import userRoutes from './users/routes';
+import customerRoutes from './customers/routes';
 import sellerRoutes from './sellers/routes';
 import orderRoutes from './orders/routes';
 import productRoutes from './products/routes';
@@ -24,7 +24,7 @@ mainAdminRouter.use(requireAuth, requireActiveStaff);
 mainAdminRouter.use('/roles', adminRouter);
 mainAdminRouter.use('/admins', adminCrudRouter);
 mainAdminRouter.use(adminRouter); // Role management endpoints
-mainAdminRouter.use('/users', userRoutes);
+mainAdminRouter.use('/customers', customerRoutes);
 mainAdminRouter.use('/sellers', sellerRoutes);
 mainAdminRouter.use('/orders', orderRoutes);
 mainAdminRouter.use('/products', productRoutes);

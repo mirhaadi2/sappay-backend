@@ -19,7 +19,9 @@ export const config = {
   email: {
     smtpHost: process.env.SMTP_HOST ?? "",
     smtpPort: Number(process.env.SMTP_PORT ?? 587),
+    smtpUser: process.env.SMTP_USER ?? "",
     smtpPassword: process.env.SMTP_PASSWORD ?? "",
+    fromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
   },
   cloudflare: {
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
@@ -28,4 +30,19 @@ export const config = {
     bucket: process.env.CLOUDFLARE_BUCKET ?? "",
     endpoint: process.env.CLOUDFLARE_ENDPOINT ?? "",
   },
+  aws: {
+    region: process.env.AWS_REGION ?? "ap-south-1",
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "",
+    smsEntityId: process.env.AWS_SMS_ENTITY_ID ?? "",
+    smsOriginationId: process.env.AWS_SMS_ORIGINATION_ID ?? "",
+    snsEmailTopicArn: process.env.AWS_SNS_EMAIL_TOPIC_ARN ?? "",
+  },
+  whatsapp: {
+    baseUrl: process.env.WHATSAPP_BASE_URL ?? "https://graph.facebook.com/v18.0",
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
+    token: process.env.WHATSAPP_TOKEN ?? "",
+  },
+  // ⚠️ IMPORTANT: Only ONE notification channel can be active at a time
+  notificationChannel: (process.env.NOTIFICATION_CHANNEL ?? "sms").toLowerCase() as 'sms' | 'email' | 'whatsapp' | 'in_app',
 };

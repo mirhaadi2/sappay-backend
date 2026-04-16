@@ -2,9 +2,8 @@ import { Model, DataTypes, Optional } from "sequelize";
 import { sequelize } from "../../../db/sequelize";
 
 export enum UserRole {
-  USER = "USER",
-  ADMIN = "ADMIN",
-  SELLER = "SELLER",
+  D2C_CUSTOMER = "D2C_CUSTOMER",
+  B2C_CUSTOMER = "B2C_CUSTOMER"
 }
 
 interface UserAttributes {
@@ -66,7 +65,7 @@ User.init(
     role: {
       type: DataTypes.ENUM(...Object.values(UserRole)),
       allowNull: false,
-      defaultValue: UserRole.USER,
+      defaultValue: UserRole.D2C_CUSTOMER,
     },
     createdAt: {
       type: DataTypes.DATE,
@@ -82,7 +81,7 @@ User.init(
   },
   {
     sequelize,
-    tableName: "users",
+    tableName: "customers",
     paranoid: true,
     timestamps: true,
     underscored: true,

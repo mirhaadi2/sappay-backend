@@ -74,7 +74,7 @@ export const adminListOrders = async (query: AdminOrderQuery) => {
         address.country AS "customerCountry",
         COUNT(*) OVER() AS "total_count" 
       FROM orders o
-      LEFT JOIN users c ON o.customer_id = c.id
+      LEFT JOIN customers c ON o.customer_id = c.id
       LEFT JOIN addresses address ON o.shipping_address_id = address.id
       ${whereClause}
       ORDER BY o.created_at DESC
@@ -172,7 +172,7 @@ export const adminGetOrder = async (id: string): Promise<any> => {
         ) AS items
 
       FROM orders o
-      LEFT JOIN users c ON o.customer_id = c.id
+      LEFT JOIN customers c ON o.customer_id = c.id
       LEFT JOIN addresses sa ON o.shipping_address_id = sa.id
       WHERE o.id = :id
       LIMIT 1

@@ -8,14 +8,15 @@ import {
   updateItemStatusHandler,
   getOrderHandler,
 } from './controller';
-import { requireAuth } from "../../../middleware/auth.middleware";
+import { requireAuth, allowAuthOrGuest } from "../../../middleware/auth.middleware";
 
 const router = Router();
 
-router.use(requireAuth);
+// Customer endpoints - guest checkout and authenticated users
+router.post('/', allowAuthOrGuest, placeOrderHandler);
 
-// Customer endpoints
-router.post('/', placeOrderHandler);
+// Authenticated user only endpoints
+router.use(requireAuth);
 router.get('/', getOrdersHandler);
 router.get('/:id', getOrderHandler); // Get specific order details
 router.post('/:id/confirm-payment', confirmPaymentHandler);

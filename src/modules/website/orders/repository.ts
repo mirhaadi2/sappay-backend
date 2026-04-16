@@ -21,9 +21,18 @@ export const findOrderByNumber = async (orderNumber: string) => {
   return await Order.findOne({ where: { orderNumber } });
 };
 
-export const findCustomerOrders = async (customerId: string, filters: any = {}) => {
+export const findCustomerOrders = async (customerId: string, filters: any = {}, customerEmail?: string) => {
   const { limit = 20, offset = 0, status } = filters;
-  const where: any = { customerId };
+  const { Op } = require('sequelize');
+  
+  // Build where clause for both authenticated orders and guest orders
+  const where: any = {
+    [Op.or]: [
+      { customerId }, // Orders placed by authenticated user
+      customerEmail ? { guestEmail: customerEmail } : null, // Guest orders with matching email
+    ].filter(Boolean),
+  };
+  
   if (status) where.status = status;
 
   return await Order.findAll({
@@ -46,7 +55,7 @@ export const findCustomerOrders = async (customerId: string, filters: any = {}) 
   });
 };
 
-export const findCustomerOrder = async (customerId: string, orderId: string) => {
+export const findCustomerOrder = async (customerId: string, orderId: string, customerEmail?: string) => {
   // return await Order.findOne({
   //   where: { id: orderId, customerId },
   //   include: [{ model: OrderItem, as: 'items', attributes: { exclude: ['createdAt', 'updatedAt'] } }],
@@ -101,12 +110,12 @@ export const findCustomerOrder = async (customerId: string, orderId: string) => 
       WHERE oi.order_id = o.id) AS items
     FROM orders o
     LEFT JOIN "addresses" sa ON o.shipping_address_id = sa.id
-    WHERE o.id = :orderId AND o.customer_id = :customerId
+    WHERE o.id = :orderId AND (o.customer_id = :customerId OR (o.guest_email = :customerEmail AND :customerEmail IS NOT NULL))
     LIMIT 1
   `;
 
   const orders = await sequelize.query(query, {
-    replacements: { orderId, customerId },
+    replacements: { orderId, customerId, customerEmail: customerEmail || null },
     type: QueryTypes.SELECT,
     logging(sql, timing) {
       console.log('Executed SQL:', sql);

@@ -7,7 +7,7 @@ import { config } from "./config";
 import { getSessionOptionsForPortal } from "./config/session";
 import { Portal, portalConfigs } from "./config/portal-config";
 import authRoutes from "./modules/website/auth/routes";
-import userRoutes from "./modules/website/users/routes";
+import customerRoutes from "./modules/website/customers/routes";
 import addressRoutes from "./modules/website/address/routes";
 import productRoutes from "./modules/website/products/routes";
 import { homepageRoutes } from "./modules/website/homepage";
@@ -21,6 +21,8 @@ import adminRoutes from "./modules/admin";
 import staffAuthRoutes from "./modules/staff/auth/routes";
 import { staffRouter } from "./modules/staff/routes";
 import { orderRoutes } from "./modules/website/orders";
+import { notificationRoutes } from "./modules/notifications";
+import { guestRoutes } from "./modules/website/guest";
 
 const app = express();
 
@@ -43,7 +45,7 @@ const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders"], (req, res, next) => {
+app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toLowerCase();
 
@@ -57,7 +59,7 @@ app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sel
     portal = Portal.ADMIN;
   } else if (effectivePath.includes('/api/sellers') || effectivePath.includes('/sellers') || effectivePath.includes('/api/products/seller')) {
     portal = Portal.SELLER;
-  } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/users') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products') || effectivePath.includes('/api/homepage') || effectivePath.includes('/api/orders')) {
+  } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/customers') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products') || effectivePath.includes('/api/homepage') || effectivePath.includes('/api/orders') || effectivePath.includes('/api/notifications')) {
     portal = Portal.WEBSITE;
   } else {
     // For any other unknown route, preserve existing portal via cookie. Useful for routes outside our explicit prefix list.
@@ -79,13 +81,15 @@ app.use(["/api/auth", "/api/users", "/api/addresses", "/api/products", "/api/sel
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/customers", customerRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/homepage", homepageRoutes);
 app.use("/api/website/promotions", promotionsRoutes);
+app.use("/api/guest", guestRoutes);
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin", adminRoutes);

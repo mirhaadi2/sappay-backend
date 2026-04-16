@@ -21,12 +21,14 @@ import {
 } from '../../sellers/inventory/service';
 import { findSellerProductById, findProductById } from '../products/repository';
 import { resolveR2Url } from '../../admin/products/transformer';
+import { getOrCreateCustomer, findCustomerByEmail, findCustomerByPhone } from '../guests/customer.service';
+import { findOrCreateCustomerAddress } from './shipping-address.repository';
 import { AppError } from '../../../utils/AppError';
 import { sequelize } from '../../../db/sequelize';
 import logger from '../../../utils/logger';
 
 export const placeOrderService = async (
-  customerId: string,
+  customerId: string | undefined,
   orderData: {
     items: Array<{
       productId: string;
@@ -42,7 +44,18 @@ export const placeOrderService = async (
     discountAmount: number;
     taxAmount: number;
     shippingCost?: number;
-    shippingAddressId: string;
+    shippingAddressId?: string;
+    shippingAddress?: {
+      name: string;
+      email: string;
+      phone: string;
+      addressLine1: string;
+      addressLine2?: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
     paymentMethod: string;
     promotionId?: string;
     promotionDetails?: {
@@ -51,6 +64,12 @@ export const placeOrderService = async (
       type: string;
       discount: number;
     };
+  },
+  guestData?: {
+    email: string;
+    phone?: string;
+    whatsapp?: string;
+    contactType: 'email' | 'phone' | 'whatsapp';
   }
 ) => {
   let transaction;
@@ -59,14 +78,18 @@ export const placeOrderService = async (
       throw new AppError('ServerError', 500, 'Database connection not available');
     }
 
-    const { items, shippingAddressId, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails } = orderData;
+    const { items, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails, shippingAddress, shippingAddressId } = orderData;
 
     if (!items || items.length === 0) {
       throw new AppError('BadRequest', 400, 'Order must have at least one item');
     }
 
-    if (!customerId || !shippingAddressId) {
-      throw new AppError('BadRequest', 400, 'Customer ID and shipping address are required');
+    if (!shippingAddressId && !shippingAddress) {
+      throw new AppError('BadRequest', 400, 'Shipping address is required');
+    }
+
+    if (!customerId && !guestData) {
+      throw new AppError('BadRequest', 400, 'Customer or guest information is required');
     }
 
     // START TRANSACTION - All validations and data operations inside transaction
@@ -124,12 +147,117 @@ export const placeOrderService = async (
 
     const finalAmount = parseFloat(orderData.totalAmount.toFixed(2));
 
+    // Handle customer and shipping address for both logged-in and guest users
+    let finalCustomerId = customerId;
+    let finalShippingAddressId = shippingAddressId;
+
+    if (!customerId && guestData) {
+      // Guest checkout flow: find or create customer
+      // Extract contact information from guestData
+      const guestEmail = guestData.contactType === 'email' ? guestData.email : undefined;
+      const guestPhone = guestData.contactType === 'phone' ? (guestData.phone || guestData.email) : undefined;
+      const guestWhatsapp = guestData.contactType === 'whatsapp' ? (guestData.whatsapp || guestData.email) : undefined;
+
+      // Check if customer already exists by email, phone, or whatsapp
+      let existingCustomer = null;
+      
+      if (guestEmail) {
+        existingCustomer = await findCustomerByEmail(guestEmail);
+      }
+      if (!existingCustomer && guestPhone) {
+        existingCustomer = await findCustomerByPhone(guestPhone);
+      }
+
+      if (existingCustomer) {
+        finalCustomerId = existingCustomer.id;
+        logger.info('Existing customer found for guest checkout', {
+          customerId: finalCustomerId,
+          email: guestEmail,
+          phone: guestPhone,
+          whatsapp: guestWhatsapp,
+        });
+      } else {
+        // Create new customer
+        finalCustomerId = await getOrCreateCustomer(
+          guestEmail,
+          guestPhone,
+          guestWhatsapp,
+          shippingAddress?.name || 'Guest Customer'
+        );
+        logger.info('New guest customer created', {
+          customerId: finalCustomerId,
+          email: guestEmail,
+          phone: guestPhone,
+          whatsapp: guestWhatsapp,
+        });
+      }
+    }
+
+    // Handle shipping address for both logged-in and guest customers
+    if (!finalShippingAddressId && shippingAddress && finalCustomerId) {
+      logger.info('Processing shipping address for customer', {
+        customerId: finalCustomerId,
+        addressLine1: shippingAddress.addressLine1,
+        city: shippingAddress.city,
+      });
+
+      try {
+        // Find or create shipping address for the customer
+        const shippingAddressRecord = await findOrCreateCustomerAddress(
+          finalCustomerId,
+          {
+            name: shippingAddress.name,
+            phone: shippingAddress.phone,
+            addressLine1: shippingAddress.addressLine1,
+            addressLine2: shippingAddress.addressLine2,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            postalCode: shippingAddress.postalCode.toString(),
+            country: shippingAddress.country,
+          }
+        );
+
+        finalShippingAddressId = shippingAddressRecord.id;
+
+        logger.info('Shipping address resolved for customer', {
+          customerId: finalCustomerId,
+          shippingAddressId: finalShippingAddressId,
+          isNew: shippingAddressRecord.createdAt,
+        });
+      } catch (addressError) {
+        logger.error('Error handling shipping address', {
+          customerId: finalCustomerId,
+          error: addressError,
+        });
+        throw new AppError(
+          'ServerError',
+          500,
+          'Failed to process shipping address'
+        );
+      }
+    }
+
+    // Validate that we have a shipping address ID after processing
+    if (!finalShippingAddressId) {
+      throw new AppError(
+        'BadRequest',
+        400,
+        'Shipping address could not be resolved'
+      );
+    }
+
+    // Build guest email/phone based on contact type for legacy support
+    const guestEmail = guestData && guestData.contactType === 'email' ? guestData.email : undefined;
+    const guestPhone = guestData && guestData.contactType !== 'email' ? (guestData.phone || guestData.email) : undefined;
+
     // Create order with PENDING status (not CONFIRMED) since payment is PENDING
     const order = await createOrder({
-      customerId,
-      shippingAddressId,
+      customerId: finalCustomerId,
+      guestEmail,
+      guestPhone,
+      shippingAddressId: finalShippingAddressId,
       paymentMethod,
-      status: 'CONFIRMED',  // FIXED: Changed from 'CONFIRMED' to 'PENDING'
+      status: 'CONFIRMED',
       paymentStatus: 'PENDING',
       subtotal: parseFloat(subtotal.toFixed(2)),
       taxAmount: parseFloat(taxAmount.toFixed(2)),
@@ -177,7 +305,7 @@ export const placeOrderService = async (
     return {
       id: orderId,
       orderNumber: (order as any).orderNumber,
-      status: 'CONFIRMED',  // Return CONFIRMED since order is ready for processing after payment
+      status: 'CONFIRMED',
       finalAmount,
       message: 'Order placed successfully. Awaiting payment confirmation.',
     };
@@ -233,12 +361,12 @@ export const confirmPaymentService = async (orderId: string) => {
   }
 };
 
-export const getCustomerOrdersService = async (customerId: string, filters: any) => {
-  return await findCustomerOrders(customerId, filters);
+export const getCustomerOrdersService = async (customerId: string, filters: any, customerEmail?: string) => {
+  return await findCustomerOrders(customerId, filters, customerEmail);
 };
 
-export const getCustomerOrderService = async (customerId: string, orderId: string) => {
-  const order: any = await findCustomerOrder(customerId, orderId);
+export const getCustomerOrderService = async (customerId: string, orderId: string, customerEmail?: string) => {
+  const order: any = await findCustomerOrder(customerId, orderId, customerEmail);
   
   if (!order) {
     throw new AppError('NotFound', 404, 'Order not found');

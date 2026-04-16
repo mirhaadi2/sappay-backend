@@ -1,5 +1,5 @@
-import { User, UserRole } from "../../admin/users/models";
-import { Otp, OtpType } from "../../admin/users/otp.model";
+import { User, UserRole } from "../../admin/customers/models";
+import { Otp, OtpType } from "../../admin/customers/otp.model";
 import { sequelize } from '../../../db/sequelize';
 import logger from '../../../utils/logger';
 

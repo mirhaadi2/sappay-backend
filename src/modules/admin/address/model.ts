@@ -1,6 +1,6 @@
 import { Model, DataTypes, Optional } from "sequelize";
 import { sequelize } from "../../../db/sequelize";
-import { User } from "../users/models";
+import { User } from "../customers/models";
 
 export enum AddressType {
   HOME = "HOME",
@@ -10,7 +10,8 @@ export enum AddressType {
 
 interface AddressAttributes {
   id: string;
-  userId: string;
+  userId?: string;
+  customerId?: string;
   type: AddressType;
   name?: string;
   addressLine1: string;
@@ -32,7 +33,8 @@ type AddressCreationAttributes = Optional<
 
 export class Address extends Model<AddressAttributes, AddressCreationAttributes> implements AddressAttributes {
   public id!: string;
-  public userId!: string;
+  public userId?: string;
+  public customerId?: string;
   public type!: AddressType;
   public name?: string;
   public addressLine1!: string;
@@ -58,13 +60,17 @@ Address.init(
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: User,
         key: "id",
       },
       onDelete: "CASCADE",
       onUpdate: "CASCADE",
+    },
+    customerId: {
+      type: DataTypes.UUID,
+      allowNull: true,
     },
     type: {
       type: DataTypes.ENUM(...Object.values(AddressType)),

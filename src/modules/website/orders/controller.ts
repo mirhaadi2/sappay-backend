@@ -18,11 +18,17 @@ export const placeOrderHandler = async (
 ) => {
   try {
     const customerId = req.session?.user?.id;
-    if (!customerId) {
-      throw new AppError('Unauthorized', 401, 'Please login first');
+    const guestData = req.guestCheckout;
+
+    if (!customerId && !guestData) {
+      throw new AppError('Unauthorized', 401, 'Please login first or verify OTP to continue');
     }
 
-    const result = await placeOrderService(customerId, req.body);
+    const result = await placeOrderService(
+      customerId || undefined,
+      req.body,
+      guestData ? { email: guestData.contact, contactType: guestData.contactType } : undefined
+    );
     res.status(201).json({
       success: true,
       data: result,
@@ -56,11 +62,12 @@ export const getOrdersHandler = async (
 ) => {
   try {
     const customerId = req.session?.user?.id;
+    const customerEmail = (req.session?.user as any)?.email;
     if (!customerId) {
       throw new AppError('Unauthorized', 401, 'Please login first');
     }
 
-    const result = await getCustomerOrdersService(customerId, req.query);
+    const result = await getCustomerOrdersService(customerId, req.query, customerEmail);
     res.json({
       success: true,
       data: result,
@@ -77,6 +84,7 @@ export const getOrderHandler = async (
 ) => {
   try {
     const customerId = req.session?.user?.id;
+    const customerEmail = (req.session?.user as any)?.email;
     const orderId = req.params.id;
     if (!customerId) {
       throw new AppError('Unauthorized', 401, 'Please login first');
@@ -86,7 +94,7 @@ export const getOrderHandler = async (
       throw new AppError('BadRequest', 400, 'Order ID is required');
     }
 
-    const result = await getCustomerOrderService(customerId, orderId);
+    const result = await getCustomerOrderService(customerId, orderId, customerEmail);
     res.json({
       success: true,
       data: result,

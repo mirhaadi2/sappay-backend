@@ -1,4 +1,4 @@
-import { UserRole } from "../modules/admin/users/models";
+import { UserRole } from "../modules/admin/customers/models";
 
 export { UserRole };
 

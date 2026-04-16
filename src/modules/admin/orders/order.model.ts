@@ -5,7 +5,9 @@ import { OrderItem } from "./order-item.model";
 interface OrderAttributes {
   id: string;
   orderNumber?: string;
-  customerId: string;
+  customerId?: string;
+  guestEmail?: string;
+  guestPhone?: string;
   status:
     | "PENDING"
     | "CONFIRMED"
@@ -40,6 +42,9 @@ interface OrderAttributes {
 type OrderCreationAttributes = Optional<
   OrderAttributes,
   | "id"
+  | "customerId"
+  | "guestEmail"
+  | "guestPhone"
   | "status"
   | "trackingNumber"
   | "statusReason"
@@ -59,7 +64,9 @@ export class Order
 {
   public id!: string;
   public orderNumber?: string;
-  public customerId!: string;
+  public customerId?: string;
+  public guestEmail?: string;
+  public guestPhone?: string;
   public status!:
     | "PENDING"
     | "CONFIRMED"
@@ -108,8 +115,18 @@ Order.init(
     },
     customerId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       field: "customer_id",
+    },
+    guestEmail: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: "guest_email",
+    },
+    guestPhone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: "guest_phone",
     },
     status: {
       type: DataTypes.ENUM(

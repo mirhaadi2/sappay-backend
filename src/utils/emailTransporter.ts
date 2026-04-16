@@ -7,9 +7,11 @@ import { config } from "../config/index";
  */
 
 export const emailTransporter = nodemailer.createTransport({
-  service: "gmail",
+  host: config.email.smtpHost,
+  port: config.email.smtpPort,
+  secure: config.email.smtpPort === 465,
   auth: {
-    user: config.email.smtpHost,      // Gmail address
+    user: config.email.smtpUser,      // Gmail address
     pass: config.email.smtpPassword,  // Gmail App Password
   },
 });

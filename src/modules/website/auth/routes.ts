@@ -8,7 +8,7 @@ import {
   initiateRegistrationHandler,
   verifyRegistrationOtpHandler,
   completeRegistrationHandler
-} from "../users/controller";
+} from "../customers/controller";
 import { requireAuth } from "../../../middleware/auth.middleware";
 
 const router = Router();

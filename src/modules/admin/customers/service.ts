@@ -1,10 +1,10 @@
 /**
- * Admin Users Service
+ * Admin Customers Service
  * Professional implementation using shared pagination utility
  */
 
 import { Op } from 'sequelize';
-import { User, UserRole } from '../../admin/users/models';
+import { User, UserRole } from '../../admin/customers/models';
 import { AppError } from '../../../utils/AppError';
 import { AdminUserQuery, AdminUser } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
@@ -51,8 +51,8 @@ export const adminListUsers = async (query: AdminUserQuery) => {
 
     return buildPaginatedResponse(users, count, { page, limit, offset });
   } catch (error: any) {
-    logger.error('Error listing admin users', { error });
-    throw new AppError('UserError', 500, error.message || 'Failed to list users');
+    logger.error('Error listing admin customers', { error });
+    throw new AppError('UserError', 500, error.message || 'Failed to list customers');
   }
 };
 
@@ -78,7 +78,7 @@ export const adminCreateUser = async (data: { email: string; name?: string; phon
       role: 'USER' as UserRole
     }, { transaction });
 
-    logger.info('User created by admin', { userId: user.id, email: data.email });
+    logger.info('Customer created by admin', { customerId: user.id, email: data.email });
     await transaction?.commit();
     return {
       ...(await adminGetUser(user.id)),
@@ -112,7 +112,7 @@ export const adminGetUser = async (id: string): Promise<AdminUser> => {
       updatedAt: user.updatedAt?.toISOString() || new Date().toISOString(),
     };
   } catch (error: any) {
-    logger.error('Error fetching admin user', { userId: id, error });
+    logger.error('Error fetching admin customer', { customerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'User not found');
   }
@@ -139,11 +139,11 @@ export const adminUpdateUser = async (
     }
 
     await transaction.commit();
-    logger.info('User updated by admin', { userId: id, changes: updateData });
+    logger.info('Customer updated by admin', { customerId: id, changes: updateData });
     return adminGetUser(id);
   } catch (error: any) {
     await transaction.rollback();
-    logger.error('Error updating admin user', { userId: id, error });
+    logger.error('Error updating admin customer', { customerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'User not found');
   }
@@ -160,11 +160,11 @@ export const adminDeleteUser = async (id: string) => {
 
     await user.destroy({ transaction });
     await transaction.commit();
-    logger.info('User deleted by admin', { userId: id });
+    logger.info('Customer deleted by admin', { customerId: id });
     return { success: true, message: 'User deleted successfully' };
   } catch (error: any) {
     await transaction.rollback();
-    logger.error('Error deleting admin user', { userId: id, error });
+    logger.error('Error deleting admin customer', { customerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'User not found');
   }
@@ -178,11 +178,11 @@ export const adminBanUser = async (id: string) => {
       throw new AppError('NotFoundError', 404, 'User not found');
     }
 
-    // Note: Ban functionality would require adding a status field to User model
-    logger.info('User ban action attempted by admin', { userId: id });
+    // Note: Ban functionality would require adding a status field to customer model
+    logger.info('Customer ban action attempted by admin', { customerId: id });
     return adminGetUser(id);
   } catch (error: any) {
-    logger.error('Error processing ban action for admin user', { userId: id, error });
+    logger.error('Error processing ban action for admin customer', { customerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'User not found');
   }
@@ -196,11 +196,11 @@ export const adminUnbanUser = async (id: string) => {
       throw new AppError('NotFoundError', 404, 'User not found');
     }
 
-    // Note: Unban functionality would require adding a status field to User model
-    logger.info('User unban action attempted by admin', { userId: id });
+    // Note: Unban functionality would require adding a status field to customer model
+    logger.info('Customer unban action attempted by admin', { customerId: id });
     return adminGetUser(id);
   } catch (error: any) {
-    logger.error('Error processing unban action for admin user', { userId: id, error });
+    logger.error('Error processing unban action for admin customer', { customerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'User not found');
   }

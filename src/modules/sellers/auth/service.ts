@@ -9,8 +9,8 @@ import { sendWelcomeEmail, sendOtpToEmail } from '../../../utils/sendEmail';
 import { SellerStatus } from '../model';
 import { create, findById, findByEmail } from '../repository';
 import { SellerLoginCredentials, SellerRegisterCredentials } from './types';
-import { sendOtpToEmail as sendSellerOtp, verifyOtp as verifySellerOtp } from '../../website/users/otp.service';
-import { OtpType } from '../../admin/users/otp.model';
+import { sendOtpToEmail as sendSellerOtp, verifyOtp as verifySellerOtp } from '../../website/customers/otp.service';
+import { OtpType } from '../../admin/customers/otp.model';
 
 export const initiateSellerRegistration = async (email: string, ownerName: string) => {
   // Check if seller already exists

@@ -28,11 +28,11 @@ module.exports = {
         { code: 'admin.sellers.update', name: 'Update Sellers', category: 'sellers', description: 'Edit seller information' },
         { code: 'admin.sellers.suspend', name: 'Suspend Sellers', category: 'sellers', description: 'Suspend seller accounts' },
 
-        // User Management
-        { code: 'admin.users.read', name: 'View Users', category: 'users', description: 'View user information' },
-        { code: 'admin.users.update', name: 'Update Users', category: 'users', description: 'Edit user information' },
-        { code: 'admin.users.delete', name: 'Delete Users', category: 'users', description: 'Delete user accounts' },
-        { code: 'admin.users.suspend', name: 'Suspend Users', category: 'users', description: 'Suspend user accounts' },
+        // Customer Management
+        { code: 'admin.customers.read', name: 'View Customers', category: 'customers', description: 'View customer information' },
+        { code: 'admin.customers.update', name: 'Update Customers', category: 'customers', description: 'Edit customer information' },
+        { code: 'admin.customers.delete', name: 'Delete Customers', category: 'customers', description: 'Delete customer accounts' },
+        { code: 'admin.customers.suspend', name: 'Suspend Customers', category: 'customers', description: 'Suspend customer accounts' },
 
         // Product Management
         { code: 'admin.products.read', name: 'View Products', category: 'products', description: 'View all products' },
@@ -124,7 +124,7 @@ module.exports = {
             'admin.sellers.reject',
             'admin.sellers.update',
             'admin.sellers.suspend',
-            'admin.users.read',
+            'admin.customers.read',
             'admin.audit.read',
           ],
         },
@@ -136,7 +136,7 @@ module.exports = {
           is_system: true,
           permissions: [
             'admin.orders.read',
-            'admin.users.read',
+            'admin.customers.read',
             'admin.sellers.read',
             'admin.audit.read',
           ],
