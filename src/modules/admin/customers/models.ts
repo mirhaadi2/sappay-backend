@@ -9,7 +9,7 @@ export enum UserRole {
 interface UserAttributes {
   id: string;
   email: string;
-  password: string;
+  password?: string;
   name?: string;
   phone?: string;
   role: UserRole;
@@ -26,7 +26,7 @@ type UserCreationAttributes = Optional<
 export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: string;
   public email!: string;
-  public password!: string;
+  public password?: string;
   public name?: string;
   public phone?: string;
   public role!: UserRole;

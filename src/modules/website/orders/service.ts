@@ -66,9 +66,7 @@ export const placeOrderService = async (
     };
   },
   guestData?: {
-    email: string;
-    phone?: string;
-    whatsapp?: string;
+    contact?: string;
     contactType: 'email' | 'phone' | 'whatsapp';
   }
 ) => {
@@ -154,9 +152,9 @@ export const placeOrderService = async (
     if (!customerId && guestData) {
       // Guest checkout flow: find or create customer
       // Extract contact information from guestData
-      const guestEmail = guestData.contactType === 'email' ? guestData.email : undefined;
-      const guestPhone = guestData.contactType === 'phone' ? (guestData.phone || guestData.email) : undefined;
-      const guestWhatsapp = guestData.contactType === 'whatsapp' ? (guestData.whatsapp || guestData.email) : undefined;
+      const guestEmail = guestData.contactType === 'email' ? guestData.contact : undefined;
+      const guestPhone = guestData.contactType === 'phone' ? guestData.contact : undefined;
+      const guestWhatsapp = guestData.contactType === 'whatsapp' ? guestData.contact : undefined;
 
       // Check if customer already exists by email, phone, or whatsapp
       let existingCustomer = null;
@@ -182,7 +180,6 @@ export const placeOrderService = async (
           guestEmail,
           guestPhone,
           guestWhatsapp,
-          shippingAddress?.name || 'Guest Customer'
         );
         logger.info('New guest customer created', {
           customerId: finalCustomerId,
@@ -247,8 +244,8 @@ export const placeOrderService = async (
     }
 
     // Build guest email/phone based on contact type for legacy support
-    const guestEmail = guestData && guestData.contactType === 'email' ? guestData.email : undefined;
-    const guestPhone = guestData && guestData.contactType !== 'email' ? (guestData.phone || guestData.email) : undefined;
+    const guestEmail = guestData && guestData.contactType === 'email' ? guestData.contact : undefined;
+    const guestPhone = guestData && guestData.contactType === 'phone' ? guestData.contact : undefined;
 
     // Create order with PENDING status (not CONFIRMED) since payment is PENDING
     const order = await createOrder({

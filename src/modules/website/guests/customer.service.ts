@@ -44,7 +44,7 @@ export const getOrCreateCustomer = async (
       email: email || undefined,
       phone: phone || undefined,
       whatsapp: whatsapp || undefined,
-      name: name || 'Guest Customer',
+      name: name || undefined,
       role: 'D2C_CUSTOMER'
     });
 

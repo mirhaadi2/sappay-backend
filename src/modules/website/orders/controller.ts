@@ -27,7 +27,7 @@ export const placeOrderHandler = async (
     const result = await placeOrderService(
       customerId || undefined,
       req.body,
-      guestData ? { email: guestData.contact, contactType: guestData.contactType } : undefined
+      guestData ? { contact: guestData?.contact, contactType: guestData.contactType } : undefined
     );
     res.status(201).json({
       success: true,

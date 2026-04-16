@@ -6,7 +6,7 @@ export interface CustomerAttributes {
   email?: string;
   phone?: string;
   whatsapp?: string;
-  name: string;
+  name?: string | null;
   password?: string | null;
   role: 'D2C_CUSTOMER' | 'B2C_CUSTOMER';
   createdAt: Date;
@@ -23,7 +23,7 @@ export class Customer extends Model<CustomerAttributes, CustomerCreationAttribut
   public password?: string | null;
   public role!: 'D2C_CUSTOMER' | 'B2C_CUSTOMER';
   public whatsapp?: string;
-  public name!: string;
+  public name?: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
   public readonly deletedAt?: Date;
@@ -60,7 +60,7 @@ Customer.init(
     },
     name: {
       type: DataTypes.STRING(100),
-      allowNull: false,
+      allowNull: true,
       field: 'name',
     },
     password: {
