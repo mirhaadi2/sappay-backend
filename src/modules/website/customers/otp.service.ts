@@ -1,49 +1,65 @@
 import crypto from 'crypto';
 import { OtpType } from '../../admin/customers/otp.model';
-import { createOtp, findOtpByEmail, deleteOtp, cleanupExpiredOtps } from './repository';
+import { createOtp, findOtpByContact, deleteOtp, cleanupExpiredOtps } from './repository';
 import { AppError } from '../../../utils/AppError';
-import { sendOtpToEmail as sendOtpEmail } from '../../../utils/sendEmail';
+import { awsSNSService, emailService, whatsappService } from '../../notifications';
 
 export const generateOtp = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 export const sendOtpToEmail = async (email: string, type: OtpType = OtpType.REGISTRATION): Promise<string> => {
+  return sendOtp(email, 'email', type);
+};
+
+export const sendOtp = async (contact: string, contactType: 'email' | 'phone' | 'whatsapp', type: OtpType = OtpType.REGISTRATION): Promise<string> => {
   // Clean up expired OTPs first
   await cleanupExpiredOtps();
 
   // Generate OTP
   const code = generateOtp();
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
   // Store OTP in database
   await createOtp({
-    email,
+    contact,
+    contactType,
     code,
     type,
     expiresAt,
   });
 
-  // Send OTP via email if email is provided
-  if (email) {
-    try {
-      await sendOtpEmail(email, code);
-      console.log(`✅ OTP sent to email: ${email}`);
-    } catch (error) {
-      console.error(`❌ Failed to send OTP email to ${email}:`, error);
-      // Don't throw error - OTP is still stored in DB
-    }
-  }
+  // Send OTP via appropriate channel
+  const otpMessage = `Your OTP code is: ${code}. Valid for 10 minutes. Do not share this with anyone.`;
+  const htmlContent = `<p>Your OTP code is: <strong>${code}</strong></p><p>Valid for 10 minutes.</p><p>Do not share this with anyone.</p>`;
 
-  // TODO: Integrate with actual SMS service (Twilio, AWS SNS, etc.)
-  // For now, we'll just log it
-  console.log(`OTP for ${email}: ${code} (expires: ${expiresAt})`);
+  try {
+    switch (contactType) {
+      case 'email':
+        await emailService.sendEmail(contact, 'Your OTP Code', htmlContent, otpMessage);
+        console.log(`✅ OTP sent to email: ${contact}`);
+        break;
+      case 'phone':
+        await awsSNSService.sendSMS(contact, otpMessage);
+        console.log(`✅ OTP sent to phone: ${contact}`);
+        break;
+      case 'whatsapp':
+        await whatsappService.sendMessage(contact, otpMessage);
+        console.log(`✅ OTP sent to WhatsApp: ${contact}`);
+        break;
+      default:
+        throw new AppError('UnsupportedContactType', 400, `Unsupported contact type: ${contactType}`);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to send OTP to ${contactType}: ${contact}:`, error);
+    // Don't throw error - OTP is still stored in DB
+  }
 
   return code; // In production, don't return the code
 };
 
-export const verifyOtp = async (email: string, code: string, type: OtpType = OtpType.REGISTRATION): Promise<boolean> => {
-  const otp = await findOtpByEmail(email, type);
+export const verifyOtp = async (contact: string, contactType: 'email' | 'phone' | 'whatsapp', code: string, type: OtpType = OtpType.REGISTRATION): Promise<boolean> => {
+  const otp = await findOtpByContact(contact, contactType, type);
 
   if (!otp) {
     throw new AppError('ValidationError', 400, 'Invalid or expired OTP');

@@ -9,7 +9,9 @@ export enum OtpType {
 
 interface OtpAttributes {
   id: string;
-  email: string;
+  email?: string; // Keep for backward compatibility
+  contact: string;
+  contactType: 'email' | 'phone' | 'whatsapp';
   code: string;
   type: OtpType;
   expiresAt: Date;
@@ -24,7 +26,9 @@ type OtpCreationAttributes = Optional<
 
 export class Otp extends Model<OtpAttributes, OtpCreationAttributes> implements OtpAttributes {
   public id!: string;
-  public email!: string;
+  public email?: string;
+  public contact!: string;
+  public contactType!: 'email' | 'phone' | 'whatsapp';
   public code!: string;
   public type!: OtpType;
   public expiresAt!: Date;
@@ -43,7 +47,16 @@ Otp.init(
     },
     email: {
       type: DataTypes.STRING(255),
+      allowNull: true, // Make optional
+    },
+    contact: {
+      type: DataTypes.STRING(255),
       allowNull: false,
+    },
+    contactType: {
+      type: DataTypes.ENUM('email', 'phone', 'whatsapp'),
+      allowNull: false,
+      defaultValue: 'email',
     },
     code: {
       type: DataTypes.STRING(6),

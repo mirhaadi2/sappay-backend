@@ -6,7 +6,9 @@ import {
   checkUserExists,
   initiateRegistration,
   verifyRegistrationOtp,
-  completeRegistration
+  completeRegistration,
+  sendOtpForLogin,
+  verifyOtpForLogin
 } from "./service";
 import { config } from "../../../config";
 
@@ -116,6 +118,34 @@ export const meHandler = async (req: Request, res: Response, next: NextFunction)
     res.json({
       success: true,
       data: { user },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const sendOtpHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { contact, contactType } = req.body;
+    const result = await sendOtpForLogin(contact, contactType);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const verifyOtpHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { contact, otp, contactType } = req.body;
+    const result = await verifyOtpForLogin(contact, otp, contactType);
+
+    if (req.session) {
+      req.session.user = result.user;
+    }
+
+    res.json({
+      success: true,
+      data: result,
     });
   } catch (err) {
     next(err);

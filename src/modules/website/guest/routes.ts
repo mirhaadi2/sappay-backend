@@ -4,6 +4,7 @@ import {
   getConfigHandler,
   sendOTPHandler,
   verifyOTPHandler,
+  createOrGetCustomerHandler,
 } from './controller';
 
 const router = Router();
@@ -20,6 +21,9 @@ router.post('/send-otp', sendOTPHandler);
 
 // Verify OTP and get guest token
 router.post('/verify-otp', verifyOTPHandler);
+
+// Create or get customer from guest token
+router.post('/create-customer', createOrGetCustomerHandler);
 
 // Lookup existing guest customer by email/phone/whatsapp and return saved addresses
 router.get('/lookup', findCustomerHandler);

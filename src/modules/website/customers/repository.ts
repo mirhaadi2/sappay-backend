@@ -1,43 +1,49 @@
-import { User, UserRole } from "../../admin/customers/models";
+import Customer from "../guests/customer.model";
 import { Otp, OtpType } from "../../admin/customers/otp.model";
 import { sequelize } from '../../../db/sequelize';
 import logger from '../../../utils/logger';
 
 export const createUser = async (data: {
-  email: string;
-  password: string;
+  email?: string;
+  password?: string;
   name?: string;
   phone?: string;
-  role?: UserRole;
+  whatsapp?: string;
+  role: 'D2C_CUSTOMER' | 'B2C_CUSTOMER';
 }) => {
   const transaction = await sequelize.transaction();
   try {
-    const user = await User.create(data, { transaction });
+    const user = await Customer.create(data, { transaction });
     await transaction.commit();
-    logger.info('User created', { userId: user.id, email: data.email });
+    logger.info('Customer created', { customerId: user.id, email: data.email });
     return user;
   } catch (error) {
     await transaction.rollback();
-    logger.error('Error creating user', { email: data.email, error });
+    logger.error('Error creating customer', { email: data.email, error });
     throw error;
   }
 };
 
 export const findUserByEmail = async (email: string) => {
-  return User.findOne({ where: { email } });
+  return Customer.findOne({ where: { email } });
 };
 
 export const findUserByPhone = async (phone: string) => {
-  return User.findOne({ where: { phone } });
+  return Customer.findOne({ where: { phone } });
+};
+
+export const findUserByWhatsapp = async (whatsapp: string) => {
+  return Customer.findOne({ where: { whatsapp } });
 };
 
 export const findUserById = async (id: string) => {
-  return User.findByPk(id);
+  return Customer.findByPk(id);
 };
 
 // OTP functions
 export const createOtp = async (data: {
-  email: string;
+  contact: string;
+  contactType: 'email' | 'phone' | 'whatsapp';
   code: string;
   type: OtpType;
   expiresAt: Date;
@@ -45,21 +51,25 @@ export const createOtp = async (data: {
   const transaction = await sequelize.transaction();
   try {
     console.log("Creating OTP:", data);
-    const otp = await Otp.create(data, { transaction });
+    const otp = await Otp.create({
+      ...data,
+      email: data.contactType === 'email' ? data.contact : undefined, // Backward compatibility
+    }, { transaction });
     await transaction.commit();
-    logger.info('OTP created', { email: data.email, type: data.type });
+    logger.info('OTP created', { contact: data.contact, type: data.type });
     return otp;
   } catch (error) {
     await transaction.rollback();
-    logger.error('Error creating OTP', { email: data.email, error });
+    logger.error('Error creating OTP', { contact: data.contact, error });
     throw error;
   }
 };
 
-export const findOtpByEmail = async (email: string, type: OtpType) => {
+export const findOtpByContact = async (contact: string, contactType: 'email' | 'phone' | 'whatsapp', type: OtpType) => {
   return Otp.findOne({
     where: {
-      email,
+      contact,
+      contactType,
       type,
     },
     order: [['createdAt', 'DESC']],

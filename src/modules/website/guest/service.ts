@@ -5,7 +5,7 @@ import { SendOTPRequest, SendOTPResponse, VerifyOTPRequest, VerifyOTPResponse, G
 import { redisClient as baseRedisClient } from '../../../config/session';
 import { AppError } from '../../../utils/AppError';
 import { awsSNSService, emailService, whatsappService } from '../../notifications';
-import { findCustomerByEmail, findCustomerByPhone, findCustomerByWhatsapp } from '../guests/customer.service';
+import { findCustomerByEmail, findCustomerByPhone, findCustomerByWhatsapp, getOrCreateCustomer } from '../guests/customer.service';
 import { findCustomerAddresses } from '../orders/shipping-address.repository';
 import Order from '../../admin/orders/order.model';
 
@@ -269,6 +269,46 @@ export const verifyGuestToken = async (token: string): Promise<GuestCheckoutData
   } catch (error) {
     logger.error('✗ Guest token verification failed', { error });
     throw new AppError('InvalidGuestToken', 401, 'Invalid or expired guest token');
+  }
+};
+
+/**
+ * Create or get customer from guest token
+ * Used after OTP verification to ensure customer record exists
+ */
+export const createOrGetCustomerFromToken = async (guestToken: string) => {
+  try {
+    const guestData = await verifyGuestToken(guestToken);
+
+    // Extract contact info based on type
+    let email: string | undefined;
+    let phone: string | undefined;
+    let whatsapp: string | undefined;
+
+    if (guestData.contactType === 'email') {
+      email = guestData.contact;
+    } else if (guestData.contactType === 'phone') {
+      phone = guestData.contact;
+    } else if (guestData.contactType === 'whatsapp') {
+      whatsapp = guestData.contact;
+    }
+
+    // Create or get customer
+    const customerId = await getOrCreateCustomer(email, phone, whatsapp);
+
+    logger.info('✓ Customer created or retrieved', {
+      customerId,
+      contactType: guestData.contactType,
+    });
+
+    return {
+      success: true,
+      customerId,
+      message: 'Customer record created/retrieved successfully',
+    };
+  } catch (error) {
+    logger.error('✗ Failed to create or get customer', { error });
+    throw error;
   }
 };
 

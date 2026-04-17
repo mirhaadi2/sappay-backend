@@ -105,6 +105,26 @@ export const findCustomerHandler = async (req: Request, res: Response, next: Nex
 };
 
 /**
+ * Create or get customer from guest token
+ */
+export const createOrGetCustomerHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { guestToken } = req.body;
+
+    if (!guestToken || typeof guestToken !== 'string') {
+      throw new AppError('MissingGuestToken', 400, 'Guest token is required');
+    }
+
+    const result = await guestService.createOrGetCustomerFromToken(guestToken.trim());
+
+    logger.info('✓ Customer created/retrieved successfully');
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Helper: Map notification channel to contact type
  */
 function mapChannelToContactType(channel: string): 'email' | 'phone' | 'whatsapp' {

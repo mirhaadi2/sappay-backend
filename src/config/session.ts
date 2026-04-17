@@ -62,7 +62,7 @@ export function getSessionOptionsForPortal(portal: Portal): session.SessionOptio
       secure: config.nodeEnv === "production",
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24,
-      sameSite: config.nodeEnv === "production" ? "strict" : "lax", // Use lax for development
+      sameSite: config.nodeEnv === "production" ? "strict" : "lax", // Use none for local cross-origin development
     },
     store: redisStore,
   };

@@ -52,7 +52,7 @@ export const completeSellerRegistration = async (
 
   // Verify OTP
   try {
-    await verifySellerOtp(email, otp, OtpType.REGISTRATION);
+    await verifySellerOtp(email, 'email', otp, OtpType.REGISTRATION);
   } catch (err: any) {
     throw new AppError('ValidationError', 400, err.message || 'Invalid or expired OTP');
   }

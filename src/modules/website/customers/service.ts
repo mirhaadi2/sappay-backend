@@ -1,10 +1,12 @@
-import { UserPayload, UserRole } from "../../../types/user";
-import { createUser, findUserByEmail, findUserByPhone, findUserById } from "./repository";
+import { randomBytes } from "crypto";
+import { UserPayload } from "../../../types/user";
+import { createUser, findUserByEmail, findUserByPhone, findUserById, findUserByWhatsapp } from "./repository";
 import { hashPassword, comparePassword } from "../../../utils/password";
 import { signJwt } from "../../../config/jwt";
 import { AppError } from "../../../utils/AppError";
-import { sendOtpToEmail, verifyOtp } from "./otp.service";
+import { sendOtp, verifyOtp } from "./otp.service";
 import { OtpType } from "../../admin/customers/otp.model";
+import { getOrCreateCustomer } from "../guests/customer.service";
 
 export const checkUserExists = async (email: string, phone: string) => {
   const existingEmail = await findUserByEmail(email);
@@ -25,7 +27,7 @@ export const initiateRegistration = async (name: string, email: string, phone: s
   await checkUserExists(email, phone);
 
   // Send OTP to email
-  const otpCode = await sendOtpToEmail(email, OtpType.REGISTRATION);
+  const otpCode = await sendOtp(email, 'email', OtpType.REGISTRATION);
 
   return {
     message: "OTP sent successfully",
@@ -35,7 +37,7 @@ export const initiateRegistration = async (name: string, email: string, phone: s
 };
 
 export const verifyRegistrationOtp = async (email: string, otp: string) => {
-  const isValid = await verifyOtp(email, otp, OtpType.REGISTRATION);
+  const isValid = await verifyOtp(email, 'email', otp, OtpType.REGISTRATION);
 
   if (isValid) {
     return {
@@ -62,13 +64,13 @@ export const completeRegistration = async (
     password: hashed,
     name,
     phone,
-    role: UserRole.D2C_CUSTOMER
+    role: 'D2C_CUSTOMER'
   });
 
   const payload: UserPayload = {
     id: user.id,
-    email: user.email,
-    role: user.role as UserRole,
+    email: user.email!,
+    role: user.role as any,
   };
 
   return {
@@ -84,17 +86,21 @@ export const registerUser = async (email: string, password: string) => {
   }
 
   const hashed = await hashPassword(password);
-  const user = await createUser({ email, password: hashed, role: UserRole.D2C_CUSTOMER });
+  const user = await createUser({ email, password: hashed, role: 'D2C_CUSTOMER' });
   return {
     id: user.id,
-    email: user.email,
-    role: user.role,
+    email: user.email!,
+    role: user.role as any,
   };
 };
 
 export const loginUser = async (email: string, password: string) => {
   const user = await findUserByEmail(email);
   if (!user) {
+    throw new AppError("UnauthorizedError", 401, "Invalid credentials.");
+  }
+
+  if (!user.password) {
     throw new AppError("UnauthorizedError", 401, "Invalid credentials.");
   }
 
@@ -105,9 +111,8 @@ export const loginUser = async (email: string, password: string) => {
 
   const payload: UserPayload = {
     id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role as UserRole,
+    email: user.email!,
+    role: user.role as any,
   };
 
   return payload;
@@ -119,8 +124,76 @@ export const getUserById = async (id: string) => {
   return {
     id: user.id,
     name: user.name,
-    email: user.email,
+    email: user.email || '',
     phone: user.phone,
-    role: user.role as UserRole,
+    role: user.role,
+  };
+};
+
+export const sendOtpForLogin = async (contact: string, contactType: 'email' | 'phone' | 'whatsapp') => {
+  await sendOtp(contact, contactType, OtpType.LOGIN);
+
+  return {
+    message: `OTP sent to your ${contactType}`,
+    otpSent: true,
+  };
+};
+
+export const verifyOtpForLogin = async (contact: string, otp: string, contactType: 'email' | 'phone' | 'whatsapp') => {
+  const isValid = await verifyOtp(contact, contactType, otp, OtpType.LOGIN);
+
+  if (!isValid) {
+    throw new AppError('ValidationError', 400, 'Invalid OTP');
+  }
+
+  // Get or create customer
+  let email, phone, whatsapp;
+  if (contactType === 'email') {
+    email = contact;
+  } else if (contactType === 'phone') {
+    phone = contact;
+  } else if (contactType === 'whatsapp') {
+    whatsapp = contact;
+  }
+
+  const customerId = await getOrCreateCustomer(email, phone, whatsapp);
+
+  // For authentication, we need a user record. Create if not exists
+  let user = null;
+  if (contactType === 'email') {
+    user = await findUserByEmail(contact);
+  } else if (contactType === 'phone') {
+    user = await findUserByPhone(contact);
+  } else if (contactType === 'whatsapp') {
+    user = await findUserByWhatsapp(contact);
+  }
+
+  if (!user) {
+    const randomPassword = randomBytes(16).toString('hex');
+    const hashedPassword = await hashPassword(randomPassword);
+    user = await createUser({
+      email,
+      phone,
+      whatsapp,
+      password: hashedPassword,
+      role: 'D2C_CUSTOMER'
+    });
+  }
+
+  const token = signJwt({
+    sub: user.id,
+    email: user.email || '',
+    role: user.role as any,
+  });
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name,
+      email: (user.email || '') as string,
+      phone: user.phone,
+      role: user.role as any,
+    },
+    token,
   };
 };
