@@ -21,6 +21,7 @@ export const config = {
     smtpPort: Number(process.env.SMTP_PORT ?? 587),
     smtpUser: process.env.SMTP_USER ?? "",
     smtpPassword: process.env.SMTP_PASSWORD ?? "",
+    smtpSecure: (process.env.SMTP_SECURE ?? "false").toLowerCase() === "true",
     fromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
   },
   cloudflare: {
