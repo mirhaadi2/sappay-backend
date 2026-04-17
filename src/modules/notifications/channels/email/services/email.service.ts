@@ -9,7 +9,7 @@ const smtpConfig = {
     password: config.email.smtpPassword,
     fromEmail: config.email.fromEmail,
 };
-console.log(smtpConfig,'smtp config')
+console.log(smtpConfig, 'smtp config')
 
 if (!smtpConfig.host || !smtpConfig.user || !smtpConfig.password) {
     logger.warn(
@@ -29,10 +29,14 @@ const createTransporter = (): any => {
     return nodemailer.createTransport({
         host: smtpConfig.host,
         port: smtpConfig.port,
-        secure: smtpConfig.port === 465, // true for 465, false for other ports
+        secure: true, // true for 465, false for other ports
         auth: {
             user: smtpConfig.user,
             pass: smtpConfig.password,
+        },
+        tls: {
+            // This is the "magic" line for VPS environments
+            rejectUnauthorized: false
         },
         connectionTimeout: 5000,
         socketTimeout: 5000,
