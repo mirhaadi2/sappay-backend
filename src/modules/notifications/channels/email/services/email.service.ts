@@ -38,6 +38,8 @@ const createTransporter = (): any => {
             // This is the "magic" line for VPS environments
             rejectUnauthorized: false
         },
+        debug: true, // This will show detailed SMTP traffic in logs
+        logger: true, // This will log the handshake process
         connectionTimeout: 5000,
         socketTimeout: 5000,
     });
