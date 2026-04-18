@@ -8,7 +8,8 @@ import {
   verifyRegistrationOtp,
   completeRegistration,
   sendOtpForLogin,
-  verifyOtpForLogin
+  verifyOtpForLogin,
+  updateUserProfile
 } from "./service";
 import { config } from "../../../config";
 
@@ -118,6 +119,38 @@ export const meHandler = async (req: Request, res: Response, next: NextFunction)
     res.json({
       success: true,
       data: { user },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    const { name, email, phone } = req.body;
+
+    // Validate input
+    if (!name && !email && !phone) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one field (name, email, or phone) must be provided",
+      });
+    }
+
+    const updatedUser = await updateUserProfile(userId, { name, email, phone });
+
+    res.json({
+      success: true,
+      data: { user: updatedUser },
+      message: "Profile updated successfully",
     });
   } catch (err) {
     next(err);

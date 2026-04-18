@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { UserPayload } from "../../../types/user";
-import { createUser, findUserByEmail, findUserByPhone, findUserById, findUserByWhatsapp } from "./repository";
+import { createUser, findUserByEmail, findUserByPhone, findUserById, findUserByWhatsapp, updateUser } from "./repository";
 import { hashPassword, comparePassword } from "../../../utils/password";
 import { signJwt } from "../../../config/jwt";
 import { AppError } from "../../../utils/AppError";
@@ -127,6 +127,47 @@ export const getUserById = async (id: string) => {
     email: user.email || '',
     phone: user.phone,
     role: user.role,
+  };
+};
+
+export const updateUserProfile = async (userId: string, data: {
+  name?: string;
+  email?: string;
+  phone?: string;
+}) => {
+  // Validate that the user exists
+  const existingUser = await findUserById(userId);
+  if (!existingUser) {
+    throw new AppError('NotFoundError', 404, 'User not found');
+  }
+
+  // Check if email is being updated and if it's already taken
+  if (data.email && data.email !== existingUser.email) {
+    const userWithEmail = await findUserByEmail(data.email);
+    if (userWithEmail && userWithEmail.id !== userId) {
+      throw new AppError('ValidationError', 400, 'Email already in use');
+    }
+  }
+
+  // Check if phone is being updated and if it's already taken
+  if (data.phone && data.phone !== existingUser.phone) {
+    const userWithPhone = await findUserByPhone(data.phone);
+    if (userWithPhone && userWithPhone.id !== userId) {
+      throw new AppError('ValidationError', 400, 'Phone number already in use');
+    }
+  }
+
+  const updatedUser = await updateUser(userId, data);
+  if (!updatedUser) {
+    throw new AppError('InternalServerError', 500, 'Failed to update profile');
+  }
+
+  return {
+    id: updatedUser.id,
+    name: updatedUser.name,
+    email: updatedUser.email || '',
+    phone: updatedUser.phone,
+    role: updatedUser.role,
   };
 };
 

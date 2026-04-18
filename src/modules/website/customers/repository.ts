@@ -40,6 +40,39 @@ export const findUserById = async (id: string) => {
   return Customer.findByPk(id);
 };
 
+export const updateUser = async (id: string, data: {
+  name?: string;
+  email?: string;
+  phone?: string;
+}) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const [updatedRows] = await Customer.update(data, {
+      where: { id },
+      transaction
+    });
+
+    if (updatedRows === 0) {
+      await transaction.rollback();
+      return null;
+    }
+
+    const updatedUser = await Customer.findByPk(id, { transaction });
+    await transaction.commit();
+
+    logger.info('Customer profile updated', {
+      customerId: id,
+      updatedFields: Object.keys(data)
+    });
+
+    return updatedUser;
+  } catch (error) {
+    await transaction.rollback();
+    logger.error('Error updating customer profile', { customerId: id, error });
+    throw error;
+  }
+};
+
 // OTP functions
 export const createOtp = async (data: {
   contact: string;
