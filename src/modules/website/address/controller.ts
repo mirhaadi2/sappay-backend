@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import {
   createAddressService,
-  getAddressesByUserIdService,
   getAddressByIdService,
   updateAddressService,
   deleteAddressService,
   setDefaultAddressService,
   getDefaultAddressService,
+  getAddressesByCustomerIdService,
 } from "./service";
 import { AppError } from "../../../utils/AppError";
 import { AddressType } from "../../admin/address/model";
@@ -17,9 +17,9 @@ export const createAddressHandler = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.session?.user?.id;
-    if (!userId) {
-      throw new AppError("UnauthorizedError", 401, "User not authenticated");
+    const customerId = req.session?.user?.id;
+    if (!customerId) {
+      throw new AppError("UnauthorizedError", 401, "Customer not authenticated");
     }
 
     const { type, name, addressLine1, addressLine2, city, state, postalCode, country, phone, isDefault } = req.body;
@@ -32,7 +32,7 @@ export const createAddressHandler = async (
       throw new AppError("ValidationError", 400, "Invalid address type");
     }
 
-    const address = await createAddressService(userId, {
+    const address = await createAddressService(customerId, {
       type: type || AddressType.HOME,
       name,
       addressLine1,
@@ -61,12 +61,12 @@ export const getAddressesHandler = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.session?.user?.id;
-    if (!userId) {
-      throw new AppError("UnauthorizedError", 401, "User not authenticated");
+    const customerId = req.session?.user?.id;
+    if (!customerId) {
+      throw new AppError("UnauthorizedError", 401, "Customer not authenticated");
     }
 
-    const addresses = await getAddressesByUserIdService(userId);
+    const addresses = await getAddressesByCustomerIdService(customerId);
 
     res.status(200).json({
       success: true,
@@ -84,13 +84,13 @@ export const getAddressByIdHandler = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.session?.user?.id;
-    if (!userId) {
-      throw new AppError("UnauthorizedError", 401, "User not authenticated");
+    const customerId = req.session?.user?.id;
+    if (!customerId) {
+      throw new AppError("UnauthorizedError", 401, "Customer not authenticated");
     }
 
     const { id } = req.params;
-    const address = await getAddressByIdService(id, userId);
+    const address = await getAddressByIdService(id, customerId);
 
     res.status(200).json({
       success: true,
@@ -107,9 +107,9 @@ export const updateAddressHandler = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.session?.user?.id;
-    if (!userId) {
-      throw new AppError("UnauthorizedError", 401, "User not authenticated");
+    const customerId = req.session?.user?.id;
+    if (!customerId) {
+      throw new AppError("UnauthorizedError", 401, "Customer not authenticated");
     }
 
     const { id } = req.params;
@@ -130,7 +130,7 @@ export const updateAddressHandler = async (
     if (country) updateData.country = country;
     if (phone) updateData.phone = phone;
 
-    const address = await updateAddressService(id, userId, updateData);
+    const address = await updateAddressService(id, customerId, updateData);
 
     res.status(200).json({
       success: true,
@@ -148,13 +148,13 @@ export const deleteAddressHandler = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.session?.user?.id;
-    if (!userId) {
-      throw new AppError("UnauthorizedError", 401, "User not authenticated");
+    const customerId = req.session?.user?.id;
+    if (!customerId) {
+      throw new AppError("UnauthorizedError", 401, "Customer not authenticated");
     }
 
     const { id } = req.params;
-    const result = await deleteAddressService(id, userId);
+    const result = await deleteAddressService(id, customerId);
 
     res.status(200).json({
       success: true,
@@ -171,13 +171,13 @@ export const setDefaultAddressHandler = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.session?.user?.id;
-    if (!userId) {
-      throw new AppError("UnauthorizedError", 401, "User not authenticated");
+    const customerId = req.session?.user?.id;
+    if (!customerId) {
+      throw new AppError("UnauthorizedError", 401, "Customer not authenticated");
     }
 
     const { id } = req.params;
-    const address = await setDefaultAddressService(id, userId);
+    const address = await setDefaultAddressService(id, customerId);
 
     res.status(200).json({
       success: true,
@@ -195,12 +195,12 @@ export const getDefaultAddressHandler = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.session?.user?.id;
-    if (!userId) {
-      throw new AppError("UnauthorizedError", 401, "User not authenticated");
+    const customerId = req.session?.user?.id;
+    if (!customerId) {
+      throw new AppError("UnauthorizedError", 401, "Customer not authenticated");
     }
 
-    const address = await getDefaultAddressService(userId);
+    const address = await getDefaultAddressService(customerId);
 
     if (!address) {
       throw new AppError("NotFoundError", 404, "No default address found");
