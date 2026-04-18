@@ -103,7 +103,6 @@ export const sendWelcomeEmail = async (email: string, name: string) => {
 };
 
 export const sendSellerApprovalEmail = async (email: string, name: string) => {
-  console.log(email,name,'email,name')
   return sendEmail({
     to: email,
     subject: 'Sappey Seller Account Approved',
