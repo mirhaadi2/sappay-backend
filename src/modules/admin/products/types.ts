@@ -76,6 +76,16 @@ export interface AdminProduct {
   id: string;
   name: string;
   description: string;
+  descriptionDetails?: Array<{
+    type: 'text' | 'highlight' | 'point';
+    content: string;
+  }>;
+  benefits?: string[];
+  ingredients?: string[];
+  nutritionFacts?: Array<{
+    label: string;
+    value: string;
+  }>;
   price: number;
   weight?: number;
   gst_rate?: number;

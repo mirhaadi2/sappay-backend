@@ -176,7 +176,6 @@ export const adminGetProduct = async (
     );
 
     const totalPages = Math.ceil(total / sellerOfferingsLimit);
-
     const rowWithVariants = {
       ...product,
       variants: variants || [],
@@ -320,6 +319,9 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       isNew,
       isCustomerFavourites,
       isBestseller,
+      benefits,
+      ingredients,
+      nutritionFacts
     } = input;
 
     if (!name || !(categoryId || input.category)) {
@@ -352,6 +354,9 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
       isNew: isNew ?? false,
       isCustomerFavourites: isCustomerFavourites ?? false,
       isBestseller: isBestseller ?? false,
+      benefits: Array.isArray(benefits) ? benefits : [],
+      ingredients: Array.isArray(ingredients) ? ingredients : [],
+      nutritionFacts: Array.isArray(nutritionFacts) ? nutritionFacts : []
     };
 
     const created = await createProductService(productPayload);

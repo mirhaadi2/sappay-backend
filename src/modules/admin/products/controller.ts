@@ -61,6 +61,7 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       name,
       slug,
       description,
+      descriptionDetails,
       gst_rate,
       status,
       categoryId,
@@ -72,12 +73,16 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       isNew,
       isCustomerFavourites,
       isBestseller,
+      benefits,
+      ingredients,
+      nutritionFacts,
     } = req.body;
 
     const product = await adminCreateProduct({
       name,
       slug,
       description,
+      descriptionDetails,
       gst_rate,
       status,
       categoryId: categoryId || category,
@@ -89,6 +94,9 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
       isNew,
       isCustomerFavourites,
       isBestseller,
+      benefits,
+      ingredients,
+      nutritionFacts,
     });
 
     res.status(201).json({ success: true, data: product });
@@ -101,8 +109,36 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
 export const updateProductHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, category, gst_rate, isNew, isCustomerFavourites, isBestseller, status, variants } = req.body;
-    const product = await adminUpdateProduct(id, { name, description, category, gst_rate, isNew, isCustomerFavourites, isBestseller, status, variants });
+    const {
+      name,
+      description,
+      descriptionDetails,
+      category,
+      gst_rate,
+      isNew,
+      isCustomerFavourites,
+      isBestseller,
+      status,
+      variants,
+      benefits,
+      ingredients,
+      nutritionFacts,
+    } = req.body;
+    const product = await adminUpdateProduct(id, {
+      name,
+      description,
+      descriptionDetails,
+      category,
+      gst_rate,
+      isNew,
+      isCustomerFavourites,
+      isBestseller,
+      status,
+      variants,
+      benefits,
+      ingredients,
+      nutritionFacts,
+    });
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Update product error', { error });

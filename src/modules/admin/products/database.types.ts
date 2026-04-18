@@ -23,6 +23,12 @@ export interface ProductVariantRow {
 export interface ProductRow {
   id: string;
   name: string;
+  benefits?: string[];
+  ingredients?: string[];
+  nutritionFacts?: Array<{
+    label: string;
+    value: string;
+  }>;
   slug: string;
   description: string;
   price: number;

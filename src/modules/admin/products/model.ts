@@ -7,8 +7,18 @@ interface ProductAttributes {
   name: string;
   slug: string;
   description?: string;
+  // descriptionDetails?: Array<{
+  //   type: 'text' | 'highlight' | 'point';
+  //   content: string;
+  // }>;
   images?: string[];
   specifications?: Record<string, any>;
+  benefits?: string[];
+  ingredients?: string[];
+  nutritionFacts?: Array<{
+    label: string;
+    value: string;
+  }>;
   weight?: number;
   hsn_code?: string;
   gst_rate: number;
@@ -24,7 +34,7 @@ interface ProductAttributes {
 
 type ProductCreationAttributes = Optional<
   ProductAttributes,
-  'id' | 'gst_rate' | 'status' | 'isNew' | 'isCustomerFavourites' | 'isBestseller' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  'id' | 'gst_rate' | 'status' | 'isNew' | 'isCustomerFavourites' | 'isBestseller' | 'benefits' | 'ingredients' | 'nutritionFacts' | 'createdAt' | 'updatedAt' | 'deletedAt'
 >;
 
 export class Product extends Model<ProductAttributes, ProductCreationAttributes> implements ProductAttributes {
@@ -33,8 +43,18 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   public name!: string;
   public slug!: string;
   public description?: string;
+  public descriptionDetails?: Array<{
+    type: 'text' | 'highlight' | 'point';
+    content: string;
+  }>;
   public images?: string[];
   public specifications?: Record<string, any>;
+  public benefits?: string[];
+  public ingredients?: string[];
+  public nutritionFacts?: Array<{
+    label: string;
+    value: string;
+  }>;
   public hsn_code?: string;
   public weight?: number;
   public gst_rate!: number;
@@ -75,6 +95,12 @@ Product.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    // descriptionDetails: {
+    //   type: DataTypes.JSON,
+    //   allowNull: true,
+    //   defaultValue: [],
+    //   field: 'description_details',
+    // },
     images: {
       type: DataTypes.JSON,
       allowNull: true,
@@ -84,6 +110,22 @@ Product.init(
       type: DataTypes.JSON,
       allowNull: true,
       defaultValue: {},
+    },
+    benefits: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    ingredients: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    nutritionFacts: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      field: 'nutrition_facts',
     },
     weight: {
       type: DataTypes.DECIMAL(10, 2),

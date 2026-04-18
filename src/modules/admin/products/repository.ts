@@ -171,11 +171,14 @@ export const findProducts = async (
 export const findById = async (id: string): Promise<ProductRow | null> => {
   const query = `
     SELECT 
-        p.id, 
+      p.id, 
       p.name, 
       p.slug, 
       p.description,
       p."discounted_price" as "discountedPrice",
+      p."benefits",
+      p."ingredients",
+      p."nutrition_facts" as "nutritionFacts",
       p."discounted_percent" as "discountedPercent",
       p.sku,
       p.weight,
