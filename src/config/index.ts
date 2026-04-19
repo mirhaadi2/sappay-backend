@@ -23,6 +23,7 @@ export const config = {
     smtpPassword: process.env.SMTP_PASSWORD ?? "",
     smtpSecure: (process.env.SMTP_SECURE ?? "false").toLowerCase() === "true",
     fromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
+    salesTeamEmail: process.env.SALES_TEAM_EMAIL ?? process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
   },
   cloudflare: {
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID ?? "",

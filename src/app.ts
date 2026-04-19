@@ -23,6 +23,7 @@ import { staffRouter } from "./modules/staff/routes";
 import { orderRoutes } from "./modules/website/orders";
 import { notificationRoutes } from "./modules/notifications";
 import { guestRoutes } from "./modules/website/guest";
+import { bulkOrderRoutes } from "./modules/website/bulk-orders/routes";
 
 const app = express();
 
@@ -45,7 +46,7 @@ const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications"], (req, res, next) => {
+app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toLowerCase();
 
@@ -87,6 +88,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/homepage", homepageRoutes);
 app.use("/api/website/promotions", promotionsRoutes);
 app.use("/api/guest", guestRoutes);
+app.use("/api/bulk-orders", bulkOrderRoutes);
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
