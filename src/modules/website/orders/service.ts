@@ -259,7 +259,7 @@ export const placeOrderService = async (
       subtotal: parseFloat(subtotal.toFixed(2)),
       taxAmount: parseFloat(taxAmount.toFixed(2)),
       discountAmount: parseFloat(orderData.discountAmount.toFixed(2)),
-      totalAmount: finalAmount,
+      totalAmount: parseFloat(orderData.subtotal.toFixed(2)),
       finalAmount,
       shippingCost: parseFloat(shippingCost.toFixed(2)),
       metadata: promotionDetails ? {
