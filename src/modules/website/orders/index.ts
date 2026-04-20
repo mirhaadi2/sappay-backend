@@ -1,4 +1,4 @@
-export { default as Order } from '../../admin/orders/order.model';
+export { Order } from '../../admin/orders/order.model';
 export { OrderItem } from '../../admin/orders/order-item.model';
 export * from './repository';
 export * from './service';

@@ -110,4 +110,3 @@ Inventory.init(
   }
 );
 
-export default Inventory;

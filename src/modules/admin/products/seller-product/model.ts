@@ -1,5 +1,4 @@
 import { Model, DataTypes, Optional } from 'sequelize';
-import Product from '../model';
 import { sequelize } from '../../../../db/sequelize';
 
 interface SellerProductAttributes {
@@ -167,4 +166,3 @@ SellerProduct.init(
 //   as: 'product',
 // });
 
-export default SellerProduct;

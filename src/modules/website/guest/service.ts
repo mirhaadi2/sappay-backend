@@ -7,7 +7,7 @@ import { AppError } from '../../../utils/AppError';
 import { awsSNSService, emailService, whatsappService } from '../../notifications';
 import { findCustomerByEmail, findCustomerByPhone, findCustomerByWhatsapp, getOrCreateCustomer } from '../guests/customer.service';
 import { findCustomerAddresses } from '../orders/shipping-address.repository';
-import Order from '../../admin/orders/order.model';
+import { Order } from '../../admin/orders/order.model';
 
 // Type-safe Redis client
 const redisClient = baseRedisClient as any;

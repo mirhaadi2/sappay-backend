@@ -145,4 +145,3 @@ Address.belongsTo(User, {
   as: "user",
 });
 
-export default Address;

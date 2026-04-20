@@ -1,4 +1,4 @@
-import Customer from "../guests/customer.model";
+import { Customer } from "../guests/customer.model";
 import { Otp, OtpType } from "../../admin/customers/otp.model";
 import { sequelize } from '../../../db/sequelize';
 import logger from '../../../utils/logger';

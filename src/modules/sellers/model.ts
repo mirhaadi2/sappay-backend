@@ -214,4 +214,3 @@ Seller.init(
   }
 );
 
-export default Seller;

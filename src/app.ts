@@ -24,6 +24,7 @@ import { orderRoutes } from "./modules/website/orders";
 import { notificationRoutes } from "./modules/notifications";
 import { guestRoutes } from "./modules/website/guest";
 import { bulkOrderRoutes } from "./modules/website/bulk-orders/routes";
+import { reviewRoutes } from "./modules/website/reviews/routes";
 
 const app = express();
 
@@ -46,7 +47,7 @@ const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders"], (req, res, next) => {
+app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toLowerCase();
 
@@ -60,7 +61,17 @@ app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api
     portal = Portal.ADMIN;
   } else if (effectivePath.includes('/api/sellers') || effectivePath.includes('/sellers') || effectivePath.includes('/api/products/seller')) {
     portal = Portal.SELLER;
-  } else if (effectivePath.includes('/api/auth') || effectivePath.includes('/api/customers') || effectivePath.includes('/api/addresses') || effectivePath.includes('/api/products') || effectivePath.includes('/api/homepage') || effectivePath.includes('/api/orders') || effectivePath.includes('/api/notifications')) {
+  } else if (
+    effectivePath.includes('/api/auth') || 
+    effectivePath.includes('/api/customers') || 
+    effectivePath.includes('/api/addresses') || 
+    effectivePath.includes('/api/products') || 
+    effectivePath.includes('/api/homepage') || 
+    effectivePath.includes('/api/orders') || 
+    effectivePath.includes('/api/notifications') || 
+    effectivePath.includes('/api/bulk-orders') || 
+    effectivePath.includes('/api/reviews')
+  ) {
     portal = Portal.WEBSITE;
   } else {
     // For any other unknown route, preserve existing portal via cookie. Useful for routes outside our explicit prefix list.
@@ -89,6 +100,7 @@ app.use("/api/homepage", homepageRoutes);
 app.use("/api/website/promotions", promotionsRoutes);
 app.use("/api/guest", guestRoutes);
 app.use("/api/bulk-orders", bulkOrderRoutes);
+app.use("/api/reviews", reviewRoutes);
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);

@@ -1,5 +1,5 @@
 import { Model, DataTypes, Optional } from 'sequelize';
-import Product from '../model';
+import { Product } from '../model';
 import { sequelize } from '../../../../db/sequelize';
 
 export interface ProductVariantAttributes {

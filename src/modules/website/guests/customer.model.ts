@@ -104,4 +104,3 @@ Customer.init(
   }
 );
 
-export default Customer;

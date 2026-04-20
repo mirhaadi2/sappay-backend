@@ -1,4 +1,4 @@
-import Product from "../../admin/products/model";
+import { Product } from "../../admin/products/model";
 import { ProductVariant } from "../../admin/products/product-variant/model";
 import { fetchFromR2, getR2SignedUrl } from "../../uploads/r2-utils";
 import { Category } from "../../admin/products/categories/model";

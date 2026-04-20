@@ -106,4 +106,3 @@ InventoryHistory.init(
   }
 );
 
-export default InventoryHistory;

@@ -27,6 +27,8 @@ interface ProductAttributes {
   isNew: boolean;
   isCustomerFavourites: boolean;
   isBestseller: boolean;
+  rating?: number;
+  ratingCount?: number;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -63,6 +65,8 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   public isNew!: boolean;
   public isCustomerFavourites!: boolean;
   public isBestseller!: boolean;
+  public rating?: number;
+  public ratingCount?: number;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -168,6 +172,17 @@ Product.init(
       defaultValue: false,
       field: 'is_best_seller',
     },
+    rating: {
+      type: DataTypes.DECIMAL(3, 2),
+      allowNull: true,
+      defaultValue: null,
+    },
+    ratingCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'rating_count',
+    },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -200,4 +215,3 @@ Product.init(
 //   as: 'sellerProducts',
 // });
 
-export default Product;

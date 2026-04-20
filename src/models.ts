@@ -19,3 +19,4 @@ export {
   UserNotificationPreferences,
 } from './modules/notifications/models';
 export { Customer } from './modules/website/guests/customer.model';
+export { Review } from './modules/website/reviews/model';

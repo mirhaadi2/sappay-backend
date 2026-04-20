@@ -1,4 +1,4 @@
-import { default as Order } from '../../admin/orders/order.model';
+import { Order } from '../../admin/orders/order.model';
 import { OrderItem } from '../../admin/orders/order-item.model';
 import { AppError } from '../../../utils/AppError';
 import { QueryTypes, Transaction } from 'sequelize';

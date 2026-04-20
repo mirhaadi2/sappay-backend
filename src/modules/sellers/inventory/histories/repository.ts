@@ -1,4 +1,4 @@
-import InventoryHistory from './model';
+import { InventoryHistory } from './model';
 import { AppError } from '../../../../utils/AppError';
 import { sequelize } from '../../../../db/sequelize';
 import { QueryTypes } from 'sequelize';

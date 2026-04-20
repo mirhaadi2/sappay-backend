@@ -277,7 +277,3 @@ Order.hasMany(OrderItem, {
   as: "items",
   onDelete: "CASCADE",
 });
-
-OrderItem.belongsTo(Order, { foreignKey: "orderId", as: "order" });
-
-export default Order;
