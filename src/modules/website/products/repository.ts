@@ -178,43 +178,30 @@ export const invalidateCategoriesCache = async () => {
     console.warn("Failed to invalidate categories cache:", err?.message || err);
   }
 };
+
 export const findAllProducts = async (filters: ProductFilters) => {
   const cacheKey = getProductsCacheKey(filters || {});
 
-  // Try to return from Redis cache first
+  // Fast-path: Cache check
   try {
     if (redisClient.isOpen) {
       const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        return JSON.parse(cached);
-      }
+      if (cached) return JSON.parse(cached);
     }
-  } catch (err: any) {
-    console.warn('Redis cache read failed in findAllProducts:', err?.message || err);
+  } catch (err) {
+    console.warn('Redis read failed:', err);
   }
 
-  // 1. Destructure with Defaults
-  const { 
-    limit = 20, 
-    page = 1, 
-    search, 
-    categoryId, 
-    status = 'ACTIVE',
-    sort = 'default'
-  } = filters || {};
-
-  // 2. Normalize Pagination
+  // Pagination & Filtering
+  const { limit = 20, page = 1 } = filters;
   const parsedLimit = Math.min(Math.max(Number(limit), 1), 100);
   const parsedOffset = (Math.max(Number(page), 1) - 1) * parsedLimit;
 
-  // 3. Dynamic Filter Builder
-  // We separate conditions and replacements to reuse them for both Data and Count queries
   const { conditions, replacements, orderBy } = buildProductConditions(filters);
-
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  // 4. Execute Queries in Parallel (Performance Boost)
-  const [products, countResult]: [any[], any[]] = await Promise.all([
+  // Parallel Database Queries
+  const [products, countResult]: [any[], any] = await Promise.all([
     sequelize.query(generateMainQuery(whereClause, orderBy), {
       replacements: { ...replacements, limit: parsedLimit, offset: parsedOffset },
       type: QueryTypes.SELECT,
@@ -222,13 +209,14 @@ export const findAllProducts = async (filters: ProductFilters) => {
     sequelize.query(`SELECT COUNT(p.id) as total FROM products p ${whereClause}`, {
       replacements,
       type: QueryTypes.SELECT,
+      plain: true,
     }),
   ]);
 
-  const total = Number(countResult[0]?.total || 0);
+  const total = Number(countResult?.total || 0);
 
-  // 5. Post-Processing Logic
-  const formattedProducts = await formatProductData(products);
+  // High-speed Formatting (Batch Image Signing)
+  const formattedProducts = await fastFormatProducts(products);
 
   const result = {
     products: formattedProducts,
@@ -238,23 +226,37 @@ export const findAllProducts = async (filters: ProductFilters) => {
     totalPages: Math.ceil(total / parsedLimit),
   };
 
-  try {
-    if (redisClient.isOpen) {
-      await redisClient.set(cacheKey, JSON.stringify(result), {
-        EX: PRODUCT_LIST_CACHE_TTL,
-      });
-    }
-  } catch (err: any) {
-    console.warn('Redis cache write failed in findAllProducts:', err?.message || err);
+  // Fire-and-forget cache write (don't await)
+  if (redisClient.isOpen) {
+    redisClient.set(cacheKey, JSON.stringify(result), { EX: 120 }).catch(() => {});
   }
 
   return result;
 };
 
-/**
- * HELPER: Build dynamic SQL fragments
- */
-function buildProductConditions(filters: any) {
+const fastFormatProducts = async (products: any[]) => {
+  if (!products.length) return [];
+
+  // Extract every unique image key across the entire result set
+  const allImageKeys = products.flatMap(p => p.images || []);
+  const uniqueKeys = [...new Set(allImageKeys)];
+
+  const signedUrls = await resolveR2Urls(uniqueKeys);
+
+  const signedUrlMap = new Map();
+  uniqueKeys.forEach((key, index) => {
+    signedUrlMap.set(key, signedUrls[index]);
+  });
+
+  return products.map(p => ({
+    ...p,
+    images: (p.images || []).map((key: string) => signedUrlMap.get(key)),
+    price: Number(p.min_price || 0), // Use SQL-calculated min price
+    variantCount: p.variants?.length || 0,
+  }));
+}
+
+const buildProductConditions = (filters: any) => {
   const conditions: string[] = [];
   const replacements: any = {};
 
@@ -308,10 +310,7 @@ function buildProductConditions(filters: any) {
   return { conditions, replacements, orderBy };
 }
 
-/**
- * HELPER: Main SQL String
- */
-function generateMainQuery(whereClause: string, orderBy: string) {
+const generateMainQuery = (whereClause: string, orderBy: string) => {
   return `
     SELECT
       p.id, 
@@ -323,14 +322,17 @@ function generateMainQuery(whereClause: string, orderBy: string) {
       p.images, 
       p.gst_rate,
       p.is_new as "isNew", 
-      p.is_customer_favourites as "isCustomerFavourites",
       p.is_best_seller as "isBestseller",
+      p.is_customer_favourites as "isCustomerFavourites",
       MIN(pv.price) as min_price,
       COALESCE(JSON_AGG(
         JSON_BUILD_OBJECT(
-          'id', pv.id, 'sku', pv.sku, 'price', pv.price,
+          'id', pv.id, 
+          'sku', pv.sku, 
+          'price', pv.price,
           'discountedPrice', pv.discounted_price,
-          'weight', pv.weight, 'weightUnit', pv.weight_unit
+          'weight', pv.weight, 
+          'weightUnit', pv.weight_unit
         )
       ) FILTER (WHERE pv.id IS NOT NULL), '[]') as "variants"
     FROM products p
@@ -341,27 +343,7 @@ function generateMainQuery(whereClause: string, orderBy: string) {
     ORDER BY ${orderBy}
     LIMIT :limit OFFSET :offset
   `;
-}
-
-/**
- * HELPER: Formatting and Async Image Resolution
- */
-async function formatProductData(products: any[]) {
-  return Promise.all(products.map(async (product) => {
-    const images = Array.isArray(product.images) 
-      ? await Promise.all(product.images.map(resolveR2Url)) 
-      : [];
-
-    const prices = product.variants.map((v: any) => Number(v.price));
-    
-    return {
-      ...product,
-      images,
-      price: prices.length ? Math.min(...prices) : 0,
-      variantCount: product.variants.length,
-    };
-  }));
-}
+};
 
 export const findAllProductsCatalog = async (filters: any) => {
   const {

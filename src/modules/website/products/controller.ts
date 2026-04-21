@@ -13,6 +13,7 @@ import {
 } from './service';
 import { findById } from '../../sellers/repository';
 import { AppError } from '../../../utils/AppError';
+import { findAllProducts } from './repository';
 
 export const createProductHandler = async (
   req: Request,
@@ -67,30 +68,15 @@ export const getProductDetailsHandler = async (
   }
 };
 
-export const fetchProductsHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const fetchProductsHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await fetchProductsService(req.query);
-
-    const payload = JSON.stringify(result);
-    const etag = createHash('md5').update(payload).digest('hex');
-
-    res.setHeader('ETag', etag);
-
-    const ifNoneMatch = req.headers['if-none-match'];
-    if (ifNoneMatch && ifNoneMatch.toString() === etag) {
-      return res.status(304).end();
-    }
-
+    const result = await findAllProducts(req.query);
+    // res.json handles ETag automatically in Express 4.x+
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
-
 /**
  * Dedicated search handler using PostgreSQL Full-Text Search
  * Uses `q` parameter instead of `search` for semantic clarity
