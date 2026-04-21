@@ -1,6 +1,6 @@
 import { Product } from "../../admin/products/model";
 import { ProductVariant } from "../../admin/products/product-variant/model";
-import { fetchFromR2, getR2SignedUrl } from "../../uploads/r2-utils";
+import { fetchFromR2, getR2SignedUrl, resolveR2Urls } from "../../uploads/r2-utils";
 import { Category } from "../../admin/products/categories/model";
 import { SellerProduct } from "../../admin/products/seller-product/model";
 import { AppError } from "../../../utils/AppError";
@@ -35,69 +35,61 @@ export const findVariantsByProductId = async (productId: string) => {
 export const findProductById = async (id: string) => {
   const query = `
     SELECT
-      p.id,
-      p.name,
-      p.slug,
-      p.benefits,
-      p.ingredients,
+      p.id, p.name, p.slug, p.benefits, p.ingredients, p.description,
+      p.images, p.gst_rate, p.category_id as "categoryId",
       p.nutrition_facts as "nutritionFacts",
-      p.category_id as "categoryId",
-      c.name as "category",
-      p.description,
-      p.images,
-      p.gst_rate,
       p.is_new as "isNew",
       p.is_customer_favourites as "isCustomerFavourites",
       p.is_best_seller as "isBestseller",
-      JSON_AGG(
-        JSON_BUILD_OBJECT(
-          'id', pv.id,
-          'productId', pv.product_id,
-          'sku', pv.sku,
-          'price', pv.price,
-          'discountedPrice', pv.discounted_price,
-          'discountedPercent', pv.discounted_percent,
-          'weight', pv.weight,
-          'weightUnit', pv.weight_unit
-        )
+      c.name as "category",
+      COALESCE(
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'id', pv.id,
+            'sku', pv.sku,
+            'price', pv.price,
+            'discountedPrice', pv.discounted_price,
+            'discountedPercent', pv.discounted_percent,
+            'weight', pv.weight,
+            'weightUnit', pv.weight_unit
+          )
+        ) FILTER (WHERE pv.id IS NOT NULL), '[]'
       ) as "variants"
     FROM products p
-    LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
     LEFT JOIN categories c ON c.id = p.category_id
-    WHERE p.status = 'ACTIVE'
-      AND p.id = :id
+    LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
+    WHERE p.id = :id AND p.status = 'ACTIVE'
     GROUP BY p.id, c.name
     LIMIT 1
   `;
 
-  const replacements: any = { id };
-  const products: any = await sequelize?.query(query, {
-    replacements,
+  const products = await sequelize.query(query, {
+    replacements: { id },
     type: QueryTypes.SELECT,
-    logging(sql, timing) {
-      console.log("Executed SQL:", sql);
-      if (timing) console.log("Execution time:", timing, "ms");
-    },
+    plain: true, // Returns a single object instead of an array
     benchmark: true,
-  });
+    logging: (sql, timing) => console.log(`[SQL] ${timing}ms`),
+  }) as any | null;
 
-  if (!products || !products?.[0]) return null;
+  if (!products) return null;
 
-  const variants = products?.[0]?.variants || [];
-  const resolvedImages = Array.isArray(products?.[0]?.images)
-    ? await Promise.all(
-        products?.[0]?.images.map((imgKey: string) => resolveR2Url(imgKey)),
-      )
-    : [];
+  const [resolvedImages] = await Promise.all([
+    resolveR2Urls(products.images || [])
+  ]);
 
-  const prices = variants.map((v: any) => Number(v.price));
-  const formattedProduct = {
-    ...products?.[0],
+  const variants = products.variants || [];
+
+  let minPrice = 0;
+  if (variants.length > 0) {
+    minPrice = variants.reduce((min: number, v: any) => (v.price < min ? v.price : min), variants[0].price);
+  }
+
+  return {
+    ...products,
     images: resolvedImages,
-    price: prices.length ? Math.min(...prices) : 0,
+    price: Number(minPrice),
     variantCount: variants.length,
   };
-  return formattedProduct;
 };
 
 export const findProductBySlug = async (slug: string) => {

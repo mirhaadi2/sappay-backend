@@ -33,6 +33,31 @@ export const fetchFromR2 = async (key: string) => {
   return result.Body; // Returns the Readable stream
 };
 
+export const resolveR2Urls = async (keys: string[]): Promise<string[]> => {
+  if (!Array.isArray(keys) || keys.length === 0) return [];
+
+  return Promise.all(
+    keys.map(async (key) => {
+      if (!key) return "";
+      if (key.startsWith("http")) return key;
+
+      try {
+        // Generate the signed URL locally (No network request made here)
+        const command = new GetObjectCommand({
+          Bucket: config.cloudflare.bucket,
+          Key: key,
+        });
+        
+        // expiresIn: 3600 (1 hour) - adjust based on your caching strategy
+        return await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+      } catch (err) {
+        console.error(`Failed to sign URL for key: ${key}`, err);
+        return "";
+      }
+    })
+  );
+};
+
 /**
  * Generate a secure, time-limited Signed URL for the B2C/Admin portals
  * Default expiry is 1 hour (3600 seconds)

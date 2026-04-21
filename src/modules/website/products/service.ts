@@ -192,36 +192,6 @@ export const addProductToSellerService = async (
 export const getProductDetailsService = async (productId: string) => {
   const product = await findProductById(productId);
   return product;
-  // if (!product) {
-  //   throw new AppError('NotFound', 404, 'Product not found');
-  // }
-
-  // const productJson: any = product.toJSON();
-  // const variantPrices = (productJson.variants || []).map((v: any) => Number(v.price));
-  // const variantMinPrice = variantPrices.length ? Math.min(...variantPrices) : undefined;
-
-  // productJson.variantCount = (productJson.variants || []).length;
-  
-  // // For weight-based products, display price is the minimum weight variant price
-  // if (productJson.variantCount > 0) {
-  //   productJson.price = variantMinPrice;
-  //   // Set originalPrice to basePrice if it exists and is different from variant price
-  //   if (productJson.basePrice && Number(productJson.basePrice) !== variantMinPrice) {
-  //     productJson.originalPrice = Number(productJson.basePrice);
-  //   }
-  // } else {
-  //   productJson.price = Number(productJson.basePrice ?? productJson.price ?? 0);
-  // }
-
-  // // Ensure main product discount fields are included
-  // if (productJson.discountedPrice) {
-  //   productJson.discountedPrice = Number(productJson.discountedPrice);
-  // }
-  // if (productJson.discountedPercent) {
-  //   productJson.discountedPercent = Number(productJson.discountedPercent);
-  // }
-
-  // return productJson;
 };
 
 export const fetchProductsService = async (filters: any) => {
