@@ -40,9 +40,9 @@ export const getReviews = async (req: Request, res: Response, next: NextFunction
     try {
         const customerId = (req as any).customer?.id;
         const filters = {
-            customerId: req.query.customerId as string || customerId,
-            productId: req.query.productId as string,
-            rating: req.query.rating ? parseInt(req.query.rating as string) : undefined,
+            // customerId: req.query.customerId as string || customerId,
+            // productId: req.query.productId as string,
+            // rating: req.query.rating ? parseInt(req.query.rating as string) : undefined,
             limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
             offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
         };

@@ -97,7 +97,7 @@ export class ReviewService {
     const { limit = 10, offset = 0, ...whereClause } = filters;
 
     const { rows: reviews, count: total } = await Review.findAndCountAll({
-      // where: whereClause,
+      where: whereClause,
       limit,
       offset,
       order: [["createdAt", "DESC"]],
