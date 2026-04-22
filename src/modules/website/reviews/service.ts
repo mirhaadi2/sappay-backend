@@ -235,6 +235,29 @@ export class ReviewService {
   }
 
   /**
+   * Get review by order item ID
+   */
+  async getReviewByOrderItem(orderItemId: string): Promise<Review | null> {
+    const review = await Review.findOne({
+      where: { orderItemId },
+      include: [
+        {
+          model: Customer,
+          as: "customer",
+          attributes: ["id", "name", "email"],
+        },
+        {
+          model: Order,
+          as: "order",
+          attributes: ["id", "orderNumber", "status"],
+        },
+      ],
+    });
+
+    return review;
+  }
+
+  /**
    * Check if customer can review an order item
    */
   async canReviewOrderItem(customerId: string, orderItemId: string): Promise<boolean> {

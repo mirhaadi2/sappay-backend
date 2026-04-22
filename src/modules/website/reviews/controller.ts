@@ -138,6 +138,19 @@ export const getProductReviews = async (req: Request, res: Response, next: NextF
     }
 };
 
+export const getReviewByOrderItem = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const review = await reviewService.getReviewByOrderItem(req.params.orderItemId);
+
+        res.json({
+            success: true,
+            data: review,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const checkCanReview = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const customerId = (req as any).customer?.id;

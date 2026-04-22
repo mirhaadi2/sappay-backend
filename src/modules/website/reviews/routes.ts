@@ -6,7 +6,8 @@ import {
   createReview, 
   updateReview, 
   deleteReview, 
-  checkCanReview 
+  checkCanReview,
+  getReviewByOrderItem,
 } from "./controller";
 import { requireAuth } from "../../../middleware/auth.middleware";
 
@@ -14,6 +15,7 @@ const router = Router();
 
 // Public GET endpoints - no authentication required
 // Note: Specific routes must come BEFORE generic routes
+router.get("/order-item/:orderItemId", getReviewByOrderItem);
 router.get("/products/:productId", getProductReviews);
 router.get("/:id", getReviewById);
 router.get("/", getReviews);
