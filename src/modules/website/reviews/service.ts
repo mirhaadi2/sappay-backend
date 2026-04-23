@@ -142,47 +142,74 @@ export class ReviewService {
    * Update a review
    */
   async updateReview(id: string, customerId: string, updates: Partial<CreateReviewData>): Promise<Review> {
-    const review = await Review.findByPk(id);
-    if (!review) {
-      throw new AppError("NotFound", 404, "Review not found");
+    let transaction;
+    try {
+      transaction = await sequelize.transaction();
+      
+      const review = await Review.findByPk(id, { transaction });
+      if (!review) {
+        throw new AppError("NotFound", 404, "Review not found");
+      }
+
+      if (review.customerId !== customerId) {
+        throw new AppError("Forbidden", 403, "You can only update your own reviews");
+      }
+
+      // Validate rating if provided
+      if (updates.rating !== undefined && (updates.rating < 1 || updates.rating > 5)) {
+        throw new AppError("ValidationError", 400, "Rating must be between 1 and 5");
+      }
+
+      await review.update(updates, { transaction });
+
+      // Update seller product rating if rating changed
+      if (updates.rating !== undefined) {
+        await this.updateProductRating(review.productId, transaction);
+      }
+
+      await transaction.commit();
+      return review;
+    } catch (error) {
+      if (transaction) {
+        await transaction.rollback().catch((rollbackError: any) => {
+          console.error('Error rolling back transaction', { error: rollbackError });
+        });
+      }
+      throw error;
     }
-
-    if (review.customerId !== customerId) {
-      throw new AppError("Forbidden", 403, "You can only update your own reviews");
-    }
-
-    // Validate rating if provided
-    if (updates.rating !== undefined && (updates.rating < 1 || updates.rating > 5)) {
-      throw new AppError("ValidationError", 400, "Rating must be between 1 and 5");
-    }
-
-    await review.update(updates);
-
-    // Update seller product rating if rating changed
-    if (updates.rating !== undefined) {
-      await this.updateProductRating(review.productId);
-    }
-
-    return review;
   }
 
   /**
    * Delete a review
    */
   async deleteReview(id: string, customerId: string): Promise<void> {
-    const review = await Review.findByPk(id);
-    if (!review) {
-      throw new AppError("NotFound", 404, "Review not found");
+    let transaction;
+    try {
+      transaction = await sequelize.transaction();
+      
+      const review = await Review.findByPk(id, { transaction });
+      if (!review) {
+        throw new AppError("NotFound", 404, "Review not found");
+      }
+
+      if (review.customerId !== customerId) {
+        throw new AppError("Forbidden", 403, "You can only delete your own reviews");
+      }
+
+      await review.destroy({ transaction });
+
+      // Update product rating after deletion
+      await this.updateProductRating(review.productId, transaction);
+
+      await transaction.commit();
+    } catch (error) {
+      if (transaction) {
+        await transaction.rollback().catch((rollbackError: any) => {
+          console.error('Error rolling back transaction', { error: rollbackError });
+        });
+      }
+      throw error;
     }
-
-    if (review.customerId !== customerId) {
-      throw new AppError("Forbidden", 403, "You can only delete your own reviews");
-    }
-
-    await review.destroy();
-
-    // Update product rating after deletion
-    await this.updateProductRating(review.productId);
   }
 
   /**

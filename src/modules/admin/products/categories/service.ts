@@ -8,6 +8,7 @@ import {
   checkSlugExists,
 } from './repository';
 import { AdminCategoryQuery, AdminCategoryCreateInput, AdminCategoryUpdateInput, AdminCategory } from './types';
+import { sequelize } from '../../../../db/sequelize';
 
 const makeSlug = (value: string): string =>
   value
@@ -59,45 +60,86 @@ export const adminGetCategory = async (id: string): Promise<AdminCategory> => {
 };
 
 export const adminCreateCategory = async (payload: AdminCategoryCreateInput): Promise<AdminCategory> => {
-  const name = payload.name.trim();
-  const slug = payload.slug ? makeSlug(payload.slug) : makeSlug(name);
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    
+    const name = payload.name.trim();
+    const slug = payload.slug ? makeSlug(payload.slug) : makeSlug(name);
 
-  if (!name) throw { statusCode: 400, message: 'Category name is required' };
+    if (!name) throw { statusCode: 400, message: 'Category name is required' };
 
-  if (await checkSlugExists(slug)) {
-    throw { statusCode: 409, message: 'Category slug already exists' };
+    if (await checkSlugExists(slug)) {
+      throw { statusCode: 409, message: 'Category slug already exists' };
+    }
+
+    const category = await createCategory({
+      name,
+      slug,
+      description: payload.description,
+      parentCategoryId: payload.parentCategoryId,
+      image: payload.image,
+      isActive: payload.isActive !== undefined ? payload.isActive : true,
+      displayOrder: payload.displayOrder || 0,
+      metadata: payload.metadata || {},
+    }, transaction);
+
+    await transaction.commit();
+    return category as AdminCategory;
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        console.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
+    throw error;
   }
-
-  const category = await createCategory({
-    name,
-    slug,
-    description: payload.description,
-    parentCategoryId: payload.parentCategoryId,
-    image: payload.image,
-    isActive: payload.isActive !== undefined ? payload.isActive : true,
-    displayOrder: payload.displayOrder || 0,
-    metadata: payload.metadata || {},
-  });
-
-  return category as AdminCategory;
 };
 
 export const adminUpdateCategory = async (id: string, payload: AdminCategoryUpdateInput): Promise<AdminCategory> => {
-  if (payload.slug) {
-    const slug = makeSlug(payload.slug);
-    if (await checkSlugExists(slug, id)) {
-      throw { statusCode: 409, message: 'Category slug already exists' };
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    
+    if (payload.slug) {
+      const slug = makeSlug(payload.slug);
+      if (await checkSlugExists(slug, id)) {
+        throw { statusCode: 409, message: 'Category slug already exists' };
+      }
+      payload.slug = slug;
     }
-    payload.slug = slug;
-  }
 
-  await updateCategory(id, payload);
-  const updated = await findCategoryById(id);
-  if (!updated) throw { statusCode: 404, message: 'Category not found' };
-  return updated as AdminCategory;
+    await updateCategory(id, payload, transaction);
+    const updated = await findCategoryById(id);
+    if (!updated) throw { statusCode: 404, message: 'Category not found' };
+    
+    await transaction.commit();
+    return updated as AdminCategory;
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        console.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
+    throw error;
+  }
 };
 
 export const adminDeleteCategory = async (id: string): Promise<boolean> => {
-  await deleteCategory(id);
-  return true;
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    
+    await deleteCategory(id, transaction);
+    
+    await transaction.commit();
+    return true;
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        console.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
+    throw error;
+  }
 };

@@ -17,12 +17,14 @@ import logger from "../../../utils/logger";
 const executeSelect = async <T>(
   query: string,
   replacements: any = [],
+  transaction?: any,
 ): Promise<T[]> => {
   var timing = 0;
   try {
     const result = (await sequelize.query(query, {
       replacements,
       type: QueryTypes.SELECT,
+      transaction,
       logging(sql, queryTiming) {
         logger.debug("Database SELECT query executed", {
           sql,
@@ -52,11 +54,13 @@ const executeSelect = async <T>(
 const executeModify = async (
   query: string,
   replacements: any = [],
+  transaction?: any,
 ): Promise<number> => {
   var timing = 0;
   try {
     await sequelize.query(query, {
       replacements,
+      transaction,
       logging(sql, queryTiming) {
         logger.debug("Database MODIFY query executed", {
           sql,
@@ -207,7 +211,7 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
   return result[0] || null;
 };
 
-export const getProductVariants = async (productId: string) => {
+export const getProductVariants = async (productId: string, transaction?: any) => {
   const query = `
     SELECT 
       id, 
@@ -225,7 +229,7 @@ export const getProductVariants = async (productId: string) => {
     WHERE product_id = ?
     ORDER BY created_at ASC
   `;
-  return await executeSelect<any>(query, [productId]);
+  return await executeSelect<any>(query, [productId], transaction);
 };
 
 /**
@@ -244,9 +248,9 @@ export const getProductVariantsCount = async (
   return parseInt(result[0]?.count || "0", 10);
 };
 
-export const deleteProductVariantsByProduct = async (productId: string) => {
+export const deleteProductVariantsByProduct = async (productId: string, transaction?: any) => {
   const query = `DELETE FROM product_variants WHERE product_id = ?`;
-  await executeModify(query, [productId]);
+  await executeModify(query, [productId], transaction);
   return true;
 };
 
@@ -254,6 +258,7 @@ export const createProductVariants = async (
   productId: string,
   productName: string,
   variants: any[],
+  transaction?: any,
 ) => {
   if (!Array.isArray(variants) || variants.length === 0) return [];
 
@@ -282,14 +287,14 @@ export const createProductVariants = async (
       ${values.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}
   `;
 
-  await executeModify(query, values.flat());
-  return getProductVariants(productId);
+  await executeModify(query, values.flat(), transaction);
+  return getProductVariants(productId, transaction);
 };
 
 /**
  * Update existing product variant
  */
-export const updateProductVariant = async (variantId: string, updates: any) => {
+export const updateProductVariant = async (variantId: string, updates: any, transaction?: any) => {
   const entries = Object.entries(updates);
   if (entries.length === 0) return true;
 
@@ -330,7 +335,7 @@ export const updateProductVariant = async (variantId: string, updates: any) => {
     WHERE id = ?
   `;
 
-  await executeModify(query, values);
+  await executeModify(query, values, transaction);
   return true;
 };
 
@@ -341,6 +346,7 @@ export const updateProductVariant = async (variantId: string, updates: any) => {
 export const upsertProductVariants = async (
   productId: string,
   variants: any[],
+  transaction?: any,
 ) => {
   if (!Array.isArray(variants) || variants.length === 0) return [];
 
@@ -351,7 +357,7 @@ export const upsertProductVariants = async (
   }
   const productName = product.name;
 
-  const existingVariants = await getProductVariants(productId);
+  const existingVariants = await getProductVariants(productId, transaction);
   const existingVariantMap = new Map(existingVariants.map((v) => [v.id, v]));
 
   const results = [];
@@ -371,7 +377,7 @@ export const upsertProductVariants = async (
         updates.weightUnit = variant.weightUnit;
       if (variant.status !== undefined) updates.status = variant.status;
 
-      await updateProductVariant(variant.id, updates);
+      await updateProductVariant(variant.id, updates, transaction);
       results.push({ ...existingVariantMap.get(variant.id), ...updates });
     } else {
       // Create new variant - remove ID if present and auto-generate SKU if needed
@@ -384,7 +390,7 @@ export const upsertProductVariants = async (
       }
       const newVariants = await createProductVariants(productId, productName, [
         variantData,
-      ]);
+      ], transaction);
       results.push(...newVariants);
     }
   }
@@ -407,6 +413,7 @@ export const exists = async (id: string): Promise<boolean> => {
 export const updateFields = async (
   id: string,
   updates: Record<string, any>,
+  transaction?: any,
 ): Promise<boolean> => {
   const entries = Object.entries(updates);
   if (entries.length === 0) return true;
@@ -451,7 +458,7 @@ export const updateFields = async (
     WHERE id = ?
   `;
 
-  await executeModify(query, values);
+  await executeModify(query, values, transaction);
   return true;
 };
 
@@ -461,6 +468,7 @@ export const updateFields = async (
 export const updateStatus = async (
   id: string,
   status: "ACTIVE" | "INACTIVE",
+  transaction?: any,
 ): Promise<boolean> => {
   const query = `
     UPDATE products
@@ -469,16 +477,16 @@ export const updateStatus = async (
   `;
 
   // order: status -> ?, updated_at -> ?, id -> ?
-  await executeModify(query, [status, new Date(), id]);
+  await executeModify(query, [status, new Date(), id], transaction);
   return true;
 };
 
 /**
  * Soft delete product
  */
-export const softDelete = async (id: string): Promise<boolean> => {
+export const softDelete = async (id: string, transaction?: any): Promise<boolean> => {
   const query = "UPDATE products SET deleted_at = ? WHERE id = ?";
-  await executeModify(query, [new Date(), id]);
+  await executeModify(query, [new Date(), id], transaction);
   return true;
 };
 
@@ -489,6 +497,7 @@ export const updateMetadata = async (
   id: string,
   key: string,
   value: any,
+  transaction?: any,
 ): Promise<boolean> => {
   const query = `
     UPDATE products
@@ -501,7 +510,7 @@ export const updateMetadata = async (
     JSON.stringify(value),
     new Date(),
     id,
-  ]);
+  ], transaction);
   return true;
 };
 
@@ -511,6 +520,7 @@ export const updateMetadata = async (
 export const removeMetadata = async (
   id: string,
   key: string,
+  transaction?: any,
 ): Promise<boolean> => {
   const query = `
     UPDATE products
@@ -521,6 +531,6 @@ export const removeMetadata = async (
     updated_at = $2
     WHERE id = $3 AND deleted_at IS NULL
   `;
-  await executeModify(query, [key, new Date(), id]);
+  await executeModify(query, [key, new Date(), id], transaction);
   return true;
 };

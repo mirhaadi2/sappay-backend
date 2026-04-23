@@ -11,6 +11,7 @@ import { calculatePagination, buildPaginatedResponse } from '../../shared/pagina
 import logger from '../../../utils/logger';
 import { hashPassword, generateRandomPassword } from '../../../utils/password';
 import { sendEmail } from '../../../utils/sendEmail';
+import { sequelize } from '../../../db/sequelize';
 
 export const adminListSellers = async (query: AdminSellerQuery) => {
   try {
@@ -75,7 +76,10 @@ export const adminCreateSeller = async (data: {
   businessLicense: string;
   phone: string;
 }) => {
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
+    
     // Check if seller already exists
     const existingSeller = await Seller.findOne({
       where: {
@@ -83,7 +87,8 @@ export const adminCreateSeller = async (data: {
           { ownerEmail: data.email },
           { businessRegistrationNo: data.businessLicense }
         ]
-      }
+      },
+      transaction
     });
     if (existingSeller) {
       throw new AppError('ValidationError', 400, 'Seller with this email or business license already exists');
@@ -110,9 +115,11 @@ export const adminCreateSeller = async (data: {
       status: SellerStatus.PENDING,
       onboardingStep: 0,
       metadata: {},
-    });
+    }, { transaction });
 
-    // Send welcome email with password
+    await transaction.commit();
+
+    // Send welcome email with password (after transaction commits)
     try {
       await sendEmail({
         to: data.email,
@@ -140,6 +147,11 @@ export const adminCreateSeller = async (data: {
     logger.info('Seller created by admin', { sellerId: seller.id, email: data.email });
     return adminGetSeller(seller.id);
   } catch (error: any) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error creating admin seller', { email: data.email, error });
     if (error instanceof AppError) throw error;
     throw new AppError('SellerError', 500, error.message || 'Failed to create seller');
@@ -200,8 +212,11 @@ export const adminUpdateSeller = async (
   id: string,
   data: { name?: string; phone?: string; status?: 'active' | 'suspended' }
 ) => {
+  let transaction;
   try {
-    const seller = await Seller.findByPk(id);
+    transaction = await sequelize.transaction();
+    
+    const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
       throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -215,12 +230,18 @@ export const adminUpdateSeller = async (
     }
 
     if (Object.keys(updateData).length > 0) {
-      await seller.update(updateData);
+      await seller.update(updateData, { transaction });
     }
 
+    await transaction.commit();
     logger.info('Seller updated by admin', { sellerId: id, changes: updateData });
     return adminGetSeller(id);
   } catch (error: any) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error updating admin seller', { sellerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -228,17 +249,27 @@ export const adminUpdateSeller = async (
 };
 
 export const adminDeleteSeller = async (id: string) => {
+  let transaction;
   try {
-    const seller = await Seller.findByPk(id);
+    transaction = await sequelize.transaction();
+    
+    const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
       throw new AppError('NotFoundError', 404, 'Seller not found');
     }
 
-    await seller.destroy();
+    await seller.destroy({ transaction });
+    
+    await transaction.commit();
     logger.info('Seller deleted by admin', { sellerId: id });
     return { success: true, message: 'Seller deleted successfully' };
   } catch (error: any) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error deleting admin seller', { sellerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -246,8 +277,11 @@ export const adminDeleteSeller = async (id: string) => {
 };
 
 export const adminApproveSeller = async (id: string) => {
+  let transaction;
   try {
-    const seller = await Seller.findByPk(id);
+    transaction = await sequelize.transaction();
+    
+    const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
       throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -257,11 +291,17 @@ export const adminApproveSeller = async (id: string) => {
       status: SellerStatus.APPROVED,
       rejectedReason: null,
       approvedAt: new Date(),
-    });
+    }, { transaction });
 
+    await transaction.commit();
     logger.info('Seller approved by admin', { sellerId: id });
     return adminGetSeller(id);
   } catch (error: any) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error approving admin seller', { sellerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -269,8 +309,11 @@ export const adminApproveSeller = async (id: string) => {
 };
 
 export const adminRejectSeller = async (id: string, reason?: string) => {
+  let transaction;
   try {
-    const seller = await Seller.findByPk(id);
+    transaction = await sequelize.transaction();
+    
+    const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
       throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -284,8 +327,9 @@ export const adminRejectSeller = async (id: string, reason?: string) => {
       status: SellerStatus.REJECTED,
       rejectedReason: reason,
       metadata,
-    });
+    }, { transaction });
 
+    await transaction.commit();
     logger.info('Seller rejected by admin', { sellerId: id, reason });
     const sellerData = await adminGetSeller(id);
     return {
@@ -293,6 +337,11 @@ export const adminRejectSeller = async (id: string, reason?: string) => {
       reason: reason || 'Rejected by admin',
     };
   } catch (error: any) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error rejecting admin seller', { sellerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -300,8 +349,11 @@ export const adminRejectSeller = async (id: string, reason?: string) => {
 };
 
 export const adminSuspendSeller = async (id: string, reason?: string) => {
+  let transaction;
   try {
-    const seller = await Seller.findByPk(id);
+    transaction = await sequelize.transaction();
+    
+    const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
       throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -314,11 +366,17 @@ export const adminSuspendSeller = async (id: string, reason?: string) => {
     await seller.update({
       status: SellerStatus.SUSPENDED,
       metadata,
-    });
+    }, { transaction });
 
+    await transaction.commit();
     logger.info('Seller suspended by admin', { sellerId: id, reason });
     return adminGetSeller(id);
   } catch (error: any) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error suspending admin seller', { sellerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'Seller not found');
@@ -326,17 +384,27 @@ export const adminSuspendSeller = async (id: string, reason?: string) => {
 };
 
 export const adminRestoreSeller = async (id: string) => {
+  let transaction;
   try {
-    const seller = await Seller.findByPk(id, { paranoid: false });
+    transaction = await sequelize.transaction();
+    
+    const seller = await Seller.findByPk(id, { paranoid: false, transaction });
 
     if (!seller) {
       throw new AppError('NotFoundError', 404, 'Seller not found');
     }
 
-    await seller.restore();
+    await seller.restore({ transaction });
+    
+    await transaction.commit();
     logger.info('Seller restored by admin', { sellerId: id });
     return adminGetSeller(id);
   } catch (error: any) {
+    if (transaction) {
+      await transaction.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error restoring admin seller', { sellerId: id, error });
     if (error instanceof AppError) throw error;
     throw new AppError('NotFoundError', 404, 'Seller not found');

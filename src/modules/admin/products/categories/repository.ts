@@ -27,12 +27,14 @@ interface CountRow {
 
 const executeSelect = async <T>(
   query: string,
-  replacements: any = {}
+  replacements: any = {},
+  transaction?: any
 ): Promise<T[]> => {
   try {
     const result = (await sequelize.query(query, {
       replacements,
       type: QueryTypes.SELECT,
+      transaction,
       logging(sql, timing) {
         logger.debug('Database SELECT query', { sql, timing });
       },
@@ -46,11 +48,13 @@ const executeSelect = async <T>(
 
 const executeModify = async (
   query: string,
-  replacements: any = {}
+  replacements: any = {},
+  transaction?: any
 ): Promise<number> => {
   try {
     await sequelize.query(query, {
       replacements,
+      transaction,
       logging(sql, timing) {
         logger.debug('Database MODIFY query', { sql, timing });
       },
@@ -147,7 +151,8 @@ export const createCategory = async (
     isActive?: boolean;
     displayOrder?: number;
     metadata?: Record<string, any>;
-  }
+  },
+  transaction?: any
 ): Promise<CategoryRow> => {
   const query = `
     INSERT INTO categories 
@@ -174,14 +179,15 @@ export const createCategory = async (
     isActive: data.isActive !== false,
     displayOrder: data.displayOrder || 0,
     metadata: data.metadata ? JSON.stringify(data.metadata) : null,
-  });
+  }, transaction);
 
   return result[0];
 };
 
 export const updateCategory = async (
   id: string,
-  data: Record<string, any>
+  data: Record<string, any>,
+  transaction?: any
 ): Promise<boolean> => {
   const entries = Object.entries(data).filter(([, val]) => val !== undefined);
   if (entries.length === 0) return true;
@@ -210,13 +216,13 @@ export const updateCategory = async (
     WHERE id = :id AND deleted_at IS NULL
   `;
 
-  await executeModify(query, replacements);
+  await executeModify(query, replacements, transaction);
   return true;
 };
 
-export const deleteCategory = async (id: string): Promise<boolean> => {
+export const deleteCategory = async (id: string, transaction?: any): Promise<boolean> => {
   const query = 'UPDATE categories SET deleted_at = NOW() WHERE id = :id';
-  await executeModify(query, { id });
+  await executeModify(query, { id }, transaction);
   return true;
 };
 

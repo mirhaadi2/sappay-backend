@@ -2,6 +2,7 @@ import { Customer } from "../guests/customer.model";
 import { Otp, OtpType } from "../../admin/customers/otp.model";
 import { sequelize } from '../../../db/sequelize';
 import logger from '../../../utils/logger';
+import { Transaction } from 'sequelize';
 
 export const createUser = async (data: {
   email?: string;
@@ -10,15 +11,29 @@ export const createUser = async (data: {
   phone?: string;
   whatsapp?: string;
   role: 'D2C_CUSTOMER' | 'B2C_CUSTOMER';
-}) => {
-  const transaction = await sequelize.transaction();
+}, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction;
+  
   try {
-    const user = await Customer.create(data, { transaction });
-    await transaction.commit();
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+    
+    const user = await Customer.create(data, { transaction: txn });
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    
     logger.info('Customer created', { customerId: user.id, email: data.email });
     return user;
   } catch (error) {
-    await transaction.rollback();
+    if (needsCommit && txn) {
+      await txn.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error creating customer', { email: data.email, error });
     throw error;
   }
@@ -44,21 +59,32 @@ export const updateUser = async (id: string, data: {
   name?: string;
   email?: string;
   phone?: string;
-}) => {
-  const transaction = await sequelize.transaction();
+}, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction;
+  
   try {
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+    
     const [updatedRows] = await Customer.update(data, {
       where: { id },
-      transaction
+      transaction: txn
     });
 
     if (updatedRows === 0) {
-      await transaction.rollback();
+      if (needsCommit) {
+        await txn!.rollback();
+      }
       return null;
     }
 
-    const updatedUser = await Customer.findByPk(id, { transaction });
-    await transaction.commit();
+    const updatedUser = await Customer.findByPk(id, { transaction: txn });
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
 
     logger.info('Customer profile updated', {
       customerId: id,
@@ -67,7 +93,11 @@ export const updateUser = async (id: string, data: {
 
     return updatedUser;
   } catch (error) {
-    await transaction.rollback();
+    if (needsCommit && txn) {
+      await txn.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error updating customer profile', { customerId: id, error });
     throw error;
   }
@@ -80,19 +110,33 @@ export const createOtp = async (data: {
   code: string;
   type: OtpType;
   expiresAt: Date;
-}) => {
-  const transaction = await sequelize.transaction();
+}, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction;
+  
   try {
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+    
     console.log("Creating OTP:", data);
     const otp = await Otp.create({
       ...data,
       email: data.contactType === 'email' ? data.contact : undefined, // Backward compatibility
-    }, { transaction });
-    await transaction.commit();
+    }, { transaction: txn });
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    
     logger.info('OTP created', { contact: data.contact, type: data.type });
     return otp;
   } catch (error) {
-    await transaction.rollback();
+    if (needsCommit && txn) {
+      await txn.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error creating OTP', { contact: data.contact, error });
     throw error;
   }
@@ -109,36 +153,64 @@ export const findOtpByContact = async (contact: string, contactType: 'email' | '
   });
 };
 
-export const deleteOtp = async (id: string) => {
-  const transaction = await sequelize.transaction();
+export const deleteOtp = async (id: string, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction;
+  
   try {
-    const result = await Otp.destroy({ where: { id }, transaction });
-    await transaction.commit();
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+    
+    const result = await Otp.destroy({ where: { id }, transaction: txn });
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    
     logger.info('OTP deleted', { otpId: id });
     return result;
   } catch (error) {
-    await transaction.rollback();
+    if (needsCommit && txn) {
+      await txn.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error deleting OTP', { otpId: id, error });
     throw error;
   }
 };
 
-export const cleanupExpiredOtps = async () => {
-  const transaction = await sequelize.transaction();
+export const cleanupExpiredOtps = async (transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction;
+  
   try {
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+    
     const result = await Otp.destroy({
       where: {
         expiresAt: {
           [require('sequelize').Op.lt]: new Date(),
         },
       },
-      transaction
+      transaction: txn
     });
-    await transaction.commit();
+    
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    
     logger.info('Expired OTPs cleaned up', { count: result });
     return result;
   } catch (error) {
-    await transaction.rollback();
+    if (needsCommit && txn) {
+      await txn.rollback().catch((rollbackError: any) => {
+        logger.error('Error rolling back transaction', { error: rollbackError });
+      });
+    }
     logger.error('Error cleaning up expired OTPs', { error });
     throw error;
   }

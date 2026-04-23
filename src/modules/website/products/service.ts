@@ -19,6 +19,7 @@ import {
   invalidateCategoriesCache,
 } from './repository';
 import { generateSku, normalizeSku } from '../../../utils/sku';
+import { sequelize } from '../../../db/sequelize';
 
 const calculateDiscountedPercent = (
   price: number | undefined,
