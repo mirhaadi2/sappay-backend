@@ -13,6 +13,7 @@ import orderRoutes from './orders/routes';
 import productRoutes from './products/routes';
 import statsRoutes from './stats/routes';
 import dashboardRoutes from './dashboard/routes';
+import toolsRoutes from './tools/routes';
 import { websiteAdminRoutes } from './website';
 
 const mainAdminRouter = Router();
@@ -31,5 +32,6 @@ mainAdminRouter.use('/products', productRoutes);
 mainAdminRouter.use('/stats', statsRoutes);
 mainAdminRouter.use('/website', websiteAdminRoutes);
 mainAdminRouter.use('/dashboard', dashboardRoutes);
+mainAdminRouter.use('/tools', toolsRoutes);
 
 export default mainAdminRouter;
