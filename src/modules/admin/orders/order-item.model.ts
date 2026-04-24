@@ -8,6 +8,8 @@ interface OrderItemAttributes {
   sku: string;
   quantity: number;
   unitPrice: number;
+  discountedPrice?: number;
+  discountedPercent?: number;
   subtotal: number;
   taxAmount?: number;
   itemTotal?: number;
@@ -40,6 +42,8 @@ type OrderItemCreationAttributes = Optional<
   | "id"
   | "status"
   | "taxAmount"
+  | "discountedPrice"
+  | "discountedPercent"
   | "metadata"
   | "statusReason"
   | "statusUpdatedAt"
@@ -59,6 +63,8 @@ export class OrderItem
   public sku!: string;
   public quantity!: number;
   public unitPrice!: number;
+  public discountedPrice?: number;
+  public discountedPercent?: number;
   public subtotal!: number;
   public taxAmount?: number;
   public itemTotal?: number;
@@ -122,6 +128,16 @@ OrderItem.init(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
       field: "unit_price",
+    },
+    discountedPrice: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+      field: "discounted_price",
+    },
+    discountedPercent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      field: "discounted_percent",
     },
     subtotal: {
       type: DataTypes.DECIMAL(12, 2),

@@ -309,7 +309,6 @@ const buildProductConditions = (filters: any) => {
 
   return { conditions, replacements, orderBy };
 }
-
 const generateMainQuery = (whereClause: string, orderBy: string) => {
   return `
     SELECT
@@ -324,7 +323,8 @@ const generateMainQuery = (whereClause: string, orderBy: string) => {
       p.is_new as "isNew", 
       p.is_best_seller as "isBestseller",
       p.is_customer_favourites as "isCustomerFavourites",
-      MIN(pv.price) as min_price,
+      -- Use MIN() across the group to find the lowest price among variants
+      MIN(LEAST(COALESCE(pv.discounted_price, pv.price), pv.price)) AS "minPrice",
       COALESCE(JSON_AGG(
         JSON_BUILD_OBJECT(
           'id', pv.id, 
@@ -339,6 +339,7 @@ const generateMainQuery = (whereClause: string, orderBy: string) => {
     LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
     LEFT JOIN categories c ON c.id = p.category_id
     ${whereClause}
+    -- Group ONLY by product and category fields
     GROUP BY p.id, c.name
     ORDER BY ${orderBy}
     LIMIT :limit OFFSET :offset

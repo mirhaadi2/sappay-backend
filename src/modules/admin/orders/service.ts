@@ -159,6 +159,8 @@ export const adminGetOrder = async (id: string): Promise<any> => {
             'sku', oi.sku,
             'quantity', oi.quantity,
             'unitPrice', oi.unit_price,
+            'discountedPrice', oi.discounted_price,
+            'discountedPercent', oi.discounted_percent,
             'subtotal', oi.subtotal,
             'taxAmount', oi.tax_amount,
             'itemTotal', oi.item_total,

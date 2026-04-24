@@ -98,11 +98,11 @@ export const findCustomerOrder = async (customerId: string, orderId: string, cus
         'sku', oi.sku,
         'quantity', oi.quantity,
         'unitPrice', oi.unit_price,
+        'discountedPrice', oi.discounted_price,
+        'discountedPercent', oi.discounted_percent,
         'subtotal', oi.subtotal,
         'taxAmount', oi.tax_amount,
         'itemTotal', oi.item_total,
-        -- 'discountedPrice', oi.discounted_price,
-        -- 'discountedPercent', oi.discounted_percent,
         'status', oi.status
       )) FROM order_items oi 
       LEFT JOIN products p ON oi.product_id = p.id
