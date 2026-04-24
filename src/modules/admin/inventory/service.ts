@@ -1,14 +1,3 @@
-/**
- * Admin Inventory Service
- * Enterprise-grade business logic layer for inventory management
- *
- * Architecture:
- * - Repository Pattern: Data access isolated in repository functions
- * - Transaction Management: Proper Sequelize transactions for data integrity
- * - Error Handling: Comprehensive error handling with rollback
- * - Logging: Detailed logging for audit trails
- */
-
 import { sequelize } from '../../../db/sequelize';
 import { QueryTypes, Transaction } from 'sequelize';
 import { Inventory } from '../../sellers/inventory/model';
@@ -23,9 +12,6 @@ import {
     AdminInventoryHistoryItem,
 } from './types';
 
-/**
- * Get inventory list with advanced filtering and pagination
- */
 export const adminListInventory = async (params: AdminInventoryQuery) => {
     try {
         const {
@@ -65,46 +51,46 @@ export const adminListInventory = async (params: AdminInventoryQuery) => {
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
         const sqlQuery = `
-      SELECT
-        i.id,
-        i.seller_product_id as "sellerProductId",
-        i.product_id as "productId",
-        i.total_stock as "totalStock",
-        i.available_stock as "availableStock",
-        i.reserved_stock as "reservedStock",
-        i.sold_stock as "soldStock",
-        i.reorder_level as "reorderLevel",
-        i.last_restocked_at as "lastRestockedAt",
-        i.created_at as "createdAt",
-        i.updated_at as "updatedAt",
-        p.sku,
-        p.id as "productId",
-        -- sp.id as "sellerProductId",
-        -- sp.seller_sku as "sellerSku",
-        -- sp.seller_price as "sellerPrice",
-        -- sp.discounted_price as "discountedPrice",
-        -- sp.discounted_percent as "discountedPercent",
-        -- s.business_name as "sellerName",
-        -- s.id as "sellerId",
-        p.name as "productName",
-        p.id as "productId"
-      FROM inventory i
-      -- INNER JOIN seller_products sp ON i.seller_product_id = sp.id
-      INNER JOIN products p ON i.product_id = p.id
-      -- INNER JOIN sellers s ON sp.seller_id = s.id
-      ${whereClause}
-      ORDER BY i.updated_at DESC
-      LIMIT :limit OFFSET :offset
-    `;
+            SELECT
+                i.id,
+                i.seller_product_id as "sellerProductId",
+                i.product_id as "productId",
+                i.total_stock as "totalStock",
+                i.available_stock as "availableStock",
+                i.reserved_stock as "reservedStock",
+                i.sold_stock as "soldStock",
+                i.reorder_level as "reorderLevel",
+                i.last_restocked_at as "lastRestockedAt",
+                i.created_at as "createdAt",
+                i.updated_at as "updatedAt",
+                p.sku,
+                p.id as "productId",
+                -- sp.id as "sellerProductId",
+                -- sp.seller_sku as "sellerSku",
+                -- sp.seller_price as "sellerPrice",
+                -- sp.discounted_price as "discountedPrice",
+                -- sp.discounted_percent as "discountedPercent",
+                -- s.business_name as "sellerName",
+                -- s.id as "sellerId",
+                p.name as "productName",
+                p.id as "productId"
+            FROM inventory i
+            -- INNER JOIN seller_products sp ON i.seller_product_id = sp.id
+            INNER JOIN products p ON i.product_id = p.id
+            -- INNER JOIN sellers s ON sp.seller_id = s.id
+            ${whereClause}
+            ORDER BY i.updated_at DESC
+            LIMIT :limit OFFSET :offset
+        `;
 
         const countQuery = `
-      SELECT COUNT(*)::int as count
-      FROM inventory i
-      -- INNER JOIN seller_products sp ON i.seller_product_id = sp.id
-      INNER JOIN products p ON i.product_id = p.id
-      -- INNER JOIN sellers s ON sp.seller_id = s.id
-      ${whereClause}
-    `;
+            SELECT COUNT(*)::int as count
+            FROM inventory i
+            -- INNER JOIN seller_products sp ON i.seller_product_id = sp.id
+            INNER JOIN products p ON i.product_id = p.id
+            -- INNER JOIN sellers s ON sp.seller_id = s.id
+            ${whereClause}
+        `;
 
         const [rows, countResult] = await Promise.all([
             sequelize.query(sqlQuery, {
@@ -135,42 +121,39 @@ export const adminListInventory = async (params: AdminInventoryQuery) => {
     }
 };
 
-/**
- * Get inventory for a specific product across all sellers
- */
 export const adminGetProductInventory = async (productId: string) => {
     try {
         const sqlQuery = `
-      SELECT
-        i.id,
-        i.seller_product_id as "sellerProductId",
-        i.product_id as "productId",
-        i.total_stock as "totalStock",
-        i.available_stock as "availableStock",
-        i.reserved_stock as "reservedStock",
-        i.sold_stock as "soldStock",
-        i.reorder_level as "reorderLevel",
-        i.last_restocked_at as "lastRestockedAt",
-        i.created_at as "createdAt",
-        i.updated_at as "updatedAt",
-        p.sku,
-        p.id as "productId",
-        -- sp.id as "sellerProductId",
-        -- sp.seller_sku as "sellerSku",
-        -- sp.seller_price as "sellerPrice",
-        -- sp.discounted_price as "discountedPrice",
-        -- sp.discounted_percent as "discountedPercent",
-        -- s.business_name as "sellerName",
-        -- s.id as "sellerId",
-        p.name as "productName",
-        p.id as "productId"
-      FROM inventory i
-      -- INNER JOIN seller_products sp ON i.seller_product_id = sp.id
-      INNER JOIN products p ON i.product_id = p.id
-      -- INNER JOIN sellers s ON sp.seller_id = s.id
-      WHERE p.id = :productId
-      ORDER BY i.created_at DESC
-    `;
+            SELECT
+                i.id,
+                i.seller_product_id as "sellerProductId",
+                i.product_id as "productId",
+                i.total_stock as "totalStock",
+                i.available_stock as "availableStock",
+                i.reserved_stock as "reservedStock",
+                i.sold_stock as "soldStock",
+                i.reorder_level as "reorderLevel",
+                i.last_restocked_at as "lastRestockedAt",
+                i.created_at as "createdAt",
+                i.updated_at as "updatedAt",
+                p.sku,
+                p.id as "productId",
+                -- sp.id as "sellerProductId",
+                -- sp.seller_sku as "sellerSku",
+                -- sp.seller_price as "sellerPrice",
+                -- sp.discounted_price as "discountedPrice",
+                -- sp.discounted_percent as "discountedPercent",
+                -- s.business_name as "sellerName",
+                -- s.id as "sellerId",
+                p.name as "productName",
+                p.id as "productId"
+            FROM inventory i
+            -- INNER JOIN seller_products sp ON i.seller_product_id = sp.id
+            INNER JOIN products p ON i.product_id = p.id
+            -- INNER JOIN sellers s ON sp.seller_id = s.id
+            WHERE p.id = :productId
+            ORDER BY i.created_at DESC
+        `;
 
         const result = await sequelize.query(sqlQuery, {
             replacements: { productId },
@@ -184,9 +167,6 @@ export const adminGetProductInventory = async (productId: string) => {
     }
 };
 
-/**
- * Update inventory for a specific inventory item
- */
 export const adminUpdateInventory = async (inventoryId: string, updates: AdminInventoryUpdateInput) => {
     const transaction = await sequelize.transaction();
 
@@ -359,9 +339,6 @@ export const adminRemoveStock = async (inventoryId: string, input: AdminRemoveSt
     }
 };
 
-/**
- * Get inventory history with pagination
- */
 export const adminGetInventoryHistory = async (page: number = 1, limit: number = 20, filters: {
     productId?: string;
     sellerId?: string;
@@ -379,10 +356,10 @@ export const adminGetInventoryHistory = async (page: number = 1, limit: number =
             replacements.productId = filters.productId;
         }
 
-        if (filters.sellerId) {
-            whereConditions.push('s.id = :sellerId');
-            replacements.sellerId = filters.sellerId;
-        }
+        // if (filters.sellerId) {
+        //     whereConditions.push('s.id = :sellerId');
+        //     replacements.sellerId = filters.sellerId;
+        // }
 
         if (filters.inventoryId) {
             whereConditions.push('i.id = :inventoryId');
@@ -392,40 +369,40 @@ export const adminGetInventoryHistory = async (page: number = 1, limit: number =
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
         const sqlQuery = `
-      SELECT
-        ih.id,
-        ih.type,
-        ih.quantity,
-        ih.previous_stock as "previousStock",
-        ih.new_stock as "newStock",
-        ih.reference,
-        ih.notes,
-        ih.created_at as "createdAt",
-        i.id as "inventoryId",
-        p.sku,
-        p.id as "productId",
-        -- sp.seller_sku as "sellerSku",
-        -- s.business_name as "sellerName",
-        p.name as "productName"
-      FROM inventory_history ih
-      INNER JOIN inventory i ON ih.inventory_id = i.id
-      -- INNER JOIN seller_products sp ON ih.seller_product_id = sp.id
-      INNER JOIN products p ON i.product_id = p.id
-      -- INNER JOIN sellers s ON sp.seller_id = s.id
-      ${whereClause}
-      ORDER BY ih.created_at DESC
-      LIMIT :limit OFFSET :offset
-    `;
+            SELECT
+                ih.id,
+                ih.type,
+                ih.quantity,
+                ih.previous_stock as "previousStock",
+                ih.new_stock as "newStock",
+                ih.reference,
+                ih.notes,
+                ih.created_at as "createdAt",
+                i.id as "inventoryId",
+                p.sku,
+                p.id as "productId",
+                -- sp.seller_sku as "sellerSku",
+                -- s.business_name as "sellerName",
+                p.name as "productName"
+            FROM inventory_history ih
+            INNER JOIN inventory i ON ih.inventory_id = i.id
+            -- INNER JOIN seller_products sp ON ih.seller_product_id = sp.id
+            INNER JOIN products p ON i.product_id = p.id
+            -- INNER JOIN sellers s ON sp.seller_id = s.id
+            ${whereClause}
+            ORDER BY ih.created_at DESC
+            LIMIT :limit OFFSET :offset
+        `;
 
         const countQuery = `
-      SELECT COUNT(*)::int as count
-      FROM inventory_history ih
-      INNER JOIN inventory i ON ih.inventory_id = i.id
-      -- INNER JOIN seller_products sp ON ih.seller_product_id = sp.id
-      INNER JOIN products p ON i.product_id = p.id
-      -- INNER JOIN sellers s ON sp.seller_id = s.id
-      ${whereClause}
-    `;
+            SELECT COUNT(*)::int as count
+            FROM inventory_history ih
+            INNER JOIN inventory i ON ih.inventory_id = i.id
+            -- INNER JOIN seller_products sp ON ih.seller_product_id = sp.id
+            INNER JOIN products p ON i.product_id = p.id
+            -- INNER JOIN sellers s ON sp.seller_id = s.id
+            ${whereClause}
+        `;
 
         const [rows, countResult] = await Promise.all([
             sequelize.query(sqlQuery, {
@@ -456,33 +433,30 @@ export const adminGetInventoryHistory = async (page: number = 1, limit: number =
     }
 };
 
-/**
- * Get inventory statistics
- */
 export const adminGetInventoryStats = async () => {
     try {
         const statsQuery = `
-      SELECT
-        COUNT(*)::int as "totalItems",
-        SUM(total_stock)::int as "totalStock",
-        SUM(available_stock)::int as "availableStock",
-        SUM(reserved_stock)::int as "reservedStock",
-        SUM(sold_stock)::int as "soldStock",
-        COUNT(CASE WHEN available_stock <= reorder_level THEN 1 END)::int as "lowStockItems",
-        COUNT(DISTINCT product_id)::int as "uniqueProducts"
-        -- COUNT(DISTINCT seller_id)::int as "uniqueSellers"
-      FROM (
-        SELECT
-          i.total_stock,
-          i.available_stock,
-          i.reserved_stock,
-          i.sold_stock,
-          i.reorder_level,
-          i.product_id
-          -- i.seller_id
-        FROM inventory i
-      ) as inventory_stats
-    `;
+            SELECT
+                COUNT(*)::int as "totalItems",
+                SUM(total_stock)::int as "totalStock",
+                SUM(available_stock)::int as "availableStock",
+                SUM(reserved_stock)::int as "reservedStock",
+                SUM(sold_stock)::int as "soldStock",
+                COUNT(CASE WHEN available_stock <= reorder_level THEN 1 END)::int as "lowStockItems",
+                COUNT(DISTINCT product_id)::int as "uniqueProducts"
+                -- COUNT(DISTINCT seller_id)::int as "uniqueSellers"
+            FROM (
+                SELECT
+                i.total_stock,
+                i.available_stock,
+                i.reserved_stock,
+                i.sold_stock,
+                i.reorder_level,
+                i.product_id
+                -- i.seller_id
+                FROM inventory i
+            ) as inventory_stats
+         `;
 
         const result = await sequelize.query(statsQuery, {
             type: QueryTypes.SELECT,
