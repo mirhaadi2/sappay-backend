@@ -8,6 +8,7 @@ import { Router } from 'express';
 import { requireAuth, requireActiveStaff, requirePermission } from './middleware';
 import { assignRoleToStaffHandler, createRoleHandler, deleteRoleHandler, getRoleByIdHandler, getStaffPermissionsHandler, getStaffRolesHandler, listAuditLogsHandler, listPermissionsHandler, listRolesHandler, revokeRoleFromStaffHandler, updateRoleHandler } from './controller';
 import { websiteAdminRoutes } from './website';
+import { inventoryRoutes } from './inventory';
 
 const router = Router();
 
@@ -171,5 +172,8 @@ router.get(
 
 // ===================== HOMEPAGE MANAGEMENT ENDPOINTS =====================
 router.use('/website', websiteAdminRoutes);
+
+// ===================== INVENTORY MANAGEMENT ENDPOINTS =====================
+router.use('/inventory', inventoryRoutes);
 
 export { router as adminRouter };
