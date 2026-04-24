@@ -318,6 +318,14 @@ export const updateProductVariant = async (variantId: string, updates: any, tran
       finalKey = "weight_unit";
     }
 
+    if (key === "discountedPrice") {
+      finalKey = "discounted_price";
+    }
+
+    if (key === "discountedPercent") {
+      finalKey = "discounted_percent";
+    }
+
     // Return the potentially modified key and value
     return [finalKey, finalValue];
   });

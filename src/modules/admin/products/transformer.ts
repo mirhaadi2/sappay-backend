@@ -32,6 +32,8 @@ const transformVariant = (variant: any): AdminProductVariantDetail => ({
   id: variant.id,
   sku: variant.sku,
   price: Number(variant.price),
+  discountedPrice: variant.discountedPrice !== undefined ? Number(variant.discountedPrice) : undefined,
+  discountedPercent: variant.discountedPercent !== undefined ? Number(variant.discountedPercent) : undefined,
   weight: variant.weight !== undefined ? Number(variant.weight) : undefined,
   weightUnit: variant?.weightUnit,
   status: variant.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
