@@ -442,7 +442,7 @@ export const adminGetInventoryStats = async () => {
                 SUM(available_stock)::int as "availableStock",
                 SUM(reserved_stock)::int as "reservedStock",
                 SUM(sold_stock)::int as "soldStock",
-                COUNT(CASE WHEN available_stock <= reorder_level THEN 1 END)::int as "lowStockItems",
+                COUNT(CASE WHEN available_stock < 10 THEN 1 END)::int as "lowStockItems",
                 COUNT(DISTINCT product_id)::int as "uniqueProducts"
                 -- COUNT(DISTINCT seller_id)::int as "uniqueSellers"
             FROM (

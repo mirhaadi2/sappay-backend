@@ -18,7 +18,10 @@ import {
 } from "../../shared/pagination";
 import logger from "../../../utils/logger";
 import { sequelize } from "../../../db/sequelize";
+import { Transaction } from "sequelize";
+import { cancelOrderService } from "../../sellers/inventory/service";
 import { resolveR2Url } from "../products/transformer";
+import { decrementStockByProductId } from "../../sellers/inventory";
 
 /**
  * List all orders with customer and seller information
@@ -222,6 +225,18 @@ export const adminGetOrder = async (id: string): Promise<any> => {
   }
 };
 
+const releaseReservedStockForOrder = async (orderId: string, transaction: Transaction) => {
+  const orderItems = await OrderItem.findAll({ where: { orderId }, transaction });
+  await Promise.all(
+    orderItems.map(async (item: any) => {
+      if (!item.sellerProductId) return;
+      if (["PENDING", "CONFIRMED"].includes(item.status)) {
+        await cancelOrderService(item.sellerProductId, item.quantity, transaction);
+      }
+    }),
+  );
+};
+
 /**
  * Update order status
  */
@@ -234,6 +249,7 @@ export const adminUpdateOrderStatus = async (
   },
   staffId?: string,
 ): Promise<AdminOrder> => {
+  const transaction = await sequelize.transaction();
   try {
     console.log("Admin updating order status", { id, data });
 
@@ -299,9 +315,7 @@ export const adminUpdateOrderStatus = async (
     }
 
     // 4. Perform the Update
-    await order.update(updateData);
-
-    // 5. Update all order items (product variants) status to match order status
+    const requiresInventoryRelease = ["CANCELLED", "REFUNDED"].includes(newStatus);
     const itemStatusMap: Record<string, string> = {
       "PENDING": "PENDING",
       "CONFIRMED": "CONFIRMED",
@@ -318,15 +332,57 @@ export const adminUpdateOrderStatus = async (
 
     const itemStatus = itemStatusMap[newStatus] || "PENDING";
 
-    await OrderItem.update(
-      { 
-        status: itemStatus as any,
-        statusReason: data.statusReason || `Order status updated to ${newStatus}`,
-        statusUpdatedAt: new Date(),
-        statusUpdatedBy: staffId || "ADMIN",
-      },
-      { where: { orderId: id } }
-    );
+    if (requiresInventoryRelease) {
+      try {
+        await order.update(updateData, { transaction });
+
+        const items = await OrderItem.findAll({ where: { orderId: id }, transaction });
+        await Promise.all(
+          items.map(async (item: any) => {
+            if (!item.productId) return;
+            if (["PENDING", "CONFIRMED"].includes(item.status)) {
+              await cancelOrderService(item.productId, item.quantity, transaction);
+            }
+          }),
+        );
+
+        await OrderItem.update(
+          {
+            status: itemStatus as any,
+            statusReason: data.statusReason || `Order status updated to ${newStatus}`,
+            statusUpdatedAt: new Date(),
+            statusUpdatedBy: staffId || "ADMIN",
+          },
+          { where: { orderId: id }, transaction }
+        );
+
+      } catch (error) {
+        // await transaction.rollback();
+        throw error;
+      }
+    } else {
+      await order.update(updateData, { transaction });
+      await OrderItem.update(
+        {
+          status: itemStatus as any,
+          statusReason: data.statusReason || `Order status updated to ${newStatus}`,
+          statusUpdatedAt: new Date(),
+          statusUpdatedBy: staffId || "ADMIN",
+        },
+        { where: { orderId: id }, transaction }
+      );
+
+      // await decrementStock(sellerProductId, quantity, transaction);
+       const items = await OrderItem.findAll({ where: { orderId: id }, transaction });
+        await Promise.all(
+          items.map(async (item: any) => {
+            if (!item.productId) return;
+            if (newStatus === "HANDOVER") {
+              await decrementStockByProductId(item.productId, item.quantity, transaction);
+            }
+          }),
+        );
+    }
 
     logger.info("Order status updated by admin", {
       orderId: id,
@@ -337,8 +393,10 @@ export const adminUpdateOrderStatus = async (
     });
 
     // 6. Return fresh data
+    await transaction.commit();
     return adminGetOrder(id);
   } catch (error: any) {
+    await transaction.rollback();
     logger.error("Error updating admin order status", { orderId: id, error });
 
     // Maintain existing error structure
@@ -370,17 +428,29 @@ export const adminRefundOrder = async (
     metadata.refundReason = reason || "Admin initiated refund";
     metadata.refundedAt = new Date().toISOString();
 
-    await order.update({
-      paymentStatus: "REFUNDED",
-      status: "CANCELLED",
-      metadata,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+      await order.update(
+        {
+          paymentStatus: "REFUNDED",
+          status: "CANCELLED",
+          metadata,
+        },
+        { transaction }
+      );
 
-    // Update all order items (variants) status to CANCELLED
-    await OrderItem.update(
-      { status: "CANCELLED" },
-      { where: { orderId: id } }
-    );
+      await releaseReservedStockForOrder(id, transaction);
+
+      await OrderItem.update(
+        { status: "CANCELLED" },
+        { where: { orderId: id }, transaction }
+      );
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
 
     logger.info("Order refunded by admin", { orderId: id, reason, itemsUpdated: true });
     return adminGetOrder(id);
@@ -409,16 +479,28 @@ export const adminCancelOrder = async (
     metadata.cancellationReason = reason || "Admin cancelled";
     metadata.cancelledAt = new Date().toISOString();
 
-    await order.update({
-      status: "CANCELLED",
-      metadata,
-    });
+    const transaction = await sequelize.transaction();
+    try {
+      await order.update(
+        {
+          status: "CANCELLED",
+          metadata,
+        },
+        { transaction }
+      );
 
-    // Update all order items (variants) status to CANCELLED
-    await OrderItem.update(
-      { status: "CANCELLED" },
-      { where: { orderId: id } }
-    );
+      await releaseReservedStockForOrder(id, transaction);
+
+      await OrderItem.update(
+        { status: "CANCELLED" },
+        { where: { orderId: id }, transaction }
+      );
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
 
     logger.info("Order cancelled by admin", { orderId: id, reason, itemsUpdated: true });
     return adminGetOrder(id);

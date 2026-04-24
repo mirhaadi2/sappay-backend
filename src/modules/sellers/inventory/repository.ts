@@ -4,6 +4,7 @@ import { AppError } from '../../../utils/AppError';
 import { sequelize } from '../../../db/sequelize';
 import { QueryTypes, Transaction } from 'sequelize';
 import logger from '../../../utils/logger';
+import { InventoryHistory } from './histories';
 
 export const findInventoryByProductId = async (productId: string, transaction?: Transaction) => {
   return await Inventory.findOne({ where: { productId }, ...(transaction ? { transaction } : {}) });
@@ -99,7 +100,7 @@ export const getSellerInventory = async (sellerId: string, filters: any = {}) =>
   } catch (error) {
     console.error('Error fetching seller inventory:', error);
     // Assuming AppError is defined in your custom errors file
-    throw error; 
+    throw error;
   }
 };
 
@@ -115,25 +116,99 @@ export const decrementStock = async (sellerProductId: string, quantity: number, 
     const inventory = await Inventory.findOne({ where: { sellerProductId }, transaction: txn });
     if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
 
-    if (inventory.availableStock < quantity) {
+    const reservedQty = Math.min(inventory.reservedStock, quantity);
+    const directQty = quantity - reservedQty;
+
+    if (inventory.availableStock < directQty) {
       throw new AppError('BadRequest', 400, 'Insufficient stock');
     }
 
     const updated = await inventory.update({
-      availableStock: inventory.availableStock - quantity,
+      totalStock: Math.max(0, inventory.totalStock - quantity),
+      availableStock: inventory.availableStock - directQty,
+      reservedStock: Math.max(0, inventory.reservedStock - reservedQty),
       soldStock: inventory.soldStock + quantity,
     }, { transaction: txn });
-    
+
     if (needsCommit) {
       await txn!.commit();
     }
-    logger.info('Stock decremented', { sellerProductId, quantity });
+    logger.info('Stock decremented', {
+      sellerProductId,
+      quantity,
+      reservedQty,
+      directQty,
+      totalStock: updated.totalStock,
+      availableStock: updated.availableStock,
+      reservedStock: updated.reservedStock,
+      soldStock: updated.soldStock,
+    });
     return updated;
   } catch (error) {
     if (needsCommit && txn) {
       await txn.rollback();
     }
     logger.error('Error decrementing stock', { sellerProductId, quantity, error });
+    throw error;
+  }
+};
+
+export const decrementStockByProductId = async (productId: string, quantity: number, transaction?: Transaction) => {
+  let txn = transaction;
+  const needsCommit = !transaction; // Only commit if we created the transaction
+
+  try {
+    if (needsCommit) {
+      txn = await sequelize.transaction();
+    }
+
+    const inventory = await Inventory.findOne({ where: { productId }, transaction: txn });
+    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+
+    const reservedQty = Math.min(inventory?.dataValues?.reservedStock, quantity);
+    const directQty = quantity - reservedQty;
+
+    if (inventory?.dataValues?.availableStock < directQty) {
+      throw new AppError('BadRequest', 400, 'Insufficient stock');
+    }
+
+    const updated = await inventory.update({
+      totalStock: Math.max(0, inventory?.dataValues?.totalStock - quantity),
+      availableStock: inventory?.dataValues?.availableStock - directQty,
+      reservedStock: Math.max(0, inventory?.dataValues?.reservedStock - reservedQty),
+      soldStock: inventory?.dataValues?.soldStock + quantity,
+    }, { transaction: txn });
+
+    await InventoryHistory.create({
+      inventoryId: inventory.dataValues.id,
+      productId: inventory?.dataValues?.productId,
+      type: 'RESERVED_RELEASED',
+      quantity: -quantity,
+      previousStock: inventory?.dataValues?.totalStock,
+      newStock: Math.max(0, inventory?.dataValues?.totalStock - quantity),
+      reference: `Decrement by productId. Reserved: ${reservedQty}, Direct: ${directQty}`,
+      notes: `Stock decremented by productId. Reserved: ${reservedQty}, Direct: ${directQty}`,
+    }, { transaction });
+
+    if (needsCommit) {
+      await txn!.commit();
+    }
+    logger.info('Stock decremented', {
+      productId,
+      quantity,
+      reservedQty,
+      directQty,
+      totalStock: updated?.dataValues?.totalStock,
+      availableStock: updated?.dataValues?.availableStock,
+      reservedStock: updated?.dataValues?.reservedStock,
+      soldStock: updated?.dataValues?.soldStock,
+    });
+    return updated;
+  } catch (error) {
+    if (needsCommit && txn) {
+      await txn.rollback();
+    }
+    logger.error('Error decrementing stock', { productId, quantity, error });
     throw error;
   }
 };
@@ -173,7 +248,7 @@ export const reserveStockRepo = async (sellerProductId: string, quantity: number
       availableStock: inventory.availableStock - quantity,
       reservedStock: inventory.reservedStock + quantity,
     }, { transaction: txn });
-    
+
     if (needsCommit) {
       await txn!.commit();
     }
@@ -204,7 +279,7 @@ export const releaseReservedStock = async (sellerProductId: string, quantity: nu
       availableStock: inventory.availableStock + quantity,
       reservedStock: inventory.reservedStock - quantity,
     }, { transaction: txn });
-    
+
     if (needsCommit) {
       await txn!.commit();
     }
