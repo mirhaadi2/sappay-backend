@@ -42,6 +42,7 @@ export const findProductById = async (id: string) => {
       p.is_customer_favourites as "isCustomerFavourites",
       p.is_best_seller as "isBestseller",
       c.name as "category",
+      COALESCE(MAX(i.available_stock), 0) as "availableStock",
       COALESCE(
         JSON_AGG(
           JSON_BUILD_OBJECT(
@@ -57,6 +58,7 @@ export const findProductById = async (id: string) => {
       ) as "variants"
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN inventory i ON i.product_id = p.id
     LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
     WHERE p.id = :id AND p.status = 'ACTIVE'
     GROUP BY p.id, c.name
@@ -78,6 +80,28 @@ export const findProductById = async (id: string) => {
   ]);
 
   const variants = products.variants || [];
+  const availableStock = products?.availableStock ? parseFloat(products?.availableStock) : 0;
+  const isProductAvailable = availableStock > 0;
+
+  // Add isAvailable to each variant
+  const variantsWithAvailability = (variants || []).map((variant: any) => {
+    // 1. Convert availableStock (e.g., 1.75) to total grams (1750)
+    const stockInGrams = (availableStock || 0) * 1000;
+
+
+    // 2. Convert variant weight to grams based on its unit
+    let variantWeightInGrams = Number(variant.weight) || 0;
+
+    if (variant.weightUnit?.toLowerCase() === 'kg') {
+      variantWeightInGrams = variantWeightInGrams * 1000;
+    }
+
+    return {
+      ...variant,
+      isAvailable: stockInGrams >= variantWeightInGrams
+    };
+  });
+
 
   let minPrice = 0;
   if (variants.length > 0) {
@@ -89,6 +113,8 @@ export const findProductById = async (id: string) => {
     images: resolvedImages,
     price: Number(minPrice),
     variantCount: variants.length,
+    variants: variantsWithAvailability,
+    isAvailable: isProductAvailable,
   };
 };
 
@@ -228,7 +254,7 @@ export const findAllProducts = async (filters: ProductFilters) => {
 
   // Fire-and-forget cache write (don't await)
   if (redisClient.isOpen) {
-    redisClient.set(cacheKey, JSON.stringify(result), { EX: 120 }).catch(() => {});
+    redisClient.set(cacheKey, JSON.stringify(result), { EX: 120 }).catch(() => { });
   }
 
   return result;
@@ -248,12 +274,37 @@ const fastFormatProducts = async (products: any[]) => {
     signedUrlMap.set(key, signedUrls[index]);
   });
 
-  return products.map(p => ({
-    ...p,
-    images: (p.images || []).map((key: string) => signedUrlMap.get(key)),
-    price: Number(p.min_price || 0), // Use SQL-calculated min price
-    variantCount: p.variants?.length || 0,
-  }));
+  return products.map(p => {
+    const availableStock = p?.availableStock ? parseFloat(p?.availableStock) : 0;
+    const isProductAvailable = availableStock > 0;
+    const variantsWithAvailability = (p.variants || []).map((variant: any) => {
+      // 1. Convert availableStock (e.g., 1.75) to total grams (1750)
+      const stockInGrams = (availableStock || 0) * 1000;
+
+
+      // 2. Convert variant weight to grams based on its unit
+      let variantWeightInGrams = Number(variant.weight) || 0;
+
+      if (variant.weightUnit?.toLowerCase() === 'kg') {
+        variantWeightInGrams = variantWeightInGrams * 1000;
+      }
+
+      return {
+        ...variant,
+        isAvailable: stockInGrams >= variantWeightInGrams
+      };
+    });
+
+    return {
+      ...p,
+      images: (p.images || []).map((key: string) => signedUrlMap.get(key)),
+      price: Number(p.minPrice || 0), // Use SQL-calculated min price
+      variantCount: p.variants?.length || 0,
+      variants: variantsWithAvailability,
+      availableStock,
+      isAvailable: isProductAvailable,
+    };
+  });
 }
 
 const buildProductConditions = (filters: any) => {
@@ -269,7 +320,7 @@ const buildProductConditions = (filters: any) => {
 
   addFilter('p.status', 'status', filters.status);
   addFilter('p.category_id', 'categoryId', filters.categoryId);
-  
+
   // Full-text search using PostgreSQL tsvector for better performance & relevance
   if (filters.search && filters.search.trim()) {
     // Sanitize search input for security
@@ -323,6 +374,7 @@ const generateMainQuery = (whereClause: string, orderBy: string) => {
       p.is_new as "isNew", 
       p.is_best_seller as "isBestseller",
       p.is_customer_favourites as "isCustomerFavourites",
+      COALESCE(MAX(i.available_stock), 0) as "availableStock",
       -- Use MIN() across the group to find the lowest price among variants
       MIN(LEAST(COALESCE(pv.discounted_price, pv.price), pv.price)) AS "minPrice",
       COALESCE(JSON_AGG(
@@ -338,6 +390,7 @@ const generateMainQuery = (whereClause: string, orderBy: string) => {
     FROM products p
     LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
     LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN inventory i ON i.product_id = p.id
     ${whereClause}
     -- Group ONLY by product and category fields
     GROUP BY p.id, c.name

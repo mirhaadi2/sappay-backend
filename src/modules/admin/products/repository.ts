@@ -110,15 +110,14 @@ export const findProducts = async (
 ): Promise<ProductRow[]> => {
   const query = `
     WITH InventoryStats AS (
-        -- Aggregate inventory at the product level first
-        -- This avoids multiple subqueries in the main select
+        -- Aggregate inventory at the product level directly
       SELECT 
-        sp.product_id,
-        SUM(COALESCE(i.available_stock, 0)) as total_stock,
-        COUNT(DISTINCT i.id) as inventory_records_count
-      FROM seller_products sp
-      LEFT JOIN inventory i ON sp.id = i.seller_product_id
-      GROUP BY sp.product_id
+        product_id,
+        SUM(COALESCE(available_stock, 0)) as total_stock,
+        COUNT(DISTINCT id) as inventory_records_count
+      FROM inventory
+      WHERE product_id IS NOT NULL
+      GROUP BY product_id
     ),
     VariantStats AS (
       -- Get price ranges and variant counts
