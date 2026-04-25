@@ -231,7 +231,7 @@ const releaseReservedStockForOrder = async (orderId: string, transaction: Transa
     orderItems.map(async (item: any) => {
       if (!item.sellerProductId) return;
       if (["PENDING", "CONFIRMED"].includes(item.status)) {
-        await cancelOrderService(item.sellerProductId, item.quantity, transaction);
+        await cancelOrderService(item.sellerProductId, item?.productVariantId, item.quantity, transaction);
       }
     }),
   );
@@ -341,7 +341,7 @@ export const adminUpdateOrderStatus = async (
           items.map(async (item: any) => {
             if (!item.productId) return;
             if (["PENDING", "CONFIRMED"].includes(item.status)) {
-              await cancelOrderService(item.productId, item.quantity, transaction);
+              await cancelOrderService(item.productId, item?.productVariantId, item.quantity, transaction);
             }
           }),
         );
@@ -378,7 +378,7 @@ export const adminUpdateOrderStatus = async (
           items.map(async (item: any) => {
             if (!item.productId) return;
             if (newStatus === "HANDOVER") {
-              await decrementStockByProductId(item.productId, item.quantity, transaction);
+              await decrementStockByProductId(item.productId, item.productVariantId, item.quantity, transaction);
             }
           }),
         );

@@ -115,7 +115,7 @@ export const placeOrderService = async (
       }
 
       // Check inventory with transaction to prevent race conditions
-      const available = await checkInventoryByProductIdService(item.productId, item.quantity);
+      const available = await checkInventoryByProductIdService(item.productId, item.productVariantId, item.quantity);
       if (!available) {
         throw new AppError('BadRequest', 400, `Insufficient stock for ${(product as any).name}`);
       }
@@ -293,7 +293,7 @@ export const placeOrderService = async (
       }, transaction);
 
       // Reserve stock within transaction
-      await reserveStockByProductIdService(itemData.productId, itemData.quantity, transaction);
+      await reserveStockByProductIdService(itemData.productId, itemData?.productVariantId, itemData.quantity, transaction);
     }
 
     // Commit transaction only after all operations succeed
@@ -341,7 +341,7 @@ export const confirmPaymentService = async (orderId: string) => {
         status: 'CONFIRMED',
       }, transaction);
 
-      await confirmOrderService((item as any).sellerProductId, (item as any).quantity, transaction);
+      await confirmOrderService((item as any).productId, item?.productVariantId, (item as any).quantity, transaction);
     }
 
     await transaction.commit();
@@ -407,7 +407,7 @@ export const cancelOrderService = async (orderId: string, reason: string) => {
     const items = await findOrderItems(orderId);
     for (const item of items) {
       if (['PENDING', 'CONFIRMED'].includes((item as any).status)) {
-        await releaseStockService((item as any).sellerProductId, (item as any).quantity, transaction);
+        await releaseStockService((item as any).productId, item?.productVariantId, (item as any).quantity, transaction);
       }
     }
 

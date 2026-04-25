@@ -71,16 +71,16 @@ InventoryHistory.init(
       defaultValue: 'STOCK_ADDED',
     },
     quantity: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(20, 2),
       allowNull: false,
     },
     previousStock: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(20, 2),
       allowNull: false,
       field: 'previous_stock',
     },
     newStock: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(20, 2),
       allowNull: false,
       field: 'new_stock',
     },

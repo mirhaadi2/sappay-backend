@@ -51,8 +51,8 @@ export const checkAvailabilityHandler = async (
 ) => {
   try {
     const { id } = req.params;
-    const { quantity } = req.query;
-    const available = await checkAvailabilityService(id, Number(quantity));
+    const { quantity, productVariantId } = req.query;
+    const available = await checkAvailabilityService(id, productVariantId as string, Number(quantity));
     res.json({ success: true, data: { available } });
   } catch (error: any) {
     logger.error('Check availability error', { error });
