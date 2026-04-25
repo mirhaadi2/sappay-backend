@@ -46,42 +46,59 @@ const websiteSession = session(getSessionOptionsForPortal(Portal.WEBSITE));
 const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
+const portalRoutePatterns: Array<{ portal: Portal; patterns: string[] }> = [
+  {
+    portal: Portal.ADMIN,
+    patterns: ['/api/staff', '/staff', '/api/admin', '/admin'],
+  },
+  {
+    portal: Portal.SELLER,
+    patterns: ['/api/sellers', '/sellers', '/api/products/seller'],
+  },
+  {
+    portal: Portal.WEBSITE,
+    patterns: [
+      '/api/auth',
+      '/api/customers',
+      '/api/addresses',
+      '/api/products',
+      '/api/homepage',
+      '/api/orders',
+      '/api/notifications',
+      '/api/bulk-orders',
+      '/api/reviews',
+    ],
+  },
+];
+
+const determinePortalFromPath = (effectivePath: string, cookieHeader: string): Portal => {
+  const lowerPath = effectivePath.toLowerCase();
+  const lowerCookie = cookieHeader.toLowerCase();
+
+  for (const route of portalRoutePatterns) {
+    if (route.patterns.some((pattern) => lowerPath.includes(pattern))) {
+      return route.portal;
+    }
+  }
+
+  if (lowerCookie.includes(portalConfigs[Portal.SELLER].cookieName.toLowerCase())) {
+    return Portal.SELLER;
+  }
+
+  if (lowerCookie.includes(portalConfigs[Portal.ADMIN].cookieName.toLowerCase())) {
+    return Portal.ADMIN;
+  }
+
+  return Portal.WEBSITE;
+};
+
 // Universal session middleware for all portals
 app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toLowerCase();
+  const cookieHeader = (req.cookies || req.headers.cookie || '').toString();
 
-  // Detect portal from URL path.
-  // Ensure routes like /api/auth remain WEBSITE even when seller/admin cookies exist.
-  let portal: Portal = Portal.WEBSITE;
-
-  if (effectivePath.includes('/api/staff') || effectivePath.includes('/staff')) {
-    portal = Portal.ADMIN;
-  } else if (effectivePath.includes('/api/admin') || effectivePath.includes('/admin')) {
-    portal = Portal.ADMIN;
-  } else if (effectivePath.includes('/api/sellers') || effectivePath.includes('/sellers') || effectivePath.includes('/api/products/seller')) {
-    portal = Portal.SELLER;
-  } else if (
-    effectivePath.includes('/api/auth') || 
-    effectivePath.includes('/api/customers') || 
-    effectivePath.includes('/api/addresses') || 
-    effectivePath.includes('/api/products') || 
-    effectivePath.includes('/api/homepage') || 
-    effectivePath.includes('/api/orders') || 
-    effectivePath.includes('/api/notifications') || 
-    effectivePath.includes('/api/bulk-orders') || 
-    effectivePath.includes('/api/reviews')
-  ) {
-    portal = Portal.WEBSITE;
-  } else {
-    // For any other unknown route, preserve existing portal via cookie. Useful for routes outside our explicit prefix list.
-    const cookie = (req.cookies || req.headers.cookie || '').toString();
-    if (cookie.includes(portalConfigs[Portal.SELLER].cookieName)) {
-      portal = Portal.SELLER;
-    } else if (cookie.includes(portalConfigs[Portal.ADMIN].cookieName)) {
-      portal = Portal.ADMIN;
-    }
-  }
+  const portal = determinePortalFromPath(effectivePath, cookieHeader);
 
   // Use the appropriate session middleware instance
   const sessionMiddleware =
