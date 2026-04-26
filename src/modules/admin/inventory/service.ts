@@ -1,6 +1,7 @@
 import { sequelize } from '../../../db/sequelize';
 import { QueryTypes, Transaction } from 'sequelize';
 import { Inventory } from '../../sellers/inventory/model';
+import { InventoryHistory } from '../../sellers/inventory/histories/model';
 import { AppError } from '../../../utils/AppError';
 import logger from '../../../utils/logger';
 import { withTransaction } from '../../../utils/transaction';
@@ -181,8 +182,8 @@ export const adminUpdateInventory = async (inventoryId: string, updates: AdminIn
         let finalAvailableStock = availableStock;
         if (totalStock !== undefined && availableStock === undefined) {
             // If only total stock is provided, adjust available stock accordingly
-            const currentTotal = inventory.totalStock;
-            const currentAvailable = inventory.availableStock;
+            const currentTotal = parseFloat(inventory?.dataValues?.totalStock);
+            const currentAvailable = parseFloat(inventory?.dataValues?.availableStock);
             const difference = totalStock - currentTotal;
             finalAvailableStock = currentAvailable + difference;
         }
@@ -201,15 +202,14 @@ export const adminUpdateInventory = async (inventoryId: string, updates: AdminIn
 
         // Create inventory history record
         if (updates.notes || Object.keys(updateData).length > 0) {
-            const { InventoryHistory } = await import('../../sellers/inventory/histories/model');
 
             await InventoryHistory.create({
                 inventoryId,
-                sellerProductId: inventory.sellerProductId,
+                productId: inventory?.dataValues?.productId,
                 type: 'ADJUSTMENT',
-                quantity: totalStock ? totalStock - inventory.totalStock : 0,
-                previousStock: inventory.totalStock,
-                newStock: totalStock || inventory.totalStock,
+                quantity: totalStock ? totalStock - parseFloat(inventory?.dataValues?.totalStock) : 0,
+                previousStock: parseFloat(inventory?.dataValues?.totalStock),
+                newStock: totalStock || parseFloat(inventory?.dataValues?.totalStock),
                 notes: updates.notes || 'Admin inventory adjustment',
             }, { transaction });
         }
@@ -240,8 +240,8 @@ export const adminAddStock = async (inventoryId: string, input: AdminAddStockInp
             throw new AppError('BadRequest', 400, 'Quantity must be positive');
         }
 
-        const newTotalStock = inventory.totalStock + quantity;
-        const newAvailableStock = inventory.availableStock + quantity;
+        const newTotalStock = parseFloat(inventory?.dataValues?.totalStock) + quantity;
+        const newAvailableStock = parseFloat(inventory?.dataValues?.availableStock) + quantity;
 
         await inventory.update({
             totalStock: newTotalStock,
@@ -249,15 +249,12 @@ export const adminAddStock = async (inventoryId: string, input: AdminAddStockInp
             lastRestockedAt: new Date(),
         }, { transaction });
 
-        // Create inventory history record
-        const { InventoryHistory } = await import('../../sellers/inventory/histories/model');
-
         await InventoryHistory.create({
             inventoryId,
-            sellerProductId: inventory.sellerProductId,
+            productId: inventory?.dataValues?.productId,
             type: 'STOCK_ADDED',
             quantity,
-            previousStock: inventory.totalStock,
+            previousStock: inventory?.dataValues?.totalStock,
             newStock: newTotalStock,
             notes: notes || `Admin added ${quantity} units`,
         }, { transaction });
@@ -284,27 +281,24 @@ export const adminRemoveStock = async (inventoryId: string, input: AdminRemoveSt
             throw new AppError('BadRequest', 400, 'Quantity must be positive');
         }
 
-        if (inventory.availableStock < quantity) {
+        if (parseFloat(inventory?.dataValues?.availableStock) < quantity) {
             throw new AppError('BadRequest', 400, 'Insufficient available stock');
         }
 
-        const newTotalStock = Math.max(0, inventory.totalStock - quantity);
-        const newAvailableStock = Math.max(0, inventory.availableStock - quantity);
+        const newTotalStock = Math.max(0, parseFloat(inventory?.dataValues?.totalStock )- quantity);
+        const newAvailableStock = Math.max(0, parseFloat(inventory?.dataValues?.availableStock) - quantity);
 
         await inventory.update({
             totalStock: newTotalStock,
             availableStock: newAvailableStock,
         }, { transaction });
 
-        // Create inventory history record
-        const { InventoryHistory } = await import('../../sellers/inventory/histories/model');
-
         await InventoryHistory.create({
             inventoryId,
-            sellerProductId: inventory.sellerProductId,
+            productId: inventory?.dataValues?.productId,
             type: 'STOCK_REMOVED',
             quantity: -quantity,
-            previousStock: inventory.totalStock,
+            previousStock: inventory?.dataValues?.totalStock,
             newStock: newTotalStock,
             reference: reason,
             notes: notes || `Admin removed ${quantity} units: ${reason}`,
