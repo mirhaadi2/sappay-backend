@@ -7,7 +7,7 @@ import { AppError } from "../../../utils/AppError";
 import { sendOtp, verifyOtp } from "./otp.service";
 import { OtpType } from "../../admin/customers/otp.model";
 import { getOrCreateCustomer } from "../guests/customer.service";
-import { sequelize } from "../../../db/sequelize";
+import { withTransaction } from "../../../utils/transaction";
 
 export const checkUserExists = async (email: string, phone: string) => {
   const existingEmail = await findUserByEmail(email);
@@ -56,10 +56,7 @@ export const completeRegistration = async (
   phone: string,
   password: string
 ) => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     // Double-check user doesn't exist (in case of race conditions)
     const existingEmail = await findUserByEmail(email);
     if (existingEmail) {
@@ -80,8 +77,6 @@ export const completeRegistration = async (
       role: 'D2C_CUSTOMER'
     }, transaction);
 
-    await transaction.commit();
-
     const payload: UserPayload = {
       id: user.id,
       email: user.email!,
@@ -92,21 +87,11 @@ export const completeRegistration = async (
       user: payload,
       message: "Registration completed successfully",
     };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        console.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    throw error;
-  }
+  });
 };
 
 export const registerUser = async (email: string, password: string) => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     const existing = await findUserByEmail(email);
     if (existing) {
       throw new AppError("ConflictError", 409, "Email already registered.");
@@ -114,22 +99,13 @@ export const registerUser = async (email: string, password: string) => {
 
     const hashed = await hashPassword(password);
     const user = await createUser({ email, password: hashed, role: 'D2C_CUSTOMER' }, transaction);
-    
-    await transaction.commit();
-    
+
     return {
       id: user.id,
       email: user.email!,
       role: user.role as any,
     };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        console.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    throw error;
-  }
+  });
 };
 
 export const loginUser = async (email: string, password: string) => {
@@ -173,10 +149,7 @@ export const updateUserProfile = async (userId: string, data: {
   email?: string;
   phone?: string;
 }) => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     // Validate that the user exists
     const existingUser = await findUserById(userId);
     if (!existingUser) {
@@ -204,8 +177,6 @@ export const updateUserProfile = async (userId: string, data: {
       throw new AppError('InternalServerError', 500, 'Failed to update profile');
     }
 
-    await transaction.commit();
-
     return {
       id: updatedUser.id,
       name: updatedUser.name,
@@ -213,14 +184,7 @@ export const updateUserProfile = async (userId: string, data: {
       phone: updatedUser.phone,
       role: updatedUser.role,
     };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        console.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    throw error;
-  }
+  });
 };
 
 export const sendOtpForLogin = async (contact: string, contactType: 'email' | 'phone' | 'whatsapp') => {
@@ -233,10 +197,7 @@ export const sendOtpForLogin = async (contact: string, contactType: 'email' | 'p
 };
 
 export const verifyOtpForLogin = async (contact: string, otp: string, contactType: 'email' | 'phone' | 'whatsapp') => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     const isValid = await verifyOtp(contact, contactType, otp, OtpType.LOGIN);
 
     if (!isValid) {
@@ -277,8 +238,6 @@ export const verifyOtpForLogin = async (contact: string, otp: string, contactTyp
       }, transaction);
     }
 
-    await transaction.commit();
-
     const token = signJwt({
       sub: user.id,
       email: user.email || '',
@@ -295,12 +254,5 @@ export const verifyOtpForLogin = async (contact: string, otp: string, contactTyp
       },
       token,
     };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        console.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    throw error;
-  }
+  });
 };

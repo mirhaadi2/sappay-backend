@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { reviewService, CreateReviewData } from "./service";
+import { createReview as createReviewService, getReviews as getReviewsService, getReviewById as getReviewByIdService, updateReview as updateReviewService, deleteReview as deleteReviewService, getProductReviews as getProductReviewsService, getReviewByOrderItem as getReviewByOrderItemService, canReviewOrderItem as canReviewOrderItemService, CreateReviewData } from "./service";
 import { AppError } from "../../../utils/AppError";
 
 
@@ -24,7 +24,7 @@ export const createReview = async (req: Request, res: Response, next: NextFuncti
             throw new AppError("ValidationError", 400, "Missing required fields: orderId, orderItemId, productId, rating");
         }
 
-        const review = await reviewService.createReview(reviewData);
+        const review = await createReviewService(reviewData);
 
         res.status(201).json({
             success: true,
@@ -47,7 +47,7 @@ export const getReviews = async (req: Request, res: Response, next: NextFunction
             offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
         };
 
-        const result = await reviewService.getReviews(filters);
+        const result = await getReviewsService(filters);
 
         res.json({
             success: true,
@@ -65,7 +65,7 @@ export const getReviews = async (req: Request, res: Response, next: NextFunction
 
 export const getReviewById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const review = await reviewService.getReviewById(req.params.id);
+        const review = await getReviewByIdService(req.params.id);
 
         if (!review) {
             throw new AppError("NotFound", 404, "Review not found");
@@ -92,7 +92,7 @@ export const updateReview = async (req: Request, res: Response, next: NextFuncti
             comment: req.body.comment,
         };
 
-        const review = await reviewService.updateReview(req.params.id, customerId, updates);
+        const review = await updateReviewService(req.params.id, customerId, updates);
 
         res.json({
             success: true,
@@ -111,7 +111,7 @@ export const deleteReview = async (req: Request, res: Response, next: NextFuncti
             throw new AppError("Unauthorized", 401, "Customer not authenticated");
         }
 
-        await reviewService.deleteReview(req.params.id, customerId);
+        await deleteReviewService(req.params.id, customerId);
 
         res.json({
             success: true,
@@ -127,7 +127,7 @@ export const getProductReviews = async (req: Request, res: Response, next: NextF
         const page = req.query.page ? parseInt(req.query.page as string) : 1;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
 
-        const result = await reviewService.getProductReviews(req.params.productId, page, limit);
+        const result = await getProductReviewsService(req.params.productId, page, limit);
 
         res.json({
             success: true,
@@ -140,7 +140,7 @@ export const getProductReviews = async (req: Request, res: Response, next: NextF
 
 export const getReviewByOrderItem = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const review = await reviewService.getReviewByOrderItem(req.params.orderItemId);
+        const review = await getReviewByOrderItemService(req.params.orderItemId);
 
         res.json({
             success: true,
@@ -158,7 +158,7 @@ export const checkCanReview = async (req: Request, res: Response, next: NextFunc
             throw new AppError("Unauthorized", 401, "Customer not authenticated");
         }
 
-        const canReview = await reviewService.canReviewOrderItem(customerId, req.params.orderItemId);
+        const canReview = await canReviewOrderItemService(customerId, req.params.orderItemId);
 
         res.json({
             success: true,

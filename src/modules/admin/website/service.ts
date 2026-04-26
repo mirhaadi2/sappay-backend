@@ -18,6 +18,7 @@ import { Op, QueryTypes } from "sequelize";
 import { redisClient } from "../../../config/session";
 import { createHash } from "crypto";
 import logger from "../../../utils/logger";
+import { withTransaction } from "../../../utils/transaction";
 
 const HOMEPAGE_CACHE_KEY = "website:homepage:data";
 const HOMEPAGE_CACHE_TTL = 60 * 2; // 2 minutes
@@ -61,8 +62,7 @@ export const createBanner = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const banner = await HomepageBanner.create(
             {
                 ...data,
@@ -71,48 +71,31 @@ export const createBanner = async (data: {
             },
             { transaction }
         );
-        await transaction.commit();
         logger.info('Banner created in admin', { bannerId: banner.id });
         return banner;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating banner in admin', { error });
-        throw error;
-    }
+    });
 };
 
 export const updateBanner = async (
     id: string,
     data: Partial<{ text: string; isActive: boolean; order: number }>,
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const banner = await HomepageBanner.findByPk(id, { transaction });
         if (!banner) throw new Error("Banner not found");
         const updated = await banner.update(data, { transaction });
-        await transaction.commit();
         logger.info('Banner updated in admin', { bannerId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating banner in admin', { bannerId: id, error });
-        throw error;
-    }
+    });
 };
 
 export const deleteBanner = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const banner = await HomepageBanner.findByPk(id, { transaction });
         if (!banner) throw new Error("Banner not found");
         await banner.destroy({ transaction });
-        await transaction.commit();
         logger.info('Banner deleted in admin', { bannerId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting banner in admin', { bannerId: id, error });
-        throw error;
-    }
+    });
 };
 
 export const getActiveHero = async (status?: boolean) => {
@@ -181,8 +164,7 @@ export const createHero = async (data: {
     buttonLink: string;
     isActive?: boolean;
 }) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         if (data.isActive) {
             await HomepageHero.update(
                 { isActive: false },
@@ -197,14 +179,9 @@ export const createHero = async (data: {
             },
             { transaction }
         );
-        await transaction.commit();
         logger.info('Hero created in admin', { heroId: hero.id });
         return hero;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating hero in admin', { error });
-        throw error;
-    }
+    });
 };
 
 export const updateHero = async (
@@ -219,8 +196,7 @@ export const updateHero = async (
         isActive: boolean;
     }>,
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const hero = await HomepageHero.findByPk(id, { transaction });
         if (!hero) throw new Error("Hero section not found");
 
@@ -232,29 +208,18 @@ export const updateHero = async (
         }
 
         const updated = await hero.update(data, { transaction });
-        await transaction.commit();
         logger.info('Hero updated in admin', { heroId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating hero in admin', { heroId: id, error });
-        throw error;
-    }
+    });
 };
 
 export const deleteHero = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const hero = await HomepageHero.findByPk(id, { transaction });
         if (!hero) throw new Error("Hero section not found");
         await hero.destroy({ transaction });
-        await transaction.commit();
         logger.info('Hero deleted in admin', { heroId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting hero in admin', { heroId: id, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== SECTION SERVICES =====================
@@ -385,8 +350,7 @@ export const createSection = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const section = await HomepageSection.create(
             {
                 ...data,
@@ -395,14 +359,9 @@ export const createSection = async (data: {
             },
             { transaction }
         );
-        await transaction.commit();
         logger.info('Section created in admin', { sectionId: section.id });
         return section;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating section in admin', { error });
-        throw error;
-    }
+    });
 };
 
 export const updateSection = async (
@@ -431,34 +390,22 @@ export const updateSection = async (
         order: number;
     }>,
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const section = await HomepageSection.findByPk(id, { transaction });
         if (!section) throw new Error("Section not found");
         const updated = await section.update(data, { transaction });
-        await transaction.commit();
         logger.info('Section updated in admin', { sectionId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating section in admin', { sectionId: id, error });
-        throw error;
-    }
+    });
 };
 
 export const deleteSection = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
+    return withTransaction(async (transaction) => {
         const section = await HomepageSection.findByPk(id, { transaction });
         if (!section) throw new Error("Section not found");
         await section.destroy({ transaction });
-        await transaction.commit();
         logger.info('Section deleted in admin', { sectionId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting section in admin', { sectionId: id, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== TESTIMONIAL SERVICES =====================

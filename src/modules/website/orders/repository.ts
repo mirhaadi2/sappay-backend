@@ -144,6 +144,10 @@ export const createOrderItem = async (data: any, transaction: Transaction) => {
   return await OrderItem.create(data, { transaction });
 };
 
+export const findOrderItemById = async (id: string, transaction?: Transaction) => {
+  return await OrderItem.findByPk(id, transaction ? { transaction } : {});
+};
+
 export const findOrderItems = async (orderId: string) => {
   return await OrderItem.findAll({ where: { orderId } });
 };

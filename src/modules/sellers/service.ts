@@ -1,6 +1,7 @@
 import { AppError } from '../../utils/AppError';
 import { comparePassword, hashPassword } from '../../utils/password';
 import { signJwt } from '../../config/jwt';
+import { withTransaction } from '../../utils/transaction';
 import {
   findById,
   findByEmail,
@@ -96,33 +97,35 @@ export const updateProfile = async (
   userId: string,
   updates: any
 ) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
-
-  // if (seller.userId !== userId) {
-  //   throw new AppError('Forbidden', 403, 'Unauthorized: Cannot update another seller profile');
-  // }
-
-  const allowedFields = [
-    'businessAddress',
-    'businessPhone',
-    'bankAccountName',
-    'bankAccountNumber',
-    'bankIfscCode',
-    'ownerName',
-    'ownerEmail',
-  ];
-
-  const updateData: any = {};
-  Object.keys(updates).forEach((key) => {
-    if (allowedFields.includes(key)) {
-      updateData[key] = updates[key];
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
     }
-  });
 
-  return await update(sellerId, updateData);
+    // if (seller.userId !== userId) {
+    //   throw new AppError('Forbidden', 403, 'Unauthorized: Cannot update another seller profile');
+    // }
+
+    const allowedFields = [
+      'businessAddress',
+      'businessPhone',
+      'bankAccountName',
+      'bankAccountNumber',
+      'bankIfscCode',
+      'ownerName',
+      'ownerEmail',
+    ];
+
+    const updateData: any = {};
+    Object.keys(updates).forEach((key) => {
+      if (allowedFields.includes(key)) {
+        updateData[key] = updates[key];
+      }
+    });
+
+    return await update(sellerId, updateData, transaction);
+  });
 };
 
 export const getDashboardStats = async (sellerId: string) => {
@@ -148,74 +151,80 @@ export const getDashboardStats = async (sellerId: string) => {
 };
 
 export const approveSeller = async (sellerId: string, approvalData?: any) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  if (seller.status !== 'PENDING') {
-    throw new AppError('BadRequest', 400, `Cannot approve seller with status: ${seller.status}`);
-  }
+    if (seller.status !== 'PENDING') {
+      throw new AppError('BadRequest', 400, `Cannot approve seller with status: ${seller.status}`);
+    }
 
-  const updated = await updateStatus(sellerId, 'APPROVED');
-  return {
-    id: updated.id,
-    status: updated.status,
-    message: 'Seller has been approved',
-  };
+    const updated = await updateStatus(sellerId, 'APPROVED', {}, transaction);
+    return {
+      id: updated.id,
+      status: updated.status,
+      message: 'Seller has been approved',
+    };
+  });
 };
 
 export const rejectSeller = async (sellerId: string, reason: string) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  if (seller.status !== 'PENDING') {
-    throw new AppError('BadRequest', 400, `Cannot reject seller with status: ${seller.status}`);
-  }
+    if (seller.status !== 'PENDING') {
+      throw new AppError('BadRequest', 400, `Cannot reject seller with status: ${seller.status}`);
+    }
 
-  const updated = await updateStatus(sellerId, 'REJECTED', { reason });
+    const updated = await updateStatus(sellerId, 'REJECTED', { reason }, transaction);
 
-  // Notify seller
-  sendSellerRejectionEmail(seller.ownerEmail, seller.ownerName, reason || 'Rejected by admin')
-    .catch((err) => console.error('Failed to send rejection email:', err));
+    // Notify seller
+    sendSellerRejectionEmail(seller.ownerEmail, seller.ownerName, reason || 'Rejected by admin')
+      .catch((err) => console.error('Failed to send rejection email:', err));
 
-  return {
-    id: updated.id,
-    status: updated.status,
-    message: 'Seller registration has been rejected',
-  };
+    return {
+      id: updated.id,
+      status: updated.status,
+      message: 'Seller registration has been rejected',
+    };
+  });
 };
 
 export const reapplySeller = async (sellerId: string) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  if (seller.status !== 'REJECTED') {
-    throw new AppError('BadRequest', 400, 'Only rejected sellers can reapply');
-  }
+    if (seller.status !== 'REJECTED') {
+      throw new AppError('BadRequest', 400, 'Only rejected sellers can reapply');
+    }
 
-  const metadata = seller.metadata || {};
-  metadata.rejectionReason = null;
-  metadata.rejectedAt = null;
-  metadata.reappliedAt = new Date().toISOString();
+    const metadata = seller.metadata || {};
+    metadata.rejectionReason = null;
+    metadata.rejectedAt = null;
+    metadata.reappliedAt = new Date().toISOString();
 
-  const updated = await updateStatus(sellerId, 'PENDING', {
-    rejectedReason: null,
-    metadata,
+    const updated = await updateStatus(sellerId, 'PENDING', {
+      rejectedReason: null,
+      metadata,
+    }, transaction);
+
+    sendSellerReapplyConfirmationEmail(seller.ownerEmail, seller.ownerName)
+      .catch((err) => console.error('Failed to send reapply confirmation email:', err));
+
+    return {
+      id: updated.id,
+      status: updated.status,
+      message: 'Reapplication submitted. Your account is now pending review.',
+    };
   });
-
-  sendSellerReapplyConfirmationEmail(seller.ownerEmail, seller.ownerName)
-    .catch((err) => console.error('Failed to send reapply confirmation email:', err));
-
-  return {
-    id: updated.id,
-    status: updated.status,
-    message: 'Reapplication submitted. Your account is now pending review.',
-  };
 };
 
 export const getSellerForReapply = async (email: string) => {
@@ -253,58 +262,62 @@ export const getSellerForReapply = async (email: string) => {
 };
 
 export const updateSellerForReapply = async (sellerId: string, updateData: any) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  if (seller.status === 'APPROVED') {
-    throw new AppError('BadRequest', 400, 'Cannot update approved seller');
-  }
+    if (seller.status === 'APPROVED') {
+      throw new AppError('BadRequest', 400, 'Cannot update approved seller');
+    }
 
-  if (seller.status === 'SUSPENDED') {
-    throw new AppError('BadRequest', 400, 'Cannot update suspended seller');
-  }
+    if (seller.status === 'SUSPENDED') {
+      throw new AppError('BadRequest', 400, 'Cannot update suspended seller');
+    }
 
-  // Update seller data
-  const updated = await update(sellerId, updateData);
+    // Update seller data
+    const updated = await update(sellerId, updateData, transaction);
 
-  // If status was REJECTED, change to PENDING for reapply
-  if (seller.status === 'REJECTED') {
-    await updateStatus(sellerId, 'PENDING', {
-      rejectedReason: null,
-      metadata: { ...seller.metadata, reappliedAt: new Date().toISOString() },
-    });
+    // If status was REJECTED, change to PENDING for reapply
+    if (seller.status === 'REJECTED') {
+      await updateStatus(sellerId, 'PENDING', {
+        rejectedReason: null,
+        metadata: { ...seller.metadata, reappliedAt: new Date().toISOString() },
+      }, transaction);
 
-    // Send reapply confirmation email
-    sendSellerReapplyConfirmationEmail(seller.ownerEmail, seller.ownerName)
-      .catch((err) => console.error('Failed to send reapply confirmation email:', err));
-  }
+      // Send reapply confirmation email
+      sendSellerReapplyConfirmationEmail(seller.ownerEmail, seller.ownerName)
+        .catch((err) => console.error('Failed to send reapply confirmation email:', err));
+    }
 
-  return {
-    id: updated.id,
-    status: updated.status,
-    message: seller.status === 'REJECTED' ? 'Reapplication submitted successfully' : 'Information updated successfully',
-  };
+    return {
+      id: updated.id,
+      status: updated.status,
+      message: seller.status === 'REJECTED' ? 'Reapplication submitted successfully' : 'Information updated successfully',
+    };
+  });
 };
 
 export const suspendSeller = async (sellerId: string, reason: string) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  if (seller.status === 'SUSPENDED') {
-    throw new AppError('BadRequest', 400, 'Seller is already suspended');
-  }
+    if (seller.status === 'SUSPENDED') {
+      throw new AppError('BadRequest', 400, 'Seller is already suspended');
+    }
 
-  const updated = await updateStatus(sellerId, 'SUSPENDED', { reason });
+    const updated = await updateStatus(sellerId, 'SUSPENDED', { reason }, transaction);
 
-  return {
-    id: updated.id,
-    status: updated.status,
-    message: 'Seller account has been suspended',
-  };
+    return {
+      id: updated.id,
+      status: updated.status,
+      message: 'Seller account has been suspended',
+    };
+  });
 };
 
 export const listSellersByFilter = async (filters: any) => {
@@ -431,25 +444,27 @@ export const changeSellerPassword = async (
   currentPassword: string,
   newPassword: string
 ) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  // Verify current password
-  const isValidPassword = await comparePassword(currentPassword, seller?.password ?? '');
-  if (!isValidPassword) {
-    throw new AppError('Unauthorized', 401, 'Current password is incorrect');
-  }
+    // Verify current password
+    const isValidPassword = await comparePassword(currentPassword, seller?.password ?? '');
+    if (!isValidPassword) {
+      throw new AppError('Unauthorized', 401, 'Current password is incorrect');
+    }
 
-  // Hash and update new password
-  const hashedPassword = await hashPassword(newPassword);
-  const updated = await update(sellerId, { password: hashedPassword });
+    // Hash and update new password
+    const hashedPassword = await hashPassword(newPassword);
+    const updated = await update(sellerId, { password: hashedPassword }, transaction);
 
-  return {
-    id: updated.id,
-    message: 'Password changed successfully',
-  };
+    return {
+      id: updated.id,
+      message: 'Password changed successfully',
+    };
+  });
 };
 
 /**
@@ -485,23 +500,25 @@ export const updateSellerNotificationPreferences = async (
     smsAlerts?: boolean;
   }
 ) => {
-  const seller = await findById(sellerId);
-  if (!seller) {
-    throw new AppError('NotFound', 404, 'Seller not found');
-  }
+  return withTransaction(async (transaction) => {
+    const seller = await findById(sellerId);
+    if (!seller) {
+      throw new AppError('NotFound', 404, 'Seller not found');
+    }
 
-  const currentMetadata = seller.metadata || {};
-  const updatedMetadata = {
-    ...currentMetadata,
-    notificationPreferences: {
-      emailOrders: preferences.emailOrders ?? true,
-      emailProducts: preferences.emailProducts ?? true,
-      emailPromotions: preferences.emailPromotions ?? false,
-      smsAlerts: preferences.smsAlerts ?? false,
-    },
-  };
+    const currentMetadata = seller.metadata || {};
+    const updatedMetadata = {
+      ...currentMetadata,
+      notificationPreferences: {
+        emailOrders: preferences.emailOrders ?? true,
+        emailProducts: preferences.emailProducts ?? true,
+        emailPromotions: preferences.emailPromotions ?? false,
+        smsAlerts: preferences.smsAlerts ?? false,
+      },
+    };
 
-  const updated = await update(sellerId, { metadata: updatedMetadata });
+    const updated = await update(sellerId, { metadata: updatedMetadata }, transaction);
 
-  return updatedMetadata.notificationPreferences;
+    return updatedMetadata.notificationPreferences;
+  });
 };

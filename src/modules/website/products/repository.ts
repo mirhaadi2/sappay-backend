@@ -5,23 +5,15 @@ import { Category } from "../../admin/products/categories/model";
 import { SellerProduct } from "../../admin/products/seller-product/model";
 import { AppError } from "../../../utils/AppError";
 import { sequelize } from "../../../db/sequelize";
-import { QueryTypes, Op } from "sequelize";
+import { QueryTypes, Op, Transaction } from "sequelize";
 import { createHash } from "crypto";
 import { redisClient } from "../../../config/session";
 import logger from "../../../utils/logger";
 
-export const createProduct = async (data: any) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const product = await Product.create(data, { transaction });
-    await transaction.commit();
-    logger.info('Product created', { productId: product.id, name: data.name });
-    return product;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error creating product', { name: data.name, error });
-    throw error;
-  }
+export const createProduct = async (data: any, transaction?: any) => {
+  const product = await Product.create(data, { transaction });
+  logger.info('Product created', { productId: product.id, name: data.name });
+  return product;
 };
 
 export const findVariantsByProductId = async (productId: string) => {
@@ -32,7 +24,7 @@ export const findVariantsByProductId = async (productId: string) => {
   });
 };
 
-export const findProductById = async (id: string) => {
+export const findProductById = async (id: string, transaction?: Transaction) => {
   const query = `
     SELECT
       p.id, p.name, p.slug, p.benefits, p.ingredients, p.description,
@@ -71,6 +63,7 @@ export const findProductById = async (id: string) => {
     plain: true, // Returns a single object instead of an array
     benchmark: true,
     logging: (sql, timing) => console.log(`[SQL] ${timing}ms`),
+    transaction,
   }) as any | null;
 
   if (!products) return null;
@@ -469,35 +462,28 @@ export const createProductVariant = async (productId: string, variant: any) => {
 export const createProductVariants = async (
   productId: string,
   variants: any[],
+  transaction?: any,
 ) => {
-  const transaction = await sequelize.transaction();
-  try {
-    if (!Array.isArray(variants)) return [];
-    const sanitized = variants
-      .filter((v) => v && v.price !== undefined)
-      .map((v) => ({
-        productId,
-        sku: v.sku,
-        price: Number(v.price),
-        discountedPrice:
-          v.discountedPrice !== undefined ? Number(v.discountedPrice) : undefined,
-        discountedPercent:
-          v.discountedPercent !== undefined
-            ? Number(v.discountedPercent)
-            : undefined,
-        weight: v.weight !== undefined ? Number(v.weight) : undefined,
-        weightUnit: v.weightUnit || "G",
-        status: v.status || "ACTIVE",
-      }));
-    const result = await ProductVariant.bulkCreate(sanitized, { transaction });
-    await transaction.commit();
-    logger.info('Product variants created', { productId, count: result.length });
-    return result;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error creating product variants', { productId, error });
-    throw error;
-  }
+  if (!Array.isArray(variants)) return [];
+  const sanitized = variants
+    .filter((v) => v && v.price !== undefined)
+    .map((v) => ({
+      productId,
+      sku: v.sku,
+      price: Number(v.price),
+      discountedPrice:
+        v.discountedPrice !== undefined ? Number(v.discountedPrice) : undefined,
+      discountedPercent:
+        v.discountedPercent !== undefined
+          ? Number(v.discountedPercent)
+          : undefined,
+      weight: v.weight !== undefined ? Number(v.weight) : undefined,
+      weightUnit: v.weightUnit || "G",
+      status: v.status || "ACTIVE",
+    }));
+  const result = await ProductVariant.bulkCreate(sanitized, { transaction });
+  logger.info('Product variants created', { productId, count: result.length });
+  return result;
 };
 
 export const getProductVariants = async (productId: string) => {

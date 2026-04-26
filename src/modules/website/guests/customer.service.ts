@@ -1,4 +1,5 @@
 import { Customer } from './customer.model';
+import { Transaction } from 'sequelize';
 import logger from '../../../utils/logger';
 
 /**
@@ -10,13 +11,14 @@ export const getOrCreateCustomer = async (
   phone?: string,
   whatsapp?: string,
   name?: string,
+  transaction?: Transaction,
 ): Promise<string> => {
   try {
     // Search for existing customer
     const query: any = {};
     
     if (email) {
-      const existingByEmail = await Customer.findOne({ where: { email } });
+      const existingByEmail = await Customer.findOne({ where: { email }, transaction });
       if (existingByEmail) {
         logger.info('Customer found by email', { email, customerId: existingByEmail.id });
         return existingByEmail.id;
@@ -24,7 +26,7 @@ export const getOrCreateCustomer = async (
     }
 
     if (phone) {
-      const existingByPhone = await Customer.findOne({ where: { phone } });
+      const existingByPhone = await Customer.findOne({ where: { phone }, transaction });
       if (existingByPhone) {
         logger.info('Customer found by phone', { phone, customerId: existingByPhone.id });
         return existingByPhone.id;
@@ -32,7 +34,7 @@ export const getOrCreateCustomer = async (
     }
 
     if (whatsapp) {
-      const existingByWhatsapp = await Customer.findOne({ where: { whatsapp } });
+      const existingByWhatsapp = await Customer.findOne({ where: { whatsapp }, transaction });
       if (existingByWhatsapp) {
         logger.info('Customer found by whatsapp', { whatsapp, customerId: existingByWhatsapp.id });
         return existingByWhatsapp.id;
@@ -46,7 +48,7 @@ export const getOrCreateCustomer = async (
       whatsapp: whatsapp || undefined,
       name: name || undefined,
       role: 'D2C_CUSTOMER'
-    });
+    }, { transaction });
 
     logger.info('New customer created', { customerId: customer.id, email, phone, whatsapp });
     return customer.id;
@@ -82,27 +84,27 @@ export const markCustomerVerified = async (customerId: string) => {
 /**
  * Find customer by email
  */
-export const findCustomerByEmail = async (email: string) => {
-  return await Customer.findOne({ where: { email } });
+export const findCustomerByEmail = async (email: string, transaction?: Transaction) => {
+  return await Customer.findOne({ where: { email }, transaction });
 };
 
 /**
  * Find customer by phone
  */
-export const findCustomerByPhone = async (phone: string) => {
-  return await Customer.findOne({ where: { phone } });
+export const findCustomerByPhone = async (phone: string, transaction?: Transaction) => {
+  return await Customer.findOne({ where: { phone }, transaction });
 };
 
 /**
  * Find customer by WhatsApp
  */
-export const findCustomerByWhatsapp = async (whatsapp: string) => {
-  return await Customer.findOne({ where: { whatsapp } });
+export const findCustomerByWhatsapp = async (whatsapp: string, transaction?: Transaction) => {
+  return await Customer.findOne({ where: { whatsapp }, transaction });
 };
 
 /**
  * Find customer by ID
  */
-export const findCustomerById = async (id: string) => {
-  return await Customer.findByPk(id);
+export const findCustomerById = async (id: string, transaction?: Transaction) => {
+  return await Customer.findByPk(id, { transaction });
 };

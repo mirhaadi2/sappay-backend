@@ -10,7 +10,7 @@ import { AdminUserQuery, AdminUser } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
 import { hashPassword, generateRandomPassword } from '../../../utils/password';
-import { sequelize } from '../../../db/sequelize';
+import { withTransaction } from '../../../utils/transaction';
 
 export const adminListUsers = async (query: AdminUserQuery) => {
   try {
@@ -57,10 +57,9 @@ export const adminListUsers = async (query: AdminUserQuery) => {
 };
 
 export const adminCreateUser = async (data: { email: string; name?: string; phone?: string }) => {
-  const transaction = await sequelize?.transaction();
-  try {
+  return withTransaction(async (transaction) => {
     // Check if user already exists
-    const existingUser = await User.findOne({ where: { email: data.email } });
+    const existingUser = await User.findOne({ where: { email: data.email }, transaction });
     if (existingUser) {
       throw new AppError('ValidationError', 400, 'User with this email already exists');
     }
@@ -79,17 +78,11 @@ export const adminCreateUser = async (data: { email: string; name?: string; phon
     }, { transaction });
 
     logger.info('Customer created by admin', { customerId: user.id, email: data.email });
-    await transaction?.commit();
     return {
       ...(await adminGetUser(user.id)),
       password: plainPassword
     };
-  } catch (error: any) {
-    if (transaction) await transaction.rollback();
-    logger.error('Error creating admin user', { email: data.email, error });
-    if (error instanceof AppError) throw error;
-    throw new AppError('UserError', 500, error.message || 'Failed to create user');
-  }
+  });
 };
 
 export const adminGetUser = async (id: string): Promise<AdminUser> => {
@@ -122,8 +115,7 @@ export const adminUpdateUser = async (
   id: string,
   data: { name?: string; phone?: string }
 ) => {
-  const transaction = await sequelize.transaction();
-  try {
+  return withTransaction(async (transaction) => {
     const user = await User.findByPk(id, { transaction });
 
     if (!user) {
@@ -138,20 +130,13 @@ export const adminUpdateUser = async (
       await user.update(updateData, { transaction });
     }
 
-    await transaction.commit();
     logger.info('Customer updated by admin', { customerId: id, changes: updateData });
     return adminGetUser(id);
-  } catch (error: any) {
-    await transaction.rollback();
-    logger.error('Error updating admin customer', { customerId: id, error });
-    if (error instanceof AppError) throw error;
-    throw new AppError('NotFoundError', 404, 'User not found');
-  }
+  });
 };
 
 export const adminDeleteUser = async (id: string) => {
-  const transaction = await sequelize.transaction();
-  try {
+  return withTransaction(async (transaction) => {
     const user = await User.findByPk(id, { transaction });
 
     if (!user) {
@@ -159,15 +144,9 @@ export const adminDeleteUser = async (id: string) => {
     }
 
     await user.destroy({ transaction });
-    await transaction.commit();
     logger.info('Customer deleted by admin', { customerId: id });
     return { success: true, message: 'User deleted successfully' };
-  } catch (error: any) {
-    await transaction.rollback();
-    logger.error('Error deleting admin customer', { customerId: id, error });
-    if (error instanceof AppError) throw error;
-    throw new AppError('NotFoundError', 404, 'User not found');
-  }
+  });
 };
 
 export const adminBanUser = async (id: string) => {

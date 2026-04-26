@@ -107,13 +107,15 @@ export const checkInventoryByProductIdService = async (
   productId: string,
   productVariantId: string,
   quantity: number,
+  transaction?: Transaction,
 ) => {
-  const inventory = await findInventoryByProductId(productId);
+  const inventory = await findInventoryByProductId(productId, transaction);
   if (!inventory) return false;
 
   const productVariant = await ProductVariant.findByPk(productVariantId, {
     attributes: ['weight', 'weightUnit'],
     raw: true,
+    transaction,
   });
   if (!productVariant) return false;
 
@@ -194,6 +196,7 @@ export const initializeAdminProductStockService = async (
   productId: string,
   initialStock: number = 0,
   addedBy?: string,
+  transaction?: any,
 ) => {
   try {
     if (!initialStock || initialStock <= 0) {
@@ -210,7 +213,7 @@ export const initializeAdminProductStockService = async (
       reservedStock: 0,
       soldStock: 0,
       reorderLevel: 10,
-    });
+    }, transaction);
 
     // Create history record for initial stock entry
     if (initialStock > 0) {

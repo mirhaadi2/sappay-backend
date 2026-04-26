@@ -4,6 +4,7 @@ import {
   findOrderById,
   updateOrder,
   findOrderItems,
+  findOrderItemById,
   createOrderItem,
   updateOrderItem,
   updateOrderStatus,
@@ -24,7 +25,7 @@ import { resolveR2Url } from '../../admin/products/transformer';
 import { getOrCreateCustomer, findCustomerByEmail, findCustomerByPhone } from '../guests/customer.service';
 import { findOrCreateCustomerAddress } from './shipping-address.repository';
 import { AppError } from '../../../utils/AppError';
-import { sequelize } from '../../../db/sequelize';
+import { withTransaction } from '../../../utils/transaction';
 import logger from '../../../utils/logger';
 
 export const placeOrderService = async (
@@ -70,12 +71,7 @@ export const placeOrderService = async (
     contactType: 'email' | 'phone' | 'whatsapp';
   }
 ) => {
-  let transaction;
-  try {
-    if (!sequelize) {
-      throw new AppError('ServerError', 500, 'Database connection not available');
-    }
-
+  return withTransaction(async (transaction) => {
     const { items, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails, shippingAddress, shippingAddressId } = orderData;
 
     if (!items || items.length === 0) {
@@ -90,16 +86,13 @@ export const placeOrderService = async (
       throw new AppError('BadRequest', 400, 'Customer or guest information is required');
     }
 
-    // START TRANSACTION - All validations and data operations inside transaction
-    transaction = await sequelize.transaction();
-
     const orderItems = [];
     const itemsToProcess = [];
 
     // Validate all items WITHIN transaction to prevent race conditions
     for (const item of items) {
       // Fetch product - use transaction to lock the read
-      const product = await findProductById(item.productId);
+      const product = await findProductById(item.productId, transaction);
       if (!product) {
         throw new AppError('NotFound', 404, `Product not found: ${item.productId}`);
       }
@@ -115,7 +108,7 @@ export const placeOrderService = async (
       }
 
       // Check inventory with transaction to prevent race conditions
-      const available = await checkInventoryByProductIdService(item.productId, item.productVariantId, item.quantity);
+      const available = await checkInventoryByProductIdService(item.productId, item.productVariantId, item.quantity, transaction);
       if (!available) {
         throw new AppError('BadRequest', 400, `Insufficient stock for ${(product as any).name}`);
       }
@@ -160,10 +153,10 @@ export const placeOrderService = async (
       let existingCustomer = null;
       
       if (guestEmail) {
-        existingCustomer = await findCustomerByEmail(guestEmail);
+        existingCustomer = await findCustomerByEmail(guestEmail, transaction);
       }
       if (!existingCustomer && guestPhone) {
-        existingCustomer = await findCustomerByPhone(guestPhone);
+        existingCustomer = await findCustomerByPhone(guestPhone, transaction);
       }
 
       if (existingCustomer) {
@@ -180,6 +173,8 @@ export const placeOrderService = async (
           guestEmail,
           guestPhone,
           guestWhatsapp,
+          undefined,
+          transaction,
         );
         logger.info('New guest customer created', {
           customerId: finalCustomerId,
@@ -211,7 +206,8 @@ export const placeOrderService = async (
             state: shippingAddress.state,
             postalCode: shippingAddress.postalCode.toString(),
             country: shippingAddress.country,
-          }
+          },
+          transaction
         );
 
         finalShippingAddressId = shippingAddressRecord.id;
@@ -296,9 +292,6 @@ export const placeOrderService = async (
       await reserveStockByProductIdService(itemData.productId, itemData?.productVariantId, itemData.quantity, transaction);
     }
 
-    // Commit transaction only after all operations succeed
-    await transaction.commit();
-
     return {
       id: orderId,
       orderNumber: (order as any).orderNumber,
@@ -306,20 +299,11 @@ export const placeOrderService = async (
       finalAmount,
       message: 'Order placed successfully. Awaiting payment confirmation.',
     };
-  } catch (error) {
-    // Always rollback on error
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        logger.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    throw error;
-  }
+  });
 };
 
 export const confirmPaymentService = async (orderId: string) => {
-  const transaction = await sequelize.transaction();
-  try {
+  return withTransaction(async (transaction) => {
     const order = await findOrderById(orderId);
     if (!order) {
       throw new AppError('NotFound', 404, 'Order not found');
@@ -344,18 +328,13 @@ export const confirmPaymentService = async (orderId: string) => {
       await confirmOrderService((item as any).productId, item?.productVariantId, (item as any).quantity, transaction);
     }
 
-    await transaction.commit();
     logger.info('Payment confirmed', { orderId });
     return {
       id: (order as any).id,
       status: 'CONFIRMED',
       message: 'Payment confirmed. Order forwarded to sellers.',
     };
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error confirming payment', { orderId, error });
-    throw error;
-  }
+  });
 };
 
 export const getCustomerOrdersService = async (customerId: string, filters: any, customerEmail?: string) => {
@@ -393,8 +372,7 @@ export const getCustomerOrderService = async (customerId: string, orderId: strin
 
 
 export const cancelOrderService = async (orderId: string, reason: string) => {
-  const transaction = await sequelize.transaction();
-  try {
+  return withTransaction(async (transaction) => {
     const order = await findOrderById(orderId);
     if (!order) {
       throw new AppError('NotFound', 404, 'Order not found');
@@ -413,14 +391,9 @@ export const cancelOrderService = async (orderId: string, reason: string) => {
 
     await updateOrderStatus(orderId, 'CANCELLED', transaction);
 
-    await transaction.commit();
     logger.info('Order cancelled', { orderId, reason });
     return { id: orderId, status: 'CANCELLED' };
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error cancelling order', { orderId, reason, error });
-    throw error;
-  }
+  });
 };
 
 export const getSellerOrdersService = async (sellerId: string, filters: any) => {
@@ -433,10 +406,8 @@ export const updateItemStatusService = async (
   newStatus: string,
   updateData?: any
 ) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const items = await findOrderItems('');
-    const item = (items as any)?.find((i: any) => i.id === itemId);
+  return withTransaction(async (transaction) => {
+    const item = await findOrderItemById(itemId, transaction);
 
     if (!item) {
       throw new AppError('NotFound', 404, 'Order item not found');
@@ -460,22 +431,20 @@ export const updateItemStatusService = async (
     }
 
     const updateObj: any = { status: newStatus };
-    if (newStatus === 'SHIPPED') {
-      updateObj.shippedAt = new Date();
-      if (updateData?.trackerNumber) {
-        updateObj.trackerNumber = updateData.trackerNumber;
-      }
-    } else if (newStatus === 'DELIVERED') {
-      updateObj.deliveredAt = new Date();
+    switch (newStatus) {
+      case 'SHIPPED':
+        updateObj.shippedAt = new Date();
+        if (updateData?.trackerNumber) {
+          updateObj.trackerNumber = updateData.trackerNumber;
+        }
+        break;
+      case 'DELIVERED':
+        updateObj.deliveredAt = new Date();
+        break;
     }
 
     const result = await updateOrderItem(itemId, updateObj, transaction);
-    await transaction.commit();
     logger.info('Order item status updated', { itemId, sellerId, newStatus });
     return result;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error updating order item status', { itemId, sellerId, newStatus, error });
-    throw error;
-  }
+  });
 };

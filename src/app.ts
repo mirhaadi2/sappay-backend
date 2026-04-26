@@ -5,7 +5,7 @@ import session from "express-session";
 import cookieParser from "cookie-parser";
 import { config } from "./config";
 import { getSessionOptionsForPortal } from "./config/session";
-import { Portal, portalConfigs } from "./config/portal-config";
+import { Portal, portalConfigs, getPortalFromPath } from "./config/portal-config";
 import authRoutes from "./modules/website/auth/routes";
 import customerRoutes from "./modules/website/customers/routes";
 import addressRoutes from "./modules/website/address/routes";
@@ -46,59 +46,14 @@ const websiteSession = session(getSessionOptionsForPortal(Portal.WEBSITE));
 const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
-const portalRoutePatterns: Array<{ portal: Portal; patterns: string[] }> = [
-  {
-    portal: Portal.ADMIN,
-    patterns: ['/api/staff', '/staff', '/api/admin', '/admin'],
-  },
-  {
-    portal: Portal.SELLER,
-    patterns: ['/api/sellers', '/sellers', '/api/products/seller'],
-  },
-  {
-    portal: Portal.WEBSITE,
-    patterns: [
-      '/api/auth',
-      '/api/customers',
-      '/api/addresses',
-      '/api/products',
-      '/api/homepage',
-      '/api/orders',
-      '/api/notifications',
-      '/api/bulk-orders',
-      '/api/reviews',
-    ],
-  },
-];
-
-const determinePortalFromPath = (effectivePath: string, cookieHeader: string): Portal => {
-  const lowerPath = effectivePath.toLowerCase();
-  const lowerCookie = cookieHeader.toLowerCase();
-
-  for (const route of portalRoutePatterns) {
-    if (route.patterns.some((pattern) => lowerPath.includes(pattern))) {
-      return route.portal;
-    }
-  }
-
-  if (lowerCookie.includes(portalConfigs[Portal.SELLER].cookieName.toLowerCase())) {
-    return Portal.SELLER;
-  }
-
-  if (lowerCookie.includes(portalConfigs[Portal.ADMIN].cookieName.toLowerCase())) {
-    return Portal.ADMIN;
-  }
-
-  return Portal.WEBSITE;
-};
 
 // Universal session middleware for all portals
 app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
-  const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toLowerCase();
+  const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toString();
   const cookieHeader = (req.cookies || req.headers.cookie || '').toString();
 
-  const portal = determinePortalFromPath(effectivePath, cookieHeader);
+  const portal = getPortalFromPath(effectivePath, cookieHeader);
 
   // Use the appropriate session middleware instance
   const sessionMiddleware =

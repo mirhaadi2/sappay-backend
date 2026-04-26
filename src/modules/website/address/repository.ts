@@ -1,6 +1,5 @@
 import { Address, AddressType } from "../../admin/address/model";
-import { Op } from "sequelize";
-import { sequelize } from "../../../db/sequelize";
+import { Op, Transaction } from "sequelize";
 import logger from "../../../utils/logger";
 
 export const create = async (addressData: {
@@ -15,29 +14,22 @@ export const create = async (addressData: {
   country: string;
   phone: string;
   isDefault?: boolean;
-}) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const address = await Address.create(
-      {
-        ...addressData,
-        isDefault: addressData.isDefault || false,
-      },
-      { transaction }
-    );
-    await transaction.commit();
-    logger.info('Address created', { addressId: address.id, customerId: addressData.customerId });
-    return address;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error creating address', { customerId: addressData.customerId, error });
-    throw error;
-  }
+}, transaction?: Transaction) => {
+  const address = await Address.create(
+    {
+      ...addressData,
+      isDefault: addressData.isDefault || false,
+    },
+    { transaction }
+  );
+  logger.info('Address created', { addressId: address.id, customerId: addressData.customerId });
+  return address;
 };
 
-export const findByIdAndCustomerId = async (id: string, customerId: string) => {
+export const findByIdAndCustomerId = async (id: string, customerId: string, transaction?: Transaction) => {
   return await Address.findOne({
     where: { id, customerId },
+    transaction,
   });
 };
 
@@ -67,81 +59,50 @@ export const update = async (
     postalCode: string;
     country: string;
     phone: string;
-  }>
+  }>,
+  transaction?: Transaction
 ) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const address = await findByIdAndCustomerId(id, customerId);
-    if (!address) return null;
+  const address = await findByIdAndCustomerId(id, customerId, transaction);
+  if (!address) return null;
 
-    const updated = await address.update(addressData, { transaction });
-    await transaction.commit();
-    logger.info('Address updated', { addressId: id, customerId });
-    return updated;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error updating address', { addressId: id, customerId, error });
-    throw error;
-  }
+  const updated = await address.update(addressData, { transaction });
+  logger.info('Address updated', { addressId: id, customerId });
+  return updated;
 };
 
-export const deleteAddress = async (id: string, customerId: string) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const address = await findByIdAndCustomerId(id, customerId);
-    if (!address) return false;
+export const deleteAddress = async (id: string, customerId: string, transaction?: Transaction) => {
+  const address = await findByIdAndCustomerId(id, customerId, transaction);
+  if (!address) return false;
 
-    await address.destroy({ transaction });
-    await transaction.commit();
-    logger.info('Address deleted', { addressId: id, customerId });
-    return true;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error deleting address', { addressId: id, customerId, error });
-    throw error;
-  }
+  await address.destroy({ transaction });
+  logger.info('Address deleted', { addressId: id, customerId });
+  return true;
 };
 
-export const setAsDefault = async (id: string, customerId: string) => {
-  const transaction = await sequelize.transaction();
-  try {
-    await Address.update(
-      { isDefault: false },
-      {
-        where: { customerId, isDefault: true },
-        transaction
-      }
-    );
-
-    const address = await findByIdAndCustomerId(id, customerId);
-    if (!address) return null;
-
-    const updated = await address.update({ isDefault: true }, { transaction });
-    await transaction.commit();
-    logger.info('Address set as default', { addressId: id, customerId });
-    return updated;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error setting address as default', { addressId: id, customerId, error });
-    throw error;
-  }
-};
-
-export const deleteAllByCustomerId = async (customerId: string) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const result = await Address.destroy({
-      where: { customerId },
+export const setAsDefault = async (id: string, customerId: string, transaction?: Transaction) => {
+  await Address.update(
+    { isDefault: false },
+    {
+      where: { customerId, isDefault: true },
       transaction
-    });
-    await transaction.commit();
-    logger.info('All addresses deleted for user', { customerId, count: result });
-    return result;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error deleting all addresses', { customerId, error });
-    throw error;
-  }
+    }
+  );
+
+  const address = await findByIdAndCustomerId(id, customerId, transaction);
+  if (!address) return null;
+
+  const updated = await address.update({ isDefault: true }, { transaction });
+  logger.info('Address set as default', { addressId: id, customerId });
+  return updated;
+};
+
+export const deleteAllByCustomerId = async (customerId: string, transaction?: Transaction) => {
+  const result = await Address.destroy({
+    where: { customerId },
+    transaction
+  });
+  logger.info('All addresses deleted for user', { customerId, count: result });
+  return result;
 };
 
 export const countByCustomerId = async (customerId: string) => {

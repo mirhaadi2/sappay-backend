@@ -4,13 +4,12 @@
  */
 
 import { Staff } from './models';
-import { sequelize } from '../../db/sequelize';
 import { Op } from 'sequelize';
 import bcrypt from 'bcrypt';
 import { StaffCreateDTO, StaffUpdateDTO, StaffListFilters, StaffListResult } from './types';
-import { AuditLog } from '../admin/models';
 import { validateCreateStaff, validateUpdateStaff, validateUUID } from '../shared/validators';
 import logger from '../../utils/logger';
+import { withTransaction } from '../../utils/transaction';
 
 /**
  * Get all staff with pagination and filters
@@ -96,14 +95,13 @@ const createStaff = async (data: StaffCreateDTO): Promise<Staff> => {
         throw new Error('VALIDATION_ERROR');
     }
 
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         // Normalize email to lowercase
         const normalizedEmail = data.email.toLowerCase().trim();
         
         const existingStaff = await Staff.findOne({
             where: { email: normalizedEmail },
+            transaction,
         });
 
         if (existingStaff) {
@@ -112,7 +110,7 @@ const createStaff = async (data: StaffCreateDTO): Promise<Staff> => {
 
         // Validate manager exists if provided
         if (data.manager_id) {
-            const manager = await Staff.findByPk(data.manager_id);
+            const manager = await Staff.findByPk(data.manager_id, { transaction });
             if (!manager) throw new Error('INVALID_MANAGER_ID');
             // Prevent circular reference
             if (data.manager_id === data.manager_id) throw new Error('CIRCULAR_REFERENCE');
@@ -134,17 +132,12 @@ const createStaff = async (data: StaffCreateDTO): Promise<Staff> => {
             { transaction }
         );
 
-        await transaction.commit();
         logger.info('Staff member created', { staffId: staff.id, email: normalizedEmail });
 
         const result = staff.toJSON();
         delete (result as any).password;
         return result as Staff;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating staff', { email: data.email, error });
-        throw error;
-    }
+    });
 };
 
 /**
@@ -164,9 +157,7 @@ const updateStaff = async (staffId: string, data: StaffUpdateDTO): Promise<Staff
         throw new Error('VALIDATION_ERROR');
     }
     
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const staff = await Staff.findByPk(staffId, { transaction });
 
         if (!staff) {
@@ -178,6 +169,7 @@ const updateStaff = async (staffId: string, data: StaffUpdateDTO): Promise<Staff
             if (normalizedEmail !== staff.email) {
                 const existingStaff = await Staff.findOne({
                     where: { email: normalizedEmail },
+                    transaction,
                 });
                 if (existingStaff) throw new Error('EMAIL_ALREADY_EXISTS');
             }
@@ -186,7 +178,7 @@ const updateStaff = async (staffId: string, data: StaffUpdateDTO): Promise<Staff
         
         // Validate manager if being updated
         if (data.manager_id && data.manager_id !== staff.manager_id) {
-            const manager = await Staff.findByPk(data.manager_id);
+            const manager = await Staff.findByPk(data.manager_id, { transaction });
             if (!manager) throw new Error('INVALID_MANAGER_ID');
             // Prevent self-assignment
             if (data.manager_id === staffId) throw new Error('CANNOT_BE_OWN_MANAGER');
@@ -199,18 +191,13 @@ const updateStaff = async (staffId: string, data: StaffUpdateDTO): Promise<Staff
         if (data.hire_date !== undefined) staff.hire_date = data.hire_date;
 
         await staff.save({ transaction });
-        await transaction.commit();
         
         logger.info('Staff updated', { staffId });
 
         const result = staff.toJSON();
         delete (result as any).password;
         return result as Staff;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating staff', { staffId, error });
-        throw error;
-    }
+    });
 };
 
 /**
@@ -222,9 +209,7 @@ const suspendStaff = async (staffId: string): Promise<Staff> => {
         throw new Error('INVALID_UUID');
     }
     
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const staff = await Staff.findByPk(staffId, { transaction });
 
         if (!staff) {
@@ -237,18 +222,13 @@ const suspendStaff = async (staffId: string): Promise<Staff> => {
 
         staff.status = 'suspended';
         await staff.save({ transaction });
-        await transaction.commit();
         
         logger.warn('Staff suspended', { staffId, email: staff.email });
 
         const result = staff.toJSON();
         delete (result as any).password;
         return result as Staff;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error suspending staff', { staffId, error });
-        throw error;
-    }
+    });
 };
 
 /**
@@ -260,9 +240,7 @@ const activateStaff = async (staffId: string): Promise<Staff> => {
         throw new Error('INVALID_UUID');
     }
     
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const staff = await Staff.findByPk(staffId, { transaction });
 
         if (!staff) {
@@ -275,18 +253,13 @@ const activateStaff = async (staffId: string): Promise<Staff> => {
 
         staff.status = 'active';
         await staff.save({ transaction });
-        await transaction.commit();
         
         logger.info('Staff activated', { staffId, email: staff.email });
 
         const result = staff.toJSON();
         delete (result as any).password;
         return result as Staff;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error activating staff', { staffId, error });
-        throw error;
-    }
+    });
 };
 
 /**
@@ -298,9 +271,7 @@ const deleteStaff = async (staffId: string): Promise<void> => {
         throw new Error('INVALID_UUID');
     }
     
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const staff = await Staff.findByPk(staffId, { transaction });
 
         if (!staff) {
@@ -308,14 +279,9 @@ const deleteStaff = async (staffId: string): Promise<void> => {
         }
 
         await staff.destroy({ transaction });
-        await transaction.commit();
         
         logger.warn('Staff deleted', { staffId, email: staff.email });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting staff', { staffId, error });
-        throw error;
-    }
+    });
 };
 
 /**

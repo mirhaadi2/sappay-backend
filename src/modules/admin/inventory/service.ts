@@ -3,6 +3,7 @@ import { QueryTypes, Transaction } from 'sequelize';
 import { Inventory } from '../../sellers/inventory/model';
 import { AppError } from '../../../utils/AppError';
 import logger from '../../../utils/logger';
+import { withTransaction } from '../../../utils/transaction';
 import {
     AdminInventoryItem,
     AdminInventoryUpdateInput,
@@ -168,9 +169,7 @@ export const adminGetProductInventory = async (productId: string) => {
 };
 
 export const adminUpdateInventory = async (inventoryId: string, updates: AdminInventoryUpdateInput) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const inventory = await Inventory.findByPk(inventoryId, { transaction });
         if (!inventory) {
             throw new AppError('NotFound', 404, 'Inventory not found');
@@ -215,8 +214,6 @@ export const adminUpdateInventory = async (inventoryId: string, updates: AdminIn
             }, { transaction });
         }
 
-        await transaction.commit();
-
         logger.info('Inventory updated by admin', {
             inventoryId,
             updates: updateData,
@@ -224,20 +221,14 @@ export const adminUpdateInventory = async (inventoryId: string, updates: AdminIn
         });
 
         return await Inventory.findByPk(inventoryId);
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating inventory', { error, inventoryId, updates });
-        throw error instanceof AppError ? error : new AppError('InternalServerError', 500, 'Failed to update inventory');
-    }
+    });
 };
 
 /**
  * Add stock to inventory
  */
 export const adminAddStock = async (inventoryId: string, input: AdminAddStockInput) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const inventory = await Inventory.findByPk(inventoryId, { transaction });
         if (!inventory) {
             throw new AppError('NotFound', 404, 'Inventory not found');
@@ -271,25 +262,17 @@ export const adminAddStock = async (inventoryId: string, input: AdminAddStockInp
             notes: notes || `Admin added ${quantity} units`,
         }, { transaction });
 
-        await transaction.commit();
-
         logger.info('Stock added by admin', { inventoryId, quantity, notes });
 
         return await Inventory.findByPk(inventoryId);
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error adding stock', { error, inventoryId, input });
-        throw error instanceof AppError ? error : new AppError('InternalServerError', 500, 'Failed to add stock');
-    }
+    });
 };
 
 /**
  * Remove stock from inventory
  */
 export const adminRemoveStock = async (inventoryId: string, input: AdminRemoveStockInput) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const inventory = await Inventory.findByPk(inventoryId, { transaction });
         if (!inventory) {
             throw new AppError('NotFound', 404, 'Inventory not found');
@@ -327,16 +310,10 @@ export const adminRemoveStock = async (inventoryId: string, input: AdminRemoveSt
             notes: notes || `Admin removed ${quantity} units: ${reason}`,
         }, { transaction });
 
-        await transaction.commit();
-
         logger.info('Stock removed by admin', { inventoryId, quantity, reason, notes });
 
         return await Inventory.findByPk(inventoryId);
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error removing stock', { error, inventoryId, input });
-        throw error instanceof AppError ? error : new AppError('InternalServerError', 500, 'Failed to remove stock');
-    }
+    });
 };
 
 export const adminGetInventoryHistory = async (page: number = 1, limit: number = 20, filters: {

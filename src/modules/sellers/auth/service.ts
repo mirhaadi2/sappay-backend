@@ -4,6 +4,7 @@
  */
 
 import { comparePassword, hashPassword } from '../../../utils/password';
+import { withTransaction } from '../../../utils/transaction';
 import { AppError } from '../../../utils/AppError';
 import { sendWelcomeEmail, sendOtpToEmail } from '../../../utils/sendEmail';
 import { SellerStatus } from '../model';
@@ -34,121 +35,125 @@ export const completeSellerRegistration = async (
   otp: string, 
   data: SellerRegisterCredentials
 ) => {
-  const {
-    password,
-    businessName,
-    businessRegistrationNo,
-    businessType,
-    businessIdType,
-    gstNumber,
-    businessAddress,
-    businessPhone,
-    ownerName,
-    ownerEmail,
-    bankAccountName,
-    bankAccountNumber,
-    bankIfscCode,
-  } = data;
+  return withTransaction(async (transaction) => {
+    const {
+      password,
+      businessName,
+      businessRegistrationNo,
+      businessType,
+      businessIdType,
+      gstNumber,
+      businessAddress,
+      businessPhone,
+      ownerName,
+      ownerEmail,
+      bankAccountName,
+      bankAccountNumber,
+      bankIfscCode,
+    } = data;
 
-  // Verify OTP
-  try {
-    await verifySellerOtp(email, 'email', otp, OtpType.REGISTRATION);
-  } catch (err: any) {
-    throw new AppError('ValidationError', 400, err.message || 'Invalid or expired OTP');
-  }
+    // Verify OTP
+    try {
+      await verifySellerOtp(email, 'email', otp, OtpType.REGISTRATION);
+    } catch (err: any) {
+      throw new AppError('ValidationError', 400, err.message || 'Invalid or expired OTP');
+    }
 
-  // Double-check seller doesn't exist
-  const existingSeller = await findByEmail(ownerEmail);
-  if (existingSeller) {
-    throw new AppError('Conflict', 409, 'Seller with this email already exists');
-  }
+    // Double-check seller doesn't exist
+    const existingSeller = await findByEmail(ownerEmail);
+    if (existingSeller) {
+      throw new AppError('Conflict', 409, 'Seller with this email already exists');
+    }
 
-  // Hash password
-  const hashedPassword = await hashPassword(password);
+    // Hash password
+    const hashedPassword = await hashPassword(password);
 
-  // Create seller
-  const seller = await create({
-    ownerEmail,
-    ownerName,
-    businessName,
-    businessRegistrationNo,
-    businessType,
-    businessIdType,
-    gstNumber,
-    businessAddress,
-    businessPhone,
-    bankAccountName,
-    bankAccountNumber,
-    bankIfscCode,
-    password: hashedPassword,
-    status: 'PENDING' as SellerStatus,
+    // Create seller
+    const seller = await create({
+      ownerEmail,
+      ownerName,
+      businessName,
+      businessRegistrationNo,
+      businessType,
+      businessIdType,
+      gstNumber,
+      businessAddress,
+      businessPhone,
+      bankAccountName,
+      bankAccountNumber,
+      bankIfscCode,
+      password: hashedPassword,
+      status: 'PENDING' as SellerStatus,
+    }, transaction);
+
+    // Send welcome email (async, don't wait)
+    // sendWelcomeEmail(ownerEmail, ownerName).catch(err =>
+    //   console.error('Failed to send welcome email:', err)
+    // );
+
+    return {
+      id: seller.id,
+      status: seller.status,
+      ownerEmail: seller.ownerEmail,
+      ownerName: seller.ownerName,
+      businessName: seller.businessName,
+      message: 'Registration successful! Your account is under review. Please wait for admin approval.',
+    };
   });
-
-  // Send welcome email (async, don't wait)
-  // sendWelcomeEmail(ownerEmail, ownerName).catch(err =>
-  //   console.error('Failed to send welcome email:', err)
-  // );
-
-  return {
-    id: seller.id,
-    status: seller.status,
-    ownerEmail: seller.ownerEmail,
-    ownerName: seller.ownerName,
-    businessName: seller.businessName,
-    message: 'Registration successful! Your account is under review. Please wait for admin approval.',
-  };
 };
 
 export const registerSellerService = async (data: SellerRegisterCredentials) => {
-  const {
-    password,
-    businessName,
-    businessRegistrationNo,
-    businessType,
-    businessIdType,
-    gstNumber,
-    businessAddress,
-    businessPhone,
-    ownerName,
-    ownerEmail,
-    bankAccountName,
-    bankAccountNumber,
-    bankIfscCode,
-  } = data;
+  return withTransaction(async (transaction) => {
+    const {
+      password,
+      businessName,
+      businessRegistrationNo,
+      businessType,
+      businessIdType,
+      gstNumber,
+      businessAddress,
+      businessPhone,
+      ownerName,
+      ownerEmail,
+      bankAccountName,
+      bankAccountNumber,
+      bankIfscCode,
+    } = data;
 
-  // Check if seller already exists
-  const existingSeller = await findByEmail(ownerEmail);
-  if (existingSeller) {
-    throw new AppError('Conflict', 409, 'Seller with this email already exists');
-  }
+    // Check if seller already exists
+    const existingSeller = await findByEmail(ownerEmail);
+    if (existingSeller) {
+      throw new AppError('Conflict', 409, 'Seller with this email already exists');
+    }
 
-  // Hash password
-  const hashedPassword = await hashPassword(password);
+    // Hash password
+    const hashedPassword = await hashPassword(password);
 
-  // Create seller
-  const seller = await create({
-    ownerEmail,
-    ownerName,
-    businessName,
-    businessRegistrationNo,
-    businessType,
-    businessIdType,
-    gstNumber,
-    businessAddress,
-    businessPhone,
-    bankAccountName,
-    bankAccountNumber,
-    bankIfscCode,
-    password: hashedPassword,
-    status: 'PENDING' as SellerStatus,
+    // Create seller
+    const seller = await create({
+      ownerEmail,
+      ownerName,
+      businessName,
+      businessRegistrationNo,
+      businessType,
+      businessIdType,
+      gstNumber,
+      businessAddress,
+      businessPhone,
+      bankAccountName,
+      bankAccountNumber,
+      bankIfscCode,
+      password: hashedPassword,
+      status: 'PENDING' as SellerStatus,
+    }, transaction);
+
+    // Send welcome email (async, don't wait)
+    // sendWelcomeEmail(ownerEmail, ownerName).catch(err =>
+    //   console.error('Failed to send welcome email:', err)
+    // );
+
+    return seller;
   });
-
-  // Send welcome email (async, don't wait)
-  // sendWelcomeEmail(ownerEmail, ownerName).catch(err =>
-  //   console.error('Failed to send welcome email:', err)
-  // );
-
-  return seller;
 };
 
 export const loginSellerService = async (email: string, password: string) => {

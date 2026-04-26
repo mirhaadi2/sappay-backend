@@ -45,6 +45,52 @@ export const portalConfigs: Record<Portal, PortalConfig> = {
   },
 };
 
+export const portalRoutePatterns: Array<{ portal: Portal; patterns: string[] }> = [
+  {
+    portal: Portal.ADMIN,
+    patterns: ['/api/staff', '/staff', '/api/admin', '/admin'],
+  },
+  {
+    portal: Portal.SELLER,
+    patterns: ['/api/sellers', '/sellers', '/api/products/seller'],
+  },
+  {
+    portal: Portal.WEBSITE,
+    patterns: [
+      '/api/auth',
+      '/api/customers',
+      '/api/addresses',
+      '/api/products',
+      '/api/homepage',
+      '/api/orders',
+      '/api/notifications',
+      '/api/bulk-orders',
+      '/api/reviews',
+    ],
+  },
+];
+
+export const getPortalFromPath = (effectivePath: string, cookieHeader: string): Portal => {
+  const lowerPath = effectivePath.toLowerCase();
+  const lowerCookie = cookieHeader.toLowerCase();
+
+  for (const route of portalRoutePatterns) {
+    if (route.patterns.some((pattern) => lowerPath.includes(pattern))) {
+      return route.portal;
+    }
+  }
+
+  if (lowerCookie.includes(portalConfigs[Portal.SELLER].cookieName.toLowerCase())) {
+    return Portal.SELLER;
+  }
+
+  if (lowerCookie.includes(portalConfigs[Portal.ADMIN].cookieName.toLowerCase())) {
+    return Portal.ADMIN;
+  }
+
+  return Portal.WEBSITE;
+};
+
 export const getPortalFromRole = (role: string): Portal => {
   switch (role.toUpperCase()) {
     case 'USER':

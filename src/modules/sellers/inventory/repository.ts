@@ -11,18 +11,10 @@ export const findInventoryByProductId = async (productId: string, transaction?: 
   return await Inventory.findOne({ where: { productId }, ...(transaction ? { transaction } : {}) });
 };
 
-export const createInventory = async (data: any) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const inventory = await Inventory.create(data, { transaction });
-    await transaction.commit();
-    logger.info('Inventory created', { inventoryId: inventory.id });
-    return inventory;
-  } catch (error) {
-    await transaction.rollback();
-    logger.error('Error creating inventory', { error });
-    throw error;
-  }
+export const createInventory = async (data: any, transaction?: any) => {
+  const inventory = await Inventory.create(data, { transaction });
+  logger.info('Inventory created', { inventoryId: inventory.id });
+  return inventory;
 };
 
 export const findBySellerProductId = async (sellerProductId: string) => {

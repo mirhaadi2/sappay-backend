@@ -20,6 +20,7 @@ import {
 } from './repository';
 import { generateSku, normalizeSku } from '../../../utils/sku';
 import { sequelize } from '../../../db/sequelize';
+import { withTransaction } from '../../../utils/transaction';
 
 const calculateDiscountedPercent = (
   price: number | undefined,
@@ -36,74 +37,76 @@ import { AppError } from '../../../utils/AppError';
 export { invalidateProductsCache, invalidateCategoriesCache } from './repository';
 
 export const createProductService = async (data: any) => {
-  const { name, slug, categoryId, stock = 0 } = data;
+  return withTransaction(async (transaction) => {
+    const { name, slug, categoryId, stock = 0 } = data;
 
-  if (!name || !slug || !categoryId) {
-    throw new AppError('BadRequest', 400, 'Missing required fields');
-  }
+    if (!name || !slug || !categoryId) {
+      throw new AppError('BadRequest', 400, 'Missing required fields');
+    }
 
-  const category = await findCategoryById(categoryId);
-  if (!category) {
-    throw new AppError('NotFound', 404, 'Category not found');
-  }
+    const category = await findCategoryById(categoryId);
+    if (!category) {
+      throw new AppError('NotFound', 404, 'Category not found');
+    }
 
-  const existingProduct = await findProductBySlug(slug);
-  if (existingProduct) {
-    throw new AppError('BadRequest', 400, 'Product slug already exists');
-  }
-
-  // Remove price/discount fields from main product since they're now handled by variants
-  delete data.price;
-  delete data.discountedPrice;
-  delete data.discountedPercent;
-  delete data.weight;
-  delete data.stock;
-
-  // SKU handling - generate SKU for main product
-  if (data.sku) {
-    data.sku = normalizeSku(String(data.sku));
-    const existingProduct = await findProductBySku(data.sku);
+    const existingProduct = await findProductBySlug(slug);
     if (existingProduct) {
-      throw new AppError('BadRequest', 400, 'Product SKU already exists');
+      throw new AppError('BadRequest', 400, 'Product slug already exists');
     }
-    const existingVariant = await findProductVariantBySku(data.sku);
-    if (existingVariant) {
-      throw new AppError('BadRequest', 400, 'SKU conflicts with existing variant');
-    }
-  } else {
-    let attempt = 0;
-    do {
-      data.sku = generateSku(data.name);
+
+    // Remove price/discount fields from main product since they're now handled by variants
+    delete data.price;
+    delete data.discountedPrice;
+    delete data.discountedPercent;
+    delete data.weight;
+    delete data.stock;
+
+    // SKU handling - generate SKU for main product
+    if (data.sku) {
+      data.sku = normalizeSku(String(data.sku));
       const existingProduct = await findProductBySku(data.sku);
+      if (existingProduct) {
+        throw new AppError('BadRequest', 400, 'Product SKU already exists');
+      }
       const existingVariant = await findProductVariantBySku(data.sku);
-      if (!existingProduct && !existingVariant) break;
-      attempt += 1;
-    } while (attempt < 10);
+      if (existingVariant) {
+        throw new AppError('BadRequest', 400, 'SKU conflicts with existing variant');
+      }
+    } else {
+      let attempt = 0;
+      do {
+        data.sku = generateSku(data.name);
+        const existingProduct = await findProductBySku(data.sku);
+        const existingVariant = await findProductVariantBySku(data.sku);
+        if (!existingProduct && !existingVariant) break;
+        attempt += 1;
+      } while (attempt < 10);
 
-    if (!data.sku) {
-      throw new AppError('Conflict', 409, 'Could not generate unique SKU');
+      if (!data.sku) {
+        throw new AppError('Conflict', 409, 'Could not generate unique SKU');
+      }
     }
-  }
 
-  const variants = Array.isArray(data.variants) ? data.variants : [];
-  delete data.variants;
+    const variants = Array.isArray(data.variants) ? data.variants : [];
+    delete data.variants;
 
-  const product = await createProduct(data);
+    const product = await createProduct(data, transaction);
 
-  if (variants.length > 0) {
-    const finalVariants = await generateProductVariantsWithSku(data.name, variants);
-    await createProductVariants(product.id, finalVariants);
-  }
+    if (variants.length > 0) {
+      const finalVariants = await generateProductVariantsWithSku(data.name, variants);
+      await createProductVariants(product.id, finalVariants, transaction);
+    }
 
-  // Initialize stock for admin-created products
-  if (stock && parseInt(stock) > 0) {
-    await initializeAdminProductStockService(product.id, parseInt(stock), data?.addedBy);
-  }
+    // Initialize stock for admin-created products
+    if (stock && parseInt(stock) > 0) {
+      await initializeAdminProductStockService(product.id, parseInt(stock), data?.addedBy, transaction);
+    }
 
-  // Invalidate product list cache for consistent reads across categories/flows
-  await invalidateProductsCache();
+    // Invalidate product list cache for consistent reads across categories/flows
+    await invalidateProductsCache();
 
-  return product;
+    return product;
+  });
 };
 
 export const generateProductVariantsWithSku = async (

@@ -11,7 +11,8 @@ export const findExistingCustomerAddress = async (
     city: string,
     state: string,
     postalCode: string,
-    country: string
+    country: string,
+    transaction?: any
 ): Promise<Address | null> => {
     return Address.findOne({
         where: {
@@ -22,28 +23,31 @@ export const findExistingCustomerAddress = async (
             postalCode: postalCode.toString(),
             country,
         },
+        transaction,
     });
 };
 
 /**
  * Find default shipping address for customer
  */
-export const findCustomerDefaultAddress = async (customerId: string): Promise<Address | null> => {
+export const findCustomerDefaultAddress = async (customerId: string, transaction?: any): Promise<Address | null> => {
     return Address.findOne({
         where: {
             customerId,
             isDefault: true,
         },
+        transaction,
     });
 };
 
 /**
  * Find all shipping addresses for customer
  */
-export const findCustomerAddresses = async (customerId: string): Promise<Address[]> => {
+export const findCustomerAddresses = async (customerId: string, transaction?: any): Promise<Address[]> => {
     return Address.findAll({
         where: { customerId },
         order: [['isDefault', 'DESC'], ['createdAt', 'DESC']],
+        transaction,
     });
 };
 
@@ -63,11 +67,13 @@ export const createCustomerAddress = async (
         country: string;
         type?: AddressType;
         isDefault?: boolean;
-    }
+    },
+    transaction?: any
 ): Promise<Address> => {
     // If this is the first address, make it default
     const existingCount = await Address.count({
         where: { customerId },
+        transaction,
     });
 
     const isDefault = addressData.isDefault ?? (existingCount === 0);
@@ -81,6 +87,7 @@ export const createCustomerAddress = async (
                     customerId,
                     isDefault: true,
                 },
+                transaction,
             }
         );
     }
@@ -97,7 +104,7 @@ export const createCustomerAddress = async (
         country: addressData.country,
         type: addressData.type || AddressType.HOME,
         isDefault,
-    });
+    }, { transaction });
 
     return address;
 };
@@ -117,7 +124,8 @@ export const findOrCreateCustomerAddress = async (
         state: string;
         postalCode: string;
         country: string;
-    }
+    },
+    transaction?: any
 ): Promise<Address> => {
     // Try to find existing address
     const existing = await findExistingCustomerAddress(
@@ -126,7 +134,8 @@ export const findOrCreateCustomerAddress = async (
         addressData.city,
         addressData.state,
         addressData.postalCode,
-        addressData.country
+        addressData.country,
+        transaction
     );
 
     if (existing) {
@@ -134,7 +143,7 @@ export const findOrCreateCustomerAddress = async (
     }
 
     // Create new address
-    return createCustomerAddress(customerId, addressData);
+    return createCustomerAddress(customerId, addressData, transaction);
 };
 
 /**
@@ -153,13 +162,15 @@ export const updateCustomerAddress = async (
         postalCode: string;
         country: string;
         isDefault: boolean;
-    }>
+    }>,
+    transaction?: any
 ): Promise<Address> => {
     const address = await Address.findOne({
         where: {
             id: addressId,
             customerId,
         },
+        transaction,
     });
 
     if (!address) {
@@ -175,10 +186,11 @@ export const updateCustomerAddress = async (
                     customerId,
                     isDefault: true,
                 },
+                transaction,
             }
         );
     }
 
-    await address.update(addressData);
+    await address.update(addressData, { transaction });
     return address;
 };

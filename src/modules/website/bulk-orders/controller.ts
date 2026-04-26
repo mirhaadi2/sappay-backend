@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { sequelize } from '../../../db/sequelize';
 import { sendEmail } from '../../../utils/sendEmail';
 import { config } from '../../../config';
@@ -13,7 +13,7 @@ interface BulkOrderRequest {
     additionalRequirements?: string;
 }
 
-export const submitBulkOrderHandler = async (req: Request, res: Response): Promise<void> => {
+export const submitBulkOrderHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { companyName, contactPerson, phone, email, product, estimatedQuantity, additionalRequirements } = req.body as BulkOrderRequest;
 
@@ -111,14 +111,11 @@ export const submitBulkOrderHandler = async (req: Request, res: Response): Promi
         });
     } catch (error) {
         console.error('Error submitting bulk order:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to submit bulk order. Please try again later.',
-        });
+        next(error);
     }
 };
 
-export const getBulkOrdersHandler = async (req: Request, res: Response): Promise<void> => {
+export const getBulkOrdersHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const query = `
             SELECT id, company_name, contact_person, email, phone, product, estimated_quantity, status, created_at
@@ -131,9 +128,6 @@ export const getBulkOrdersHandler = async (req: Request, res: Response): Promise
         res.json({ success: true, data: result });
     } catch (error) {
         console.error('Error fetching bulk orders:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch bulk orders',
-        });
+        next(error);
     }
 };

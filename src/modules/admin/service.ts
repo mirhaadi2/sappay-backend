@@ -6,6 +6,7 @@
 import { Role, Permission, RolePermission, StaffRole, AuditLog } from './models';
 import { sequelize } from '../../db/sequelize';
 import { Op } from 'sequelize';
+import { withTransaction } from '../../utils/transaction';
 
 /**
  * List roles with pagination and filters
@@ -88,11 +89,10 @@ export const createRole = async (
     },
     actorId: string
 ) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const existing = await Role.findOne({
             where: { code: data.code },
+            transaction,
         });
 
         if (existing) {
@@ -135,12 +135,8 @@ export const createRole = async (
             { transaction }
         );
 
-        await transaction.commit();
         return role;
-    } catch (error) {
-        await transaction.rollback();
-        throw error;
-    }
+    });
 };
 
 /**
@@ -155,9 +151,7 @@ export const updateRole = async (
     },
     actorId: string
 ) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const role = await Role.findByPk(roleId, { transaction });
 
         if (!role) {
@@ -207,21 +201,15 @@ export const updateRole = async (
             { transaction }
         );
 
-        await transaction.commit();
         return role;
-    } catch (error) {
-        await transaction.rollback();
-        throw error;
-    }
+    });
 };
 
 /**
  * Soft delete role (checks if currently assigned first)
  */
 export const deleteRole = async (roleId: string, actorId: string) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const role = await Role.findByPk(roleId, { transaction });
 
         if (!role) {
@@ -261,12 +249,7 @@ export const deleteRole = async (roleId: string, actorId: string) => {
             },
             { transaction }
         );
-
-        await transaction.commit();
-    } catch (error) {
-        await transaction.rollback();
-        throw error;
-    }
+    });
 };
 
 /**
@@ -298,9 +281,7 @@ export const assignRoleToStaff = async (
     actorId: string,
     notes?: string
 ) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const role = await Role.findByPk(roleId, { transaction });
         if (!role) throw new Error(`Role not found with ID: ${roleId}`);
 
@@ -337,21 +318,15 @@ export const assignRoleToStaff = async (
             { transaction }
         );
 
-        await transaction.commit();
         return staffRole;
-    } catch (error) {
-        await transaction.rollback();
-        throw error;
-    }
+    });
 };
 
 /**
  * Revoke (soft deactivate) a role assignment
  */
 export const revokeRoleFromStaff = async (staffRoleId: string, actorId: string) => {
-    const transaction = await sequelize.transaction();
-
-    try {
+    return withTransaction(async (transaction) => {
         const staffRole = await StaffRole.findByPk(staffRoleId, { transaction });
 
         if (!staffRole) throw new Error(`Staff role assignment not found: ${staffRoleId}`);
@@ -371,12 +346,7 @@ export const revokeRoleFromStaff = async (staffRoleId: string, actorId: string) 
             },
             { transaction }
         );
-
-        await transaction.commit();
-    } catch (error) {
-        await transaction.rollback();
-        throw error;
-    }
+    });
 };
 
 /**

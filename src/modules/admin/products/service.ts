@@ -56,6 +56,7 @@ import { SellerProduct } from "./seller-product/model";
 import { Inventory } from "../../sellers/inventory/model";
 import { Seller } from "../../sellers/model";
 import { sequelize } from "../../../db/sequelize";
+import { withTransaction } from "../../../utils/transaction";
 import { QueryTypes } from "sequelize";
 import { AppError } from "../../../utils/AppError";
 
@@ -202,10 +203,7 @@ export const adminUpdateProduct = async (
   id: string,
   data: any,
 ): Promise<any> => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     await requireProductExists(id, "Product");
     const updates = validateUpdateData(data);
 
@@ -235,123 +233,71 @@ export const adminUpdateProduct = async (
       await upsertProductVariants(id, variantUpdateData, transaction);
     }
 
-    await transaction.commit();
     await invalidateProductsCache();
 
     logger.info("Product updated", { productId: id, updates });
     return await adminGetProduct(id);
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        logger.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    handleServiceError(error, "Update product");
-  }
+  });
 };
 
 /**
  * Delete product (soft delete)
  */
 export const adminDeleteProduct = async (id: string): Promise<any> => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     await requireProductExists(id, "Product");
     await softDelete(id, transaction);
     
-    await transaction.commit();
     await invalidateProductsCache();
     
     logger.info("Product deleted", { productId: id });
     return { success: true, message: "Product deleted successfully" };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        logger.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    handleServiceError(error, "Delete product");
-  }
+  });
 };
 
 /**
  * Publish product
  */
 export const adminPublishProduct = async (id: string): Promise<any> => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     await requireProductExists(id, "Product");
     await updateStatus(id, "ACTIVE", transaction);
     
-    await transaction.commit();
     await invalidateProductsCache();
     
     logger.info("Product published", { productId: id });
     return await adminGetProduct(id);
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        logger.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    handleServiceError(error, "Publish product");
-  }
+  });
 };
 
 /**
  * Unpublish product
  */
 export const adminUnpublishProduct = async (id: string): Promise<any> => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     await requireProductExists(id, "Product");
     await updateStatus(id, "INACTIVE", transaction);
     
-    await transaction.commit();
     await invalidateProductsCache();
     
     logger.info("Product unpublished", { productId: id });
     return await adminGetProduct(id);
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        logger.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    handleServiceError(error, "Unpublish product");
-  }
+  });
 };
 
 /**
  * Mark product as featured
  */
 export const adminFeatureProduct = async (id: string): Promise<any> => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     await requireProductExists(id, "Product");
     await updateMetadata(id, "featured", true, transaction);
     
-    await transaction.commit();
     await invalidateProductsCache();
     
     logger.info("Product featured", { productId: id });
     return await adminGetProduct(id);
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        logger.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    handleServiceError(error, "Feature product");
-  }
+  });
 };
 
 /**
@@ -422,24 +368,13 @@ export const adminCreateProduct = async (input: any): Promise<any> => {
 };
 
 export const adminUnfeatureProduct = async (id: string): Promise<any> => {
-  let transaction;
-  try {
-    transaction = await sequelize.transaction();
-    
+  return withTransaction(async (transaction) => {
     await requireProductExists(id, "Product");
     await removeMetadata(id, "featured", transaction);
     
-    await transaction.commit();
     await invalidateProductsCache();
     
     logger.info("Product unfeatured", { productId: id });
     return await adminGetProduct(id);
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback().catch((rollbackError: any) => {
-        logger.error('Error rolling back transaction', { error: rollbackError });
-      });
-    }
-    handleServiceError(error, "Unfeature product");
-  }
+  });
 };
