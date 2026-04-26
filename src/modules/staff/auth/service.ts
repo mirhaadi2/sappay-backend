@@ -9,8 +9,6 @@ import { logger } from '../../../utils/logger';
 import { AppError } from '../../../utils/AppError';
 import { StaffPayload } from '../types';
 
-// export { StaffPayload };
-
 /**
  * Find staff by email
  */

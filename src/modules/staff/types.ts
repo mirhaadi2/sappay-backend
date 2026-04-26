@@ -3,6 +3,14 @@
  * Defines all TypeScript interfaces and types for staff operations
  */
 
+export interface StaffPayload {
+    id: string;
+    email: string;
+    name: string;
+    status: string;
+    department?: string | null;
+}
+
 export interface StaffCreateDTO {
     email: string;
     password: string;

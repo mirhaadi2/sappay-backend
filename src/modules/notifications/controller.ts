@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { notificationService } from './services/notification.service';
 import { NotificationTemplate } from './models';
 import logger from '../../utils/logger';
+import { AppError } from '../../utils/AppError';
 
 /**
  * Get user notification history
