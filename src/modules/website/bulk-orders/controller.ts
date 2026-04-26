@@ -3,16 +3,7 @@ import { sequelize } from '../../../db/sequelize';
 import { sendEmail } from '../../../utils/sendEmail';
 import { config } from '../../../config';
 import { AppError } from '../../../utils/AppError';
-
-interface BulkOrderRequest {
-    companyName: string;
-    contactPerson: string;
-    phone: string;
-    email: string;
-    product: string;
-    estimatedQuantity: string;
-    additionalRequirements?: string;
-}
+import { BulkOrderRequest } from './types';
 
 export const submitBulkOrderHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

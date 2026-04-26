@@ -7,14 +7,9 @@ import { Staff } from '../models';
 import bcrypt from 'bcrypt';
 import { logger } from '../../../utils/logger';
 import { AppError } from '../../../utils/AppError';
+import { StaffPayload } from '../types';
 
-interface StaffPayload {
-  id: string;
-  email: string;
-  name: string;
-  status: string;
-  department?: string | null;
-}
+// export { StaffPayload };
 
 /**
  * Find staff by email

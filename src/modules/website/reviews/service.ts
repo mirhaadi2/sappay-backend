@@ -7,24 +7,11 @@ import { OrderItem } from "../../admin/orders/order-item.model";
 import { Customer } from "../guests/customer.model";
 import { Product } from "../../admin/products/model";
 import { AppError } from "../../../utils/AppError";
+import { CreateReviewRequest, ReviewFilters } from './types';
 
-export interface CreateReviewData {
-  customerId: string;
-  orderId: string;
-  orderItemId: string;
-  productId: string;
-  rating: number;
-  comment?: string;
-}
-
-export interface ReviewFilters {
-  customerId?: string;
-  productId?: string;
-  sellerProductId?: string;
-  rating?: number;
-  limit?: number;
-  offset?: number;
-}
+// Type alias for backward compatibility
+export type CreateReviewData = CreateReviewRequest;
+// export { ReviewFilters };
 
 /**
  * Create a new review

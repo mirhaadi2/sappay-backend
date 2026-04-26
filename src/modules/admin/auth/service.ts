@@ -8,23 +8,9 @@ import { Staff } from '../../staff/models';
 import bcrypt from 'bcrypt';
 import { logger } from '../../../utils/logger';
 import { AppError } from '../../../utils/AppError';
+import { AdminPayload, StaffPayload, UserPayload } from './types';
 
-interface AdminPayload {
-  id: string;
-  email: string;
-  name: string | null | undefined;
-  status: string;
-}
-
-interface StaffPayload {
-  id: string;
-  email: string;
-  name: string;
-  status: string;
-  department?: string | null;
-}
-
-type UserPayload = (AdminPayload | StaffPayload) & { user_type: 'admin' | 'staff' };
+export { AdminPayload, StaffPayload, UserPayload };
 
 /**
  * Find admin by email
