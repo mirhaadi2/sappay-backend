@@ -51,7 +51,12 @@ const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toString();
-  const cookieHeader = (req.cookies || req.headers.cookie || '').toString();
+  const cookieHeader =
+    typeof req.headers.cookie === 'string'
+      ? req.headers.cookie
+      : req.cookies && typeof req.cookies === 'object'
+      ? Object.keys(req.cookies).join('; ')
+      : '';
 
   const portal = getPortalFromPath(effectivePath, cookieHeader);
 
