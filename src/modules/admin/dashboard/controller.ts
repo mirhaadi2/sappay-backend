@@ -3,7 +3,7 @@
  * Handles HTTP requests for dashboard data and analytics
  */
 
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import { getPlatformStats } from '../stats/service';
 import { AuthenticatedRequest } from '../middleware';
 import logger from '../../../utils/logger';
@@ -12,7 +12,7 @@ import logger from '../../../utils/logger';
  * GET /admin/dashboard
  * Get complete dashboard statistics with trends
  */
-export const getDashboardHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getDashboardHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { startDate, endDate, period } = req.query;
 
@@ -28,10 +28,7 @@ export const getDashboardHandler = async (req: AuthenticatedRequest, res: Respon
     });
   } catch (error: any) {
     logger.error('Get dashboard error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Failed to fetch dashboard data',
-    });
+    next(error);
   }
 };
 
@@ -39,7 +36,7 @@ export const getDashboardHandler = async (req: AuthenticatedRequest, res: Respon
  * GET /admin/dashboard/summary
  * Get key metrics summary (faster response for quick overview)
  */
-export const getDashboardSummaryHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getDashboardSummaryHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const stats = await getPlatformStats({
       period: 'month',
@@ -62,10 +59,7 @@ export const getDashboardSummaryHandler = async (req: AuthenticatedRequest, res:
     });
   } catch (error: any) {
     logger.error('Get dashboard summary error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Failed to fetch dashboard summary',
-    });
+    next(error);
   }
 };
 
@@ -73,7 +67,7 @@ export const getDashboardSummaryHandler = async (req: AuthenticatedRequest, res:
  * GET /admin/dashboard/trends
  * Get trend data for charts only
  */
-export const getDashboardTrendsHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getDashboardTrendsHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { period } = req.query;
 
@@ -92,9 +86,6 @@ export const getDashboardTrendsHandler = async (req: AuthenticatedRequest, res: 
     });
   } catch (error: any) {
     logger.error('Get dashboard trends error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Failed to fetch dashboard trends',
-    });
+    next(error);
   }
 };

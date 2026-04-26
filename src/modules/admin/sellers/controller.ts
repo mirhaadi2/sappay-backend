@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Response, NextFunction } from "express";
 import {
   adminListSellers,
   adminGetSeller,
@@ -17,6 +17,7 @@ import { sendSellerApprovalEmail, sendSellerRejectionEmail } from "../../../util
 export const listSellersHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const {
@@ -42,13 +43,14 @@ export const listSellersHandler = async (
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error("List sellers error", { error });
-    res.status(500).json({ success: false, error: "Internal server error" });
+    next(error);
   }
 };
 
 export const createSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { email, name, businessName, businessLicense, phone } = req.body;
@@ -62,15 +64,14 @@ export const createSellerHandler = async (
     res.status(201).json({ success: true, data: seller });
   } catch (error: any) {
     logger.error("Create seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const getSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -78,15 +79,14 @@ export const getSellerHandler = async (
     res.json({ success: true, data: seller });
   } catch (error: any) {
     logger.error("Get seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const updateSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -95,15 +95,14 @@ export const updateSellerHandler = async (
     res.json({ success: true, data: seller });
   } catch (error: any) {
     logger.error("Update seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const deleteSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -111,15 +110,14 @@ export const deleteSellerHandler = async (
     res.json({ success: true, message: "Seller deleted successfully" });
   } catch (error: any) {
     logger.error("Delete seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const approveSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -130,15 +128,14 @@ export const approveSellerHandler = async (
     });
   } catch (error: any) {
     logger.error("Approve seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const rejectSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -152,15 +149,14 @@ export const rejectSellerHandler = async (
     );
   } catch (error: any) {
     logger.error("Reject seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const suspendSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -168,15 +164,14 @@ export const suspendSellerHandler = async (
     res.json({ success: true, data: seller });
   } catch (error: any) {
     logger.error("Suspend seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const restoreSellerHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -184,8 +179,6 @@ export const restoreSellerHandler = async (
     res.json({ success: true, data: seller });
   } catch (error: any) {
     logger.error("Restore seller error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };

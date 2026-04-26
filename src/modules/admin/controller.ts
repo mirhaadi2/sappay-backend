@@ -4,15 +4,16 @@
  * Staff CRUD is handled by StaffController in staff module
  */
 
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import { AuthenticatedRequest } from './middleware';
+import { AppError } from '../../utils/AppError';
 import { assignRoleToStaff, createRole, deleteRole, getRoleById, getStaffPermissions, getStaffRoles, listAuditLogs, listPermissions, listRoles, revokeRoleFromStaff, updateRole } from './service';
 
 /**
  * GET /admin/roles
  * List all roles with pagination
  */
-export const listRolesHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const listRolesHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { type, includeDeleted, limit, offset } = req.query;
         const result = await listRoles({
@@ -31,10 +32,7 @@ export const listRolesHandler = async (req: AuthenticatedRequest, res: Response)
             },
         });
     } catch (error: any) {
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to list roles',
-        });
+        next(error);
     }
 };
 
@@ -42,7 +40,7 @@ export const listRolesHandler = async (req: AuthenticatedRequest, res: Response)
  * GET /admin/roles/:id
  * Get role by ID with permissions
  */
-export const getRoleByIdHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getRoleByIdHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         const role = await getRoleById(id);
@@ -51,10 +49,7 @@ export const getRoleByIdHandler = async (req: AuthenticatedRequest, res: Respons
             data: role,
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 500).json({
-            success: false,
-            error: error.message || 'Failed to fetch role',
-        });
+        next(error);
     }
 };
 
@@ -62,22 +57,14 @@ export const getRoleByIdHandler = async (req: AuthenticatedRequest, res: Respons
  * POST /admin/roles
  * Create new role
  */
-export const createRoleHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const createRoleHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { code, name, description, type, permissionIds } = req.body;
         if (!code || !name || !type) {
-            res.status(400).json({
-                success: false,
-                error: 'Missing required fields: code, name, type',
-            });
-            return;
+            throw new AppError('ValidationError', 400, 'Missing required fields: code, name, type');
         }
         if (!['admin', 'staff'].includes(type)) {
-            res.status(400).json({
-                success: false,
-                error: 'Type must be either "admin" or "staff"',
-            });
-            return;
+            throw new AppError('ValidationError', 400, 'Type must be either "admin" or "staff"');
         }
         const role = await createRole(
             {
@@ -95,10 +82,7 @@ export const createRoleHandler = async (req: AuthenticatedRequest, res: Response
             data: role,
         });
     } catch (error: any) {
-        res.status(400).json({
-            success: false,
-            error: error.message || 'Failed to create role',
-        });
+        next(error);
     }
 };
 
@@ -106,16 +90,12 @@ export const createRoleHandler = async (req: AuthenticatedRequest, res: Response
  * PATCH /admin/roles/:id
  * Update role details and permissions
  */
-export const updateRoleHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const updateRoleHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         const { name, description, permissionIds } = req.body;
         if (!name && !description && !permissionIds) {
-            res.status(400).json({
-                success: false,
-                error: 'At least one field must be provided for update',
-            });
-            return;
+            throw new AppError('ValidationError', 400, 'At least one field must be provided for update');
         }
         const role = await updateRole(
             id,
@@ -132,10 +112,7 @@ export const updateRoleHandler = async (req: AuthenticatedRequest, res: Response
             data: role,
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 400).json({
-            success: false,
-            error: error.message || 'Failed to update role',
-        });
+        next(error);
     }
 };
 
@@ -143,7 +120,7 @@ export const updateRoleHandler = async (req: AuthenticatedRequest, res: Response
  * DELETE /admin/roles/:id
  * Delete role (soft delete)
  */
-export const deleteRoleHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteRoleHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         await deleteRole(id, req.staff!.id);
@@ -152,10 +129,7 @@ export const deleteRoleHandler = async (req: AuthenticatedRequest, res: Response
             message: 'Role deleted successfully',
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 400).json({
-            success: false,
-            error: error.message || 'Failed to delete role',
-        });
+        next(error);
     }
 };
 
@@ -165,7 +139,7 @@ export const deleteRoleHandler = async (req: AuthenticatedRequest, res: Response
  * GET /admin/permissions
  * List all permissions grouped by category
  */
-export const listPermissionsHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const listPermissionsHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const permissions = await listPermissions();
         res.json({
@@ -173,10 +147,7 @@ export const listPermissionsHandler = async (req: AuthenticatedRequest, res: Res
             data: permissions,
         });
     } catch (error: any) {
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to list permissions',
-        });
+        next(error);
     }
 };
 
@@ -186,7 +157,7 @@ export const listPermissionsHandler = async (req: AuthenticatedRequest, res: Res
  * GET /admin/staff/:staffId/roles
  * Get all roles assigned to staff member
  */
-export const getStaffRolesHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getStaffRolesHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { staffId } = req.params;
         const roles = await getStaffRoles(staffId);
@@ -195,10 +166,7 @@ export const getStaffRolesHandler = async (req: AuthenticatedRequest, res: Respo
             data: roles,
         });
     } catch (error: any) {
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to fetch staff roles',
-        });
+        next(error);
     }
 };
 
@@ -206,7 +174,7 @@ export const getStaffRolesHandler = async (req: AuthenticatedRequest, res: Respo
  * GET /admin/staff/:staffId/permissions
  * Get all permissions for staff member
  */
-export const getStaffPermissionsHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getStaffPermissionsHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { staffId } = req.params;
         const permissions = await getStaffPermissions(staffId);
@@ -215,10 +183,7 @@ export const getStaffPermissionsHandler = async (req: AuthenticatedRequest, res:
             data: permissions,
         });
     } catch (error: any) {
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to fetch staff permissions',
-        });
+        next(error);
     }
 };
 
@@ -226,16 +191,12 @@ export const getStaffPermissionsHandler = async (req: AuthenticatedRequest, res:
  * POST /admin/staff/:staffId/roles
  * Assign role to staff member
  */
-export const assignRoleToStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const assignRoleToStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { staffId } = req.params;
         const { roleId, notes } = req.body;
         if (!roleId) {
-            res.status(400).json({
-                success: false,
-                error: 'roleId is required',
-            });
-            return;
+            throw new AppError('ValidationError', 400, 'roleId is required');
         }
         const staffRole = await assignRoleToStaff(
             staffId,
@@ -249,10 +210,7 @@ export const assignRoleToStaffHandler = async (req: AuthenticatedRequest, res: R
             data: staffRole,
         });
     } catch (error: any) {
-        res.status(400).json({
-            success: false,
-            error: error.message || 'Failed to assign role',
-        });
+        next(error);
     }
 };
 
@@ -260,7 +218,7 @@ export const assignRoleToStaffHandler = async (req: AuthenticatedRequest, res: R
  * DELETE /admin/staff/:staffId/roles/:staffRoleId
  * Revoke role from staff member
  */
-export const revokeRoleFromStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const revokeRoleFromStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { staffId, staffRoleId } = req.params;
         await revokeRoleFromStaff(staffRoleId, req.staff!.id);
@@ -269,10 +227,7 @@ export const revokeRoleFromStaffHandler = async (req: AuthenticatedRequest, res:
             message: 'Role revoked successfully',
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 400).json({
-            success: false,
-            error: error.message || 'Failed to revoke role',
-        });
+        next(error);
     }
 };
 
@@ -282,7 +237,7 @@ export const revokeRoleFromStaffHandler = async (req: AuthenticatedRequest, res:
  * GET /admin/audit-logs
  * Get audit logs with filters
  */
-export const listAuditLogsHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const listAuditLogsHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { actorId, targetStaffId, action, resourceType, startDate, endDate, limit, offset } = req.query;
         const result = await listAuditLogs({
@@ -305,9 +260,6 @@ export const listAuditLogsHandler = async (req: AuthenticatedRequest, res: Respo
             },
         });
     } catch (error: any) {
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to fetch audit logs',
-        });
+        next(error);
     }
 };

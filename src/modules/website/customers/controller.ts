@@ -12,6 +12,7 @@ import {
   updateUserProfile
 } from "./service";
 import { config } from "../../../config";
+import { AppError } from "../../../utils/AppError";
 
 export const registerHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -129,20 +130,14 @@ export const updateProfileHandler = async (req: Request, res: Response, next: Ne
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
+      throw new AppError('Unauthorized', 401, 'Authentication required');
     }
 
     const { name, email, phone } = req.body;
 
     // Validate input
     if (!name && !email && !phone) {
-      return res.status(400).json({
-        success: false,
-        message: "At least one field (name, email, or phone) must be provided",
-      });
+      throw new AppError('ValidationError', 400, 'At least one field (name, email, or phone) must be provided');
     }
 
     const updatedUser = await updateUserProfile(userId, { name, email, phone });

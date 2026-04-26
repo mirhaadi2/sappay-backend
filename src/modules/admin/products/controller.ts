@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import {
   adminListProducts,
   adminGetProduct,
@@ -12,8 +12,9 @@ import {
 } from './service';
 import { AuthenticatedRequest } from '../middleware';
 import logger from '../../../utils/logger';
+import { AppError } from '../../../utils/AppError';
 
-export const listProductsHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const listProductsHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { page, limit, search, status, category, sortBy, sortOrder } = req.query;
     const result = await adminListProducts({
@@ -28,11 +29,11 @@ export const listProductsHandler = async (req: AuthenticatedRequest, res: Respon
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error('List products error', { error });
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    next(error);
   }
 };
 
-export const getProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const sellerOfferingsPage = parseInt(req.query.sellerOfferingsPage as string) || 1;
@@ -40,21 +41,18 @@ export const getProductHandler = async (req: AuthenticatedRequest, res: Response
 
     // Validate pagination params
     if (sellerOfferingsPage < 1 || sellerOfferingsLimit < 1 || sellerOfferingsLimit > 100) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid pagination parameters. Page must be >= 1, limit must be 1-100'
-      });
+      throw new AppError('ValidationError', 400, 'Invalid pagination parameters. Page must be >= 1, limit must be 1-100');
     }
 
     const product = await adminGetProduct(id, sellerOfferingsPage, sellerOfferingsLimit);
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Get product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const createProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const createProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const addedBy = req?.session?.admin?.id || req?.session?.staff?.id;
   try {
     const {
@@ -102,11 +100,11 @@ export const createProductHandler = async (req: AuthenticatedRequest, res: Respo
     res.status(201).json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Create product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const updateProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const updateProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const {
@@ -142,61 +140,61 @@ export const updateProductHandler = async (req: AuthenticatedRequest, res: Respo
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Update product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const deleteProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     await adminDeleteProduct(id);
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error: any) {
     logger.error('Delete product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const publishProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const publishProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const product = await adminPublishProduct(id);
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Publish product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const unpublishProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const unpublishProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const product = await adminUnpublishProduct(id);
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Unpublish product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const featureProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const featureProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const product = await adminFeatureProduct(id);
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Feature product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const unfeatureProductHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const unfeatureProductHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const product = await adminUnfeatureProduct(id);
     res.json({ success: true, data: product });
   } catch (error: any) {
     logger.error('Unfeature product error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };

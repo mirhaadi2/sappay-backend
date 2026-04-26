@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import {
   adminListOrders,
   adminGetOrder,
@@ -10,7 +10,7 @@ import {
 import { AuthenticatedRequest } from '../middleware';
 import logger from '../../../utils/logger';
 
-export const listOrdersHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const listOrdersHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { page, limit, search, status, sellerId, customerId, sortBy, sortOrder } = req.query;
     const result = await adminListOrders({
@@ -26,22 +26,22 @@ export const listOrdersHandler = async (req: AuthenticatedRequest, res: Response
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error('List orders error', { error });
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    next(error);
   }
 };
 
-export const getOrderHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getOrderHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const order = await adminGetOrder(id);
     res.json({ success: true, data: order });
   } catch (error: any) {
     logger.error('Get order error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const updateOrderStatusHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const updateOrderStatusHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { status, notes, trackingNumber, statusReason } = req.body;
@@ -50,11 +50,11 @@ export const updateOrderStatusHandler = async (req: AuthenticatedRequest, res: R
     res.json({ success: true, data: order });
   } catch (error: any) {
     logger.error('Update order status error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const refundOrderHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const refundOrderHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { reason, amount } = req.body;
@@ -62,11 +62,11 @@ export const refundOrderHandler = async (req: AuthenticatedRequest, res: Respons
     res.json({ success: true, data: order });
   } catch (error: any) {
     logger.error('Refund order error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const cancelOrderHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const cancelOrderHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -74,11 +74,11 @@ export const cancelOrderHandler = async (req: AuthenticatedRequest, res: Respons
     res.json({ success: true, data: order });
   } catch (error: any) {
     logger.error('Cancel order error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
-export const disputeOrderHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const disputeOrderHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { reason, resolution } = req.body;
@@ -86,6 +86,6 @@ export const disputeOrderHandler = async (req: AuthenticatedRequest, res: Respon
     res.json({ success: true, data: order });
   } catch (error: any) {
     logger.error('Dispute order error', { error });
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    next(error);
   }
 };

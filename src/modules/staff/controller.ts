@@ -3,16 +3,17 @@
  * HTTP request handlers for staff operations
  */
 
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import { AuthenticatedRequest } from '../admin/middleware';
 import { StaffCreateDTO, StaffUpdateDTO, StaffListFilters } from './types';
 import { activateStaff, createStaff, deleteStaff, getStaffById, listStaff, suspendStaff, updateStaff } from './service';
+import { AppError } from '../../utils/AppError';
 
 /**
  * GET /staff
  * List all staff members with pagination and filters
  */
-export const listStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const listStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { status, department, limit, offset, search } = req.query;
         const filters: StaffListFilters = {
@@ -33,10 +34,7 @@ export const listStaffHandler = async (req: AuthenticatedRequest, res: Response)
             },
         });
     } catch (error: any) {
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to list staff members',
-        });
+        next(error);
     }
 };
 
@@ -44,7 +42,7 @@ export const listStaffHandler = async (req: AuthenticatedRequest, res: Response)
  * GET /staff/:id
  * Get specific staff member details
  */
-export const getStaffByIdHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getStaffByIdHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         const staff = await getStaffById(id);
@@ -53,10 +51,7 @@ export const getStaffByIdHandler = async (req: AuthenticatedRequest, res: Respon
             data: staff,
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 500).json({
-            success: false,
-            error: error.message || 'Failed to fetch staff member',
-        });
+        next(error);
     }
 };
 
@@ -64,22 +59,14 @@ export const getStaffByIdHandler = async (req: AuthenticatedRequest, res: Respon
  * POST /staff
  * Create new staff member
  */
-export const createStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const createStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { email, password, name, phone, department, manager_id, hire_date }: StaffCreateDTO = req.body;
         if (!email || !password || !name) {
-            res.status(400).json({
-                success: false,
-                error: 'Missing required fields: email, password, name',
-            });
-            return;
+            throw new AppError('ValidationError', 400, 'Missing required fields: email, password, name');
         }
         if (password.length < 8) {
-            res.status(400).json({
-                success: false,
-                error: 'Password must be at least 8 characters long',
-            });
-            return;
+            throw new AppError('ValidationError', 400, 'Password must be at least 8 characters long');
         }
         const staff = await createStaff({
             email,
@@ -96,10 +83,7 @@ export const createStaffHandler = async (req: AuthenticatedRequest, res: Respons
             data: staff,
         });
     } catch (error: any) {
-        res.status(400).json({
-            success: false,
-            error: error.message || 'Failed to create staff member',
-        });
+        next(error);
     }
 };
 
@@ -107,16 +91,12 @@ export const createStaffHandler = async (req: AuthenticatedRequest, res: Respons
  * PATCH /staff/:id
  * Update staff member information
  */
-export const updateStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const updateStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         const { email, name, phone, department, manager_id, hire_date }: StaffUpdateDTO = req.body;
         if (!email && !name && !phone && !department && manager_id === undefined && !hire_date) {
-            res.status(400).json({
-                success: false,
-                error: 'At least one field must be provided for update',
-            });
-            return;
+            throw new AppError('ValidationError', 400, 'At least one field must be provided for update');
         }
         const staff = await updateStaff(id, {
             email,
@@ -132,10 +112,7 @@ export const updateStaffHandler = async (req: AuthenticatedRequest, res: Respons
             data: staff,
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 400).json({
-            success: false,
-            error: error.message || 'Failed to update staff member',
-        });
+        next(error);
     }
 };
 
@@ -143,7 +120,7 @@ export const updateStaffHandler = async (req: AuthenticatedRequest, res: Respons
  * POST /staff/:id/suspend
  * Suspend staff member (deactivate access)
  */
-export const suspendStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const suspendStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         const staff = await suspendStaff(id);
@@ -153,10 +130,7 @@ export const suspendStaffHandler = async (req: AuthenticatedRequest, res: Respon
             data: staff,
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 400).json({
-            success: false,
-            error: error.message || 'Failed to suspend staff member',
-        });
+        next(error);
     }
 };
 
@@ -164,7 +138,7 @@ export const suspendStaffHandler = async (req: AuthenticatedRequest, res: Respon
  * POST /staff/:id/activate
  * Activate staff member
  */
-export const activateStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const activateStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         const staff = await activateStaff(id);
@@ -174,10 +148,7 @@ export const activateStaffHandler = async (req: AuthenticatedRequest, res: Respo
             data: staff,
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 400).json({
-            success: false,
-            error: error.message || 'Failed to activate staff member',
-        });
+        next(error);
     }
 };
 
@@ -185,7 +156,7 @@ export const activateStaffHandler = async (req: AuthenticatedRequest, res: Respo
  * DELETE /staff/:id
  * Delete staff member (soft delete)
  */
-export const deleteStaffHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteStaffHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
         await deleteStaff(id);
@@ -194,9 +165,6 @@ export const deleteStaffHandler = async (req: AuthenticatedRequest, res: Respons
             message: 'Staff member deleted successfully',
         });
     } catch (error: any) {
-        res.status(error.message.includes('not found') ? 404 : 500).json({
-            success: false,
-            error: error.message || 'Failed to delete staff member',
-        });
+        next(error);
     }
 };

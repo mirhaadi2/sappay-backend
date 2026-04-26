@@ -1,11 +1,12 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { getInventoryHistory, getSellerInventoryHistory } from './repository';
 import { AppError } from '../../../../utils/AppError';
 import logger from '../../../../utils/logger';
 
 export const getInventoryHistoryHandler = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ) => {
   try {
     const { sellerProductId } = req.params;
@@ -13,16 +14,14 @@ export const getInventoryHistoryHandler = async (
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error('Get inventory history error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 export const getSellerInventoryHistoryHandler = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ) => {
   try {
     const sellerId = (req as any).sellerId;
@@ -35,9 +34,6 @@ export const getSellerInventoryHistoryHandler = async (
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error('Get seller inventory history error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };

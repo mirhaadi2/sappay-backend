@@ -1,7 +1,8 @@
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import { listAdmins, getAdminById, createAdmin, updateAdmin, deleteAdmin } from './admin.service';
 import { AuthenticatedRequest } from './middleware';
 import logger from '../../utils/logger';
+import { AppError } from '../../utils/AppError';
 
 const getStatusCode = (errorCode: string): number => {
   const codeMap: Record<string, number> = {
@@ -15,75 +16,56 @@ const getStatusCode = (errorCode: string): number => {
   return codeMap[errorCode] || 500;
 };
 
-export const listAdminsHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const listAdminsHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const admins = await listAdmins();
     res.json({ success: true, data: admins });
   } catch (error: any) {
     logger.error('List admins error', { error });
-    res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    next(error);
   }
 };
 
-export const getAdminByIdHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getAdminByIdHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const admin = await getAdminById(id);
     res.json({ success: true, data: admin });
   } catch (error: any) {
-    const statusCode = getStatusCode(error.message);
-    res.status(statusCode).json({ success: false, error: 'Admin not found', code: error.message });
+    next(error);
   }
 };
 
-export const createAdminHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const createAdminHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { email, password, name, phone } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required', code: 'MISSING_FIELDS' });
+      throw new AppError('ValidationError', 400, 'Email and password are required');
     }
     const admin = await createAdmin({ email, password, name, phone });
     res.status(201).json({ success: true, data: admin });
   } catch (error: any) {
-    const statusCode = getStatusCode(error.message);
-    const errorMap: Record<string, string> = {
-      EMAIL_ALREADY_EXISTS: 'Email already registered',
-      PASSWORD_TOO_COMMON: 'Password is too common',
-      INTERNAL_ERROR: 'Internal server error',
-    };
-    res.status(statusCode).json({ success: false, error: errorMap[error.message] || 'Invalid request', code: error.message });
+    next(error);
   }
 };
 
-export const updateAdminHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const updateAdminHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { email, name, phone, status } = req.body;
     const admin = await updateAdmin(id, { email, name, phone, status });
     res.json({ success: true, data: admin });
   } catch (error: any) {
-    const statusCode = getStatusCode(error.message);
-    const errorMap: Record<string, string> = {
-      INVALID_UUID: 'Invalid admin ID',
-      EMAIL_ALREADY_EXISTS: 'Email already registered',
-      INVALID_STATUS: 'Invalid status value',
-      ADMIN_NOT_FOUND: 'Admin not found',
-    };
-    res.status(statusCode).json({ success: false, error: errorMap[error.message] || 'Invalid request', code: error.message });
+    next(error);
   }
 };
 
-export const deleteAdminHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteAdminHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     await deleteAdmin(id);
     res.json({ success: true, message: 'Admin deleted successfully' });
   } catch (error: any) {
-    const statusCode = getStatusCode(error.message);
-    const errorMap: Record<string, string> = {
-      INVALID_UUID: 'Invalid admin ID',
-      ADMIN_NOT_FOUND: 'Admin not found',
-    };
-    res.status(statusCode).json({ success: false, error: errorMap[error.message] || 'Internal server error', code: error.message });
+    next(error);
   }
 };

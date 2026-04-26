@@ -12,7 +12,8 @@ import logger from '../../../utils/logger';
 
 export const getInventoryHandler = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -20,16 +21,14 @@ export const getInventoryHandler = async (
     res.json({ success: true, data: inventory });
   } catch (error: any) {
     logger.error('Get inventory error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 export const updateStockHandler = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -38,16 +37,14 @@ export const updateStockHandler = async (
     res.json({ success: true, data: inventory });
   } catch (error: any) {
     logger.error('Update stock error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 export const checkAvailabilityHandler = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -56,16 +53,14 @@ export const checkAvailabilityHandler = async (
     res.json({ success: true, data: { available } });
   } catch (error: any) {
     logger.error('Check availability error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 export const getSellerInventoryHandler = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction,
 ) => {
   try {
     const sellerId = (req as any).sellerId;
@@ -78,16 +73,14 @@ export const getSellerInventoryHandler = async (
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error('Get seller inventory error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 export const addInventoryStockHandler = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { sellerProductId } = req.params;
@@ -135,10 +128,7 @@ export const addInventoryStockHandler = async (
     });
   } catch (error: any) {
     logger.error('Add inventory stock error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 

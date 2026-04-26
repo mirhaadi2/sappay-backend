@@ -3,7 +3,7 @@
  * HTTP request handlers for seller product operations
  */
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../../utils/AppError';
 import {
   addProductToSellerService,
@@ -19,7 +19,7 @@ import logger from '../../../utils/logger';
 /**
  * Add a product to seller's catalog
  */
-export const addProductToSeller = async (req: Request, res: Response) => {
+export const addProductToSeller = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sellerId = (req as any).sellerId;
     const { productId } = req.params;
@@ -37,17 +37,14 @@ export const addProductToSeller = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     logger.error('Add product to seller error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 /**
  * Get seller's products list
  */
-export const getSellerProducts = async (req: Request, res: Response) => {
+export const getSellerProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sellerId = (req as any).sellerId;
     const params: SellerProductsListParams = {
@@ -69,17 +66,14 @@ export const getSellerProducts = async (req: Request, res: Response) => {
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error('Get seller products error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 /**
  * Update seller product pricing
  */
-export const updateSellerProductPrice = async (req: Request, res: Response) => {
+export const updateSellerProductPrice = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sellerId = (req as any).sellerId;
     const { sellerProductId } = req.params;
@@ -97,17 +91,14 @@ export const updateSellerProductPrice = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     logger.error('Update seller product price error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 /**
  * Update seller product status
  */
-export const updateSellerProductStatus = async (req: Request, res: Response) => {
+export const updateSellerProductStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sellerId = (req as any).sellerId;
     const { sellerProductId } = req.params;
@@ -129,17 +120,14 @@ export const updateSellerProductStatus = async (req: Request, res: Response) => 
     });
   } catch (error: any) {
     logger.error('Update seller product status error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 /**
  * Get seller product details
  */
-export const getSellerProductDetails = async (req: Request, res: Response) => {
+export const getSellerProductDetails = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sellerId = (req as any).sellerId;
     const { sellerProductId } = req.params;
@@ -156,25 +144,19 @@ export const getSellerProductDetails = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     logger.error('Get seller product details error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };
 
 /**
  * Get all catalog products (seller selection list)
  */
-export const getCatalogProducts = async (req: Request, res: Response) => {
+export const getCatalogProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const products = await getCatalogProductsService(req.query);
     res.json({ success: true, data: products });
   } catch (error: any) {
     logger.error('Get catalog products error', { error });
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-    });
+    next(error);
   }
 };

@@ -223,10 +223,7 @@ export const updateTemplateHandler = async (
     });
 
     if (updatedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Template not found',
-      });
+      throw new AppError('NotFound', 404, 'Template not found');
     }
 
     res.json({
@@ -255,10 +252,7 @@ export const deleteTemplateHandler = async (
     });
 
     if (deletedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Template not found',
-      });
+      throw new AppError('NotFound', 404, 'Template not found');
     }
 
     res.json({

@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { loginStaff, getStaffDetails } from './service';
 import { logger } from '../../../utils/logger';
 import { portalConfigs } from '../../../config/portal-config';
+import { AppError } from '../../../utils/AppError';
 
 /**
  * POST /api/staff/auth/login
@@ -17,10 +18,7 @@ export const loginHandler = async (req: Request, res: Response, next: NextFuncti
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email and password are required',
-      });
+      throw new AppError('ValidationError', 400, 'Email and password are required');
     }
 
     const staff = await loginStaff(email, password);

@@ -97,19 +97,11 @@ export const searchProductsHandler = async (
     // Validate search query
     const searchQuery = (searchParams.search as string)?.trim();
     if (!searchQuery || searchQuery.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Search query cannot be empty',
-        code: 'EMPTY_SEARCH_QUERY'
-      });
+      throw new AppError('ValidationError', 400, 'Search query cannot be empty');
     }
 
     if (searchQuery.length < 2) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Search query must be at least 2 characters',
-        code: 'SEARCH_QUERY_TOO_SHORT'
-      });
+      throw new AppError('ValidationError', 400, 'Search query must be at least 2 characters');
     }
 
     // Fetch results using full-text search

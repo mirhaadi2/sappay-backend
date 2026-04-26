@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Response, NextFunction } from "express";
 import {
   adminListUsers,
   adminGetUser,
@@ -15,6 +15,7 @@ import { sendEmail } from "../../../utils/sendEmail";
 export const listUsersHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { page, limit, search, status, sortBy, sortOrder } = req.query;
@@ -29,13 +30,14 @@ export const listUsersHandler = async (
     res.json({ success: true, data: result });
   } catch (error: any) {
     logger.error("List users error", { error });
-    res.status(500).json({ success: false, error: "Internal server error" });
+    next(error);
   }
 };
 
 export const createUserHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { email, name, phone } = req.body;
@@ -70,15 +72,14 @@ export const createUserHandler = async (
     
   } catch (error: any) {
     logger.error("Create user error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const getUserHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -86,15 +87,14 @@ export const getUserHandler = async (
     res.json({ success: true, data: user });
   } catch (error: any) {
     logger.error("Get user error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const updateUserHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -103,15 +103,14 @@ export const updateUserHandler = async (
     res.json({ success: true, data: user });
   } catch (error: any) {
     logger.error("Update user error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const deleteUserHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -119,15 +118,14 @@ export const deleteUserHandler = async (
     res.json({ success: true, message: "User deleted successfully" });
   } catch (error: any) {
     logger.error("Delete user error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const banUserHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -135,15 +133,14 @@ export const banUserHandler = async (
     res.json({ success: true, data: user });
   } catch (error: any) {
     logger.error("Ban user error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };
 
 export const unbanUserHandler = async (
   req: AuthenticatedRequest,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -151,8 +148,6 @@ export const unbanUserHandler = async (
     res.json({ success: true, data: user });
   } catch (error: any) {
     logger.error("Unban user error", { error });
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, error: error.message });
+    next(error);
   }
 };

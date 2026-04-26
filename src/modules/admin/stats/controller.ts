@@ -3,7 +3,7 @@
  * Handles HTTP requests for platform statistics and analytics
  */
 
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import { getPlatformStats } from './service';
 import { AuthenticatedRequest } from '../middleware';
 import logger from '../../../utils/logger';
@@ -12,7 +12,7 @@ import logger from '../../../utils/logger';
  * GET /admin/stats
  * Get platform statistics
  */
-export const getStatsHandler = async (req: AuthenticatedRequest, res: Response) => {
+export const getStatsHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { startDate, endDate, period } = req.query;
 
@@ -28,9 +28,6 @@ export const getStatsHandler = async (req: AuthenticatedRequest, res: Response) 
     });
   } catch (error: any) {
     logger.error('Get stats error', { error });
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch statistics',
-    });
+    next(error);
   }
 };

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { sequelize } from '../../../db/sequelize';
 import { sendEmail } from '../../../utils/sendEmail';
 import { config } from '../../../config';
+import { AppError } from '../../../utils/AppError';
 
 interface BulkOrderRequest {
     companyName: string;
@@ -19,22 +20,19 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
 
         // Validation
         if (!companyName?.trim() || !contactPerson?.trim() || !phone?.trim() || !email?.trim() || !product?.trim() || !estimatedQuantity?.trim()) {
-            res.status(400).json({ success: false, error: 'All required fields must be filled' });
-            return;
+            throw new AppError('ValidationError', 400, 'All required fields must be filled');
         }
 
         // Email format validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            res.status(400).json({ success: false, error: 'Invalid email format' });
-            return;
+            throw new AppError('ValidationError', 400, 'Invalid email format');
         }
 
         // Phone validation (basic - at least 10 digits)
         const phoneDigits = phone.replace(/\D/g, '');
         if (phoneDigits.length < 10) {
-            res.status(400).json({ success: false, error: 'Phone number must be at least 10 digits' });
-            return;
+            throw new AppError('ValidationError', 400, 'Phone number must be at least 10 digits');
         }
 
         // Save to database using raw query
