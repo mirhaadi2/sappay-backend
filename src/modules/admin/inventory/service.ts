@@ -14,6 +14,12 @@ import {
     AdminInventoryHistoryItem,
 } from './types';
 
+const parseNumber = (value: unknown): number => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return parseFloat(value) || 0;
+    return 0;
+};
+
 export const adminListInventory = async (params: AdminInventoryQuery) => {
     try {
         const {
@@ -182,8 +188,8 @@ export const adminUpdateInventory = async (inventoryId: string, updates: AdminIn
         let finalAvailableStock = availableStock;
         if (totalStock !== undefined && availableStock === undefined) {
             // If only total stock is provided, adjust available stock accordingly
-            const currentTotal = parseFloat(inventory?.dataValues?.totalStock);
-            const currentAvailable = parseFloat(inventory?.dataValues?.availableStock);
+            const currentTotal = parseNumber(inventory?.dataValues?.totalStock);
+            const currentAvailable = parseNumber(inventory?.dataValues?.availableStock);
             const difference = totalStock - currentTotal;
             finalAvailableStock = currentAvailable + difference;
         }
@@ -207,9 +213,9 @@ export const adminUpdateInventory = async (inventoryId: string, updates: AdminIn
                 inventoryId,
                 productId: inventory?.dataValues?.productId,
                 type: 'ADJUSTMENT',
-                quantity: totalStock ? totalStock - parseFloat(inventory?.dataValues?.totalStock) : 0,
-                previousStock: parseFloat(inventory?.dataValues?.totalStock),
-                newStock: totalStock || parseFloat(inventory?.dataValues?.totalStock),
+                quantity: totalStock ? totalStock - parseNumber(inventory?.dataValues?.totalStock) : 0,
+                previousStock: parseNumber(inventory?.dataValues?.totalStock),
+                newStock: totalStock || parseNumber(inventory?.dataValues?.totalStock),
                 notes: updates.notes || 'Admin inventory adjustment',
             }, { transaction });
         }
@@ -240,8 +246,8 @@ export const adminAddStock = async (inventoryId: string, input: AdminAddStockInp
             throw new AppError('BadRequest', 400, 'Quantity must be positive');
         }
 
-        const newTotalStock = parseFloat(inventory?.dataValues?.totalStock) + quantity;
-        const newAvailableStock = parseFloat(inventory?.dataValues?.availableStock) + quantity;
+        const newTotalStock = parseNumber(inventory?.dataValues?.totalStock) + quantity;
+        const newAvailableStock = parseNumber(inventory?.dataValues?.availableStock) + quantity;
 
         await inventory.update({
             totalStock: newTotalStock,
@@ -281,12 +287,12 @@ export const adminRemoveStock = async (inventoryId: string, input: AdminRemoveSt
             throw new AppError('BadRequest', 400, 'Quantity must be positive');
         }
 
-        if (parseFloat(inventory?.dataValues?.availableStock) < quantity) {
+        if (parseNumber(inventory?.dataValues?.availableStock) < quantity) {
             throw new AppError('BadRequest', 400, 'Insufficient available stock');
         }
 
-        const newTotalStock = Math.max(0, parseFloat(inventory?.dataValues?.totalStock )- quantity);
-        const newAvailableStock = Math.max(0, parseFloat(inventory?.dataValues?.availableStock) - quantity);
+        const newTotalStock = Math.max(0, parseNumber(inventory?.dataValues?.totalStock) - quantity);
+        const newAvailableStock = Math.max(0, parseNumber(inventory?.dataValues?.availableStock) - quantity);
 
         await inventory.update({
             totalStock: newTotalStock,
