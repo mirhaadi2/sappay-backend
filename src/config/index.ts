@@ -47,6 +47,7 @@ export const config = {
   },
   delhivery: {
     token: process.env.DELHIVERY_TOKEN ?? "",
+    baseUrl: process.env.NODE_ENV === "production" ? process.env.PRODUCTION_DELHIVERY_BASE_URL ?? "https://track.delhivery.com" : process.env.TESTING_DELHIVERY_BASE_URL ?? "https://staging-express.delhivery.com",
   },
   // ⚠️ IMPORTANT: Only ONE notification channel can be active at a time
   notificationChannel: (process.env.NOTIFICATION_CHANNEL ?? "sms").toLowerCase() as 'sms' | 'email' | 'whatsapp' | 'in_app',

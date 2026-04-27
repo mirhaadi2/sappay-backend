@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { checkPincodeServiceability, createShipment } from './services';
+import { checkPincodeServiceability, createShipment, trackShipmentService } from './services';
+import { AppError } from '../../../utils/AppError';
 
 /**
  * Handler for GET /api/pincode/:pincode
@@ -30,14 +31,19 @@ export const checkPincode = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-/**
- * Example: Additional handler for creating a shipment
- */
-export const handleCreateShipment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const trackShipment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await createShipment(req.body);
-    res.status(201).json({ success: true, result });
+    const { waybill } = req.params;
+    if (!waybill) {
+      throw new AppError('ValidationErrror', 400, 'Waybill number is required');
+    }
+    
+    const trackingData = await trackShipmentService(waybill);
+    res.status(200).json({
+      success: true,
+      data: trackingData,
+    });
   } catch (error) {
     next(error);
-  }
+  } 
 };

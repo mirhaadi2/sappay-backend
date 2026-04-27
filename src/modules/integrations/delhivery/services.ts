@@ -3,7 +3,7 @@ import { config } from '../../../config';
 
 // Create a pre-configured instance for Delhivery
 const delhiveryClient = axios.create({
-  baseURL: 'https://track.delhivery.com',
+  baseURL: config.delhivery.baseUrl,
   headers: {
     Authorization: `Token ${config.delhivery.token}`,
     'Content-Type': 'application/json',
@@ -30,9 +30,37 @@ export const checkPincodeServiceability = async (pincode: string): Promise<any> 
  */
 export const createShipment = async (shipmentData: any): Promise<any> => {
   try {
-    const response = await delhiveryClient.post('/api/cmu/create.json', shipmentData);
+    // 1. Prepare the specific payload Delhivery expects
+    const params = new URLSearchParams();
+    params.append('format', 'json');
+    params.append('data', JSON.stringify(shipmentData));
+
+    // 2. We override the Content-Type header just for this call
+    const response = await delhiveryClient.post('/api/cmu/create.json', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+
     return response.data;
   } catch (error: any) {
-     throw new Error('Shipment creation failed');
+    console.error('Delhivery Service Error [createShipment]:', error.response?.data || error.message);
+    throw new Error('Shipment creation failed');
+  }
+};
+
+/**
+ * Track Shipment
+ * GET request - useful for order status pages
+ */
+export const trackShipmentService = async (waybill: string): Promise<any> => {
+  try {
+    const response = await delhiveryClient.get(`/api/v1/packages/json/`, {
+      params: { waybill },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Delhivery Service Error [trackShipment]:', error.response?.data || error.message);
+    throw new Error('Tracking request failed');
   }
 };
