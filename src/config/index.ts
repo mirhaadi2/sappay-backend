@@ -45,6 +45,9 @@ export const config = {
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
     token: process.env.WHATSAPP_TOKEN ?? "",
   },
+  delhivery: {
+    token: process.env.DELHIVERY_TOKEN ?? "",
+  },
   // ⚠️ IMPORTANT: Only ONE notification channel can be active at a time
   notificationChannel: (process.env.NOTIFICATION_CHANNEL ?? "sms").toLowerCase() as 'sms' | 'email' | 'whatsapp' | 'in_app',
 };

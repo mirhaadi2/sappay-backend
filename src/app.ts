@@ -25,6 +25,7 @@ import { notificationRoutes } from "./modules/notifications";
 import { guestRoutes } from "./modules/website/guest";
 import { bulkOrderRoutes } from "./modules/website/bulk-orders/routes";
 import { reviewRoutes } from "./modules/website/reviews/routes";
+import { delhiveryRoutes } from "./modules/integrations/delhivery/routes";
 
 const app = express();
 
@@ -48,7 +49,7 @@ const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews"], (req, res, next) => {
+app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews", "/api/delhivery"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toString();
   const cookieHeader =
@@ -86,6 +87,7 @@ app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/staff/auth", staffAuthRoutes);
 app.use("/api/staff", staffRouter);
+app.use("/api/delhivery", delhiveryRoutes);
 
 app.use(errorLoggingMiddleware);
 app.use(errorHandler);
