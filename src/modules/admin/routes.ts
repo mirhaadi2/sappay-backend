@@ -9,6 +9,7 @@ import { requireAuth, requireActiveStaff, requirePermission } from './middleware
 import { assignRoleToStaffHandler, createRoleHandler, deleteRoleHandler, getRoleByIdHandler, getStaffPermissionsHandler, getStaffRolesHandler, listAuditLogsHandler, listPermissionsHandler, listRolesHandler, revokeRoleFromStaffHandler, updateRoleHandler } from './controller';
 import { websiteAdminRoutes } from './website';
 import { inventoryRoutes } from './inventory';
+import { shipmentRoutes } from './shipments/routes';
 
 const router = Router();
 
@@ -175,5 +176,8 @@ router.use('/website', websiteAdminRoutes);
 
 // ===================== INVENTORY MANAGEMENT ENDPOINTS =====================
 router.use('/inventory', inventoryRoutes);
+
+// ===================== SHIPMENT MANAGEMENT ENDPOINTS =====================
+router.use('/shipments', shipmentRoutes);
 
 export { router as adminRouter };

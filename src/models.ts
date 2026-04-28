@@ -20,3 +20,4 @@ export {
 } from './modules/notifications/models';
 export { Customer } from './modules/website/guests/customer.model';
 export { Review } from './modules/website/reviews/model';
+export { Shipment, ShipmentPackage } from './modules/admin/shipments/models';

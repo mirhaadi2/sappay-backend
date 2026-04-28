@@ -26,6 +26,7 @@ import { guestRoutes } from "./modules/website/guest";
 import { bulkOrderRoutes } from "./modules/website/bulk-orders/routes";
 import { reviewRoutes } from "./modules/website/reviews/routes";
 import { delhiveryRoutes } from "./modules/integrations/delhivery/routes";
+import { delhiveryAdminRoutes } from "./modules/admin/integrations/delhivery/routes";
 
 const app = express();
 
@@ -88,6 +89,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/staff/auth", staffAuthRoutes);
 app.use("/api/staff", staffRouter);
 app.use("/api/delhivery", delhiveryRoutes);
+app.use("/api/admin/delhivery", delhiveryAdminRoutes);
 
 app.use(errorLoggingMiddleware);
 app.use(errorHandler);
