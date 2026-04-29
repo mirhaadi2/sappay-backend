@@ -21,38 +21,64 @@ export const findOrderByNumber = async (orderNumber: string) => {
   return await Order.findOne({ where: { orderNumber } });
 };
 
-export const findCustomerOrders = async (customerId: string, filters: any = {}, customerEmail?: string) => {
+export const findCustomerOrders = async (
+  customerId: string, 
+  filters: any = {}, 
+  customerEmail?: string
+) => {
   const { limit = 20, offset = 0, status } = filters;
-  const { Op } = require('sequelize');
-  
-  // Build where clause for both authenticated orders and guest orders
-  const where: any = {
-    [Op.or]: [
-      { customerId }, // Orders placed by authenticated user
-      customerEmail ? { guestEmail: customerEmail } : null, // Guest orders with matching email
-    ].filter(Boolean),
-  };
-  
-  if (status) where.status = status;
 
-  return await Order.findAll({
-    attributes: {
-      include: [
-        [
-          sequelize.literal(`(
-          SELECT COUNT(*)
-          FROM "order_items" AS items
-          WHERE items."order_id" = "Order".id
-        )`),
-          'itemsCount'
-        ]
-      ]
+  // We use the raw SQL approach to handle the complex OR logic and subqueries efficiently
+  const sql = `
+    SELECT 
+      o.id,
+      o.order_number AS "orderNumber",
+      o.delivered_at AS "deliveryDate",
+      o.delivery_date AS "scheduledDeliveryDate",
+      o.discount_amount AS "discountAmount",
+      o.final_amount AS "finalAmount",
+      o.payment_method AS "paymentMethod",
+      o.payment_status AS "paymentStatus",
+      o.tracking_number AS "trackingNumber",
+      o.status AS "status",
+      o.total_amount AS "totalAmount",
+      o.shipping_cost AS "shippingCost",
+      o.tax_amount AS "taxAmount",
+      o.created_at AS "createdAt",
+      -- Window function to get total count regardless of LIMIT/OFFSET
+      COUNT(*) OVER()::int AS "totalCount", 
+      (
+        SELECT COUNT(*)::int 
+        FROM "order_items" AS items
+        WHERE items."order_id" = o.id
+      ) AS "itemsCount"
+    FROM orders o
+    WHERE (
+      o.customer_id = :customerId 
+      OR (o.guest_email = :customerEmail AND :customerEmail IS NOT NULL)
+    )
+    ${status ? 'AND o.status = :status' : ''}
+    ORDER BY o.created_at DESC
+    LIMIT :limit OFFSET :offset
+  `;
+
+  const orders: any[] = await sequelize.query(sql, {
+    replacements: { 
+      customerId, 
+      customerEmail: customerEmail || null, 
+      status: status || null, 
+      limit, 
+      offset 
     },
-    where,
+    type: QueryTypes.SELECT,
+  });
+
+  return {
+    orders,
     limit,
     offset,
-    order: [['createdAt', 'DESC']],
-  });
+    total: orders.length > 0 ? orders[0].totalCount : 0,
+  };
 };
 
 export const findCustomerOrder = async (customerId: string, orderId: string, customerEmail?: string) => {
@@ -78,6 +104,7 @@ export const findCustomerOrder = async (customerId: string, orderId: string, cus
       o.shipping_address_id AS "shippingAddressId",
       o.metadata AS "metadata",
       o.created_at AS "createdAt",
+      o.tracking_number AS "trackingNumber",
       (SELECT COUNT(*) FROM order_items AS items WHERE items.order_id = o.id) AS "itemsCount",
       sa.type AS "shippingAddressType",
       sa.address_line1 AS "shippingAddressLine1",
