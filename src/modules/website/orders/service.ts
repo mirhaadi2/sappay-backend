@@ -379,11 +379,16 @@ export const getCustomerOrderService = async (customerId: string, orderId: strin
 };
 
 
-export const cancelOrderService = async (orderId: string, reason: string) => {
+export const cancelOrderService = async (orderId: string, reason: string, customerId?: string) => {
   return withTransaction(async (transaction) => {
     const order = await findOrderById(orderId);
     if (!order) {
       throw new AppError('NotFound', 404, 'Order not found');
+    }
+
+    // Validate that the order belongs to the logged-in customer
+    if (customerId && (order as any).customerId !== customerId) {
+      throw new AppError('Forbidden', 403, 'You do not have permission to cancel this order');
     }
 
     if (['SHIPPED', 'DELIVERED'].includes((order as any).status)) {
@@ -395,11 +400,14 @@ export const cancelOrderService = async (orderId: string, reason: string) => {
       if (['PENDING', 'CONFIRMED'].includes((item as any).status)) {
         await releaseStockService((item as any).productId, item?.productVariantId, (item as any).quantity, transaction);
       }
+      await updateOrderItem((item as any).id, {
+        status: 'CANCELLED',
+      }, transaction);
     }
 
     await updateOrderStatus(orderId, 'CANCELLED', transaction);
 
-    logger.info('Order cancelled', { orderId, reason });
+    logger.info('Order cancelled', { orderId, customerId, reason });
     return { id: orderId, status: 'CANCELLED' };
   });
 };

@@ -95,12 +95,12 @@ export const confirmOrderService = async (
 };
 
 export const cancelOrderService = async (
-  sellerProductId: string,
+  productId: string,
   productVariantId: string,
   quantity: number,
   transaction?: any,
 ) => {
-  return await releaseReservedStock(sellerProductId, productVariantId, quantity, transaction);
+  return await releaseReservedStock(productId, productVariantId, quantity, transaction);
 };
 
 export const checkInventoryByProductIdService = async (

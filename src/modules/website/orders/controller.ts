@@ -112,7 +112,13 @@ export const cancelOrderHandler = async (
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const result = await cancelOrderService(id, reason);
+    const customerId = req.session?.user?.id;
+    
+    if (!customerId) {
+      throw new AppError('Unauthorized', 401, 'Please login first');
+    }
+    
+    const result = await cancelOrderService(id, reason, customerId);
     res.json({
       success: true,
       data: result,

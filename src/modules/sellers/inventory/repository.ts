@@ -351,7 +351,7 @@ export const reserveStockRepo = async (sellerProductId: string, productVariantId
   }
 };
 
-export const releaseReservedStock = async (sellerProductId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
+export const releaseReservedStock = async (productId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
   let txn = transaction;
   const needsCommit = !transaction; // Only commit if we created the transaction
 
@@ -360,7 +360,7 @@ export const releaseReservedStock = async (sellerProductId: string, productVaria
       txn = await sequelize.transaction();
     }
 
-    const inventory = await Inventory.findOne({ where: { sellerProductId }, transaction: txn });
+    const inventory = await Inventory.findOne({ where: { productId }, transaction: txn });
     if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
 
     const productVariant = await ProductVariant.findByPk(productVariantId, {
@@ -386,13 +386,13 @@ export const releaseReservedStock = async (sellerProductId: string, productVaria
     if (needsCommit) {
       await txn!.commit();
     }
-    logger.info('Reserved stock released', { sellerProductId, productVariantId, quantity, totalWeightToRelease });
+    logger.info('Reserved stock released', { productId, productVariantId, quantity, totalWeightToRelease });
     return updated;
   } catch (error) {
     if (needsCommit && txn) {
       await txn.rollback();
     }
-    logger.error('Error releasing reserved stock', { sellerProductId, productVariantId, quantity, error });
+    logger.error('Error releasing reserved stock', { productId, productVariantId, quantity, error });
     throw error;
   }
 };

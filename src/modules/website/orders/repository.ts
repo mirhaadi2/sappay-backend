@@ -167,6 +167,12 @@ export const updateOrderStatus = async (id: string, status: string, transaction?
   return await order.update({ status: status as any }, transaction ? { transaction } : {});
 };
 
+export const updateOrderItemStatus = async (id: string, status: string, transaction?: Transaction) => {
+  const orderItem = await findOrderItemById(id);
+  if (!orderItem) throw new AppError('NotFound', 404, 'Order item not found');
+  return await orderItem.update({ status: status as any }, transaction ? { transaction } : {});
+};
+
 export const createOrderItem = async (data: any, transaction: Transaction) => {
   return await OrderItem.create(data, { transaction });
 };
