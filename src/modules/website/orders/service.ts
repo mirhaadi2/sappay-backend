@@ -271,7 +271,7 @@ export const placeOrderService = async (
           id: promotionInfo?.id || promotionDetails?.id,
           title: promotionInfo?.title || promotionDetails?.title,
           type: promotionInfo?.type || promotionDetails?.type,
-          discountAmount: null || promotionDetails?.discount,
+          discountAmount: promotionDetails?.discount ?? null,
         },
         appliedAt: new Date().toISOString(),
       } : undefined,
