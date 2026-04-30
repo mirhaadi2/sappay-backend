@@ -27,6 +27,7 @@ import { findOrCreateCustomerAddress } from './shipping-address.repository';
 import { AppError } from '../../../utils/AppError';
 import { withTransaction } from '../../../utils/transaction';
 import logger from '../../../utils/logger';
+import { Promotion } from '../../../models';
 
 export const placeOrderService = async (
   customerId: string | undefined,
@@ -72,7 +73,7 @@ export const placeOrderService = async (
   }
 ) => {
   return withTransaction(async (transaction) => {
-    const { items, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails, shippingAddress, shippingAddressId } = orderData;
+    const { items, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails, shippingAddress, shippingAddressId, promotionId } = orderData;
 
     if (!items || items.length === 0) {
       throw new AppError('BadRequest', 400, 'Order must have at least one item');
@@ -151,7 +152,7 @@ export const placeOrderService = async (
 
       // Check if customer already exists by email, phone, or whatsapp
       let existingCustomer = null;
-      
+
       if (guestEmail) {
         existingCustomer = await findCustomerByEmail(guestEmail, transaction);
       }
@@ -243,6 +244,13 @@ export const placeOrderService = async (
     const guestEmail = guestData && guestData.contactType === 'email' ? guestData.contact : undefined;
     const guestPhone = guestData && guestData.contactType === 'phone' ? guestData.contact : undefined;
 
+    let promotionInfo;
+    if (promotionId) {
+      promotionInfo = await Promotion.findByPk(promotionId,
+        { raw: true, transaction }
+      );
+    }
+
     // Create order with PENDING status (not CONFIRMED) since payment is PENDING
     const order = await createOrder({
       customerId: finalCustomerId,
@@ -258,12 +266,12 @@ export const placeOrderService = async (
       totalAmount: parseFloat(orderData.subtotal.toFixed(2)),
       finalAmount,
       shippingCost: parseFloat(shippingCost.toFixed(2)),
-      metadata: promotionDetails ? {
+      metadata: (promotionInfo || promotionDetails) ? {
         promotion: {
-          id: promotionDetails.id,
-          title: promotionDetails.title,
-          type: promotionDetails.type,
-          discountAmount: promotionDetails.discount,
+          id: promotionInfo?.id || promotionDetails?.id,
+          title: promotionInfo?.title || promotionDetails?.title,
+          type: promotionInfo?.type || promotionDetails?.type,
+          discountAmount: null || promotionDetails?.discount,
         },
         appliedAt: new Date().toISOString(),
       } : undefined,
@@ -343,7 +351,7 @@ export const getCustomerOrdersService = async (customerId: string, filters: any,
 
 export const getCustomerOrderService = async (customerId: string, orderId: string, customerEmail?: string) => {
   const order: any = await findCustomerOrder(customerId, orderId, customerEmail);
-  
+
   if (!order) {
     throw new AppError('NotFound', 404, 'Order not found');
   }
