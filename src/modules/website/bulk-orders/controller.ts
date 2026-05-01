@@ -114,3 +114,45 @@ export const getBulkOrdersHandler = async (req: Request, res: Response, next: Ne
         next(error);
     }
 };
+
+export const updateBulkOrderStatusHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!id || !status) {
+            throw new AppError('ValidationError', 400, 'ID and status are required');
+        }
+
+        // Validate status
+        const validStatuses = ['pending', 'contacted', 'quoted', 'confirmed', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            throw new AppError('ValidationError', 400, 'Invalid status');
+        }
+
+        const query = `
+            UPDATE bulk_orders
+            SET status = $1, updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, bulk_order_number, company_name, contact_person, email, phone, product, estimated_quantity, status, created_at, updated_at
+        `;
+
+        const result = await sequelize.query(query, {
+            bind: [status, id],
+            type: 'UPDATE',
+        });
+
+        if (!result[0] || result[0].length === 0) {
+            throw new AppError('NotFoundError', 404, 'Bulk order not found');
+        }
+
+        res.json({
+            success: true,
+            message: 'Bulk order status updated successfully',
+            data: result[0][0]
+        });
+    } catch (error) {
+        console.error('Error updating bulk order status:', error);
+        next(error);
+    }
+};

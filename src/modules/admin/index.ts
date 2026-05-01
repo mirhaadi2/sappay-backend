@@ -15,6 +15,7 @@ import statsRoutes from './stats/routes';
 import dashboardRoutes from './dashboard/routes';
 import toolsRoutes from './tools/routes';
 import { websiteAdminRoutes } from './website';
+import { adminBulkOrdersRoutes } from './bulk-orders/routes';
 
 const mainAdminRouter = Router();
 
@@ -29,6 +30,7 @@ mainAdminRouter.use('/customers', customerRoutes);
 mainAdminRouter.use('/sellers', sellerRoutes);
 mainAdminRouter.use('/orders', orderRoutes);
 mainAdminRouter.use('/products', productRoutes);
+mainAdminRouter.use('/bulk-orders', adminBulkOrdersRoutes);
 mainAdminRouter.use('/stats', statsRoutes);
 mainAdminRouter.use('/website', websiteAdminRoutes);
 mainAdminRouter.use('/dashboard', dashboardRoutes);

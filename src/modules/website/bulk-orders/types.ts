@@ -38,9 +38,6 @@ export interface BulkOrderListResponse {
     };
 }
 
-export interface BulkOrderListQuery {
-    status?: string;
-    limit?: number;
-    offset?: number;
-    page?: number;
+export interface BulkOrderUpdateStatusInput {
+    status: 'pending' | 'contacted' | 'quoted' | 'confirmed' | 'completed' | 'cancelled';
 }
