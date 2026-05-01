@@ -4,6 +4,7 @@ import { createOtp, findOtpByContact, deleteOtp, cleanupExpiredOtps } from './re
 import { AppError } from '../../../utils/AppError';
 import { awsSNSService, emailService, whatsappService } from '../../notifications';
 import { sendEmail } from '../../../utils/sendEmail';
+import { verificationOtpTemplate } from '../../templates/VerificationOtpTemplate';
 
 export const generateOtp = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -31,8 +32,7 @@ export const sendOtp = async (contact: string, contactType: 'email' | 'phone' | 
   });
 
   // Send OTP via appropriate channel
-  const otpMessage = `Your OTP code is: ${code}. Valid for 10 minutes. Do not share this with anyone.`;
-  const htmlContent = `<p>Your OTP code is: <strong>${code}</strong></p><p>Valid for 10 minutes.</p><p>Do not share this with anyone.</p>`;
+  const otpMessage = `Your OTP code is: ${code}. Valid for 10 minutes.`;
 
   try {
     switch (contactType) {
@@ -40,7 +40,7 @@ export const sendOtp = async (contact: string, contactType: 'email' | 'phone' | 
         await sendEmail({
           to: contact,
           subject: "Your Sappey Verification Code",
-          html: htmlContent,
+          html: verificationOtpTemplate(code),
           text: otpMessage
         });
         console.log(`✅ OTP sent to email: ${contact}`);

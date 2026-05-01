@@ -9,6 +9,7 @@ import { findCustomerByEmail, findCustomerByPhone, findCustomerByWhatsapp, getOr
 import { findCustomerAddresses } from '../orders/shipping-address.repository';
 import { Order } from '../../admin/orders/order.model';
 import { sendEmail } from '../../../utils/sendEmail';
+import { otpTemplate } from '../../templates/CheckoutOtpTemplate';
 
 // Type-safe Redis client
 const redisClient = baseRedisClient as any;
@@ -77,7 +78,6 @@ const generateGuestToken = (contact: string, contactType: string): string => {
 
 const sendOTPViaChannel = async (contact: string, contactType: string, otp: string): Promise<void> => {
   const otpMessage = `Your OTP for checkout is: ${otp}. Valid for 10 minutes. Do not share this with anyone.`;
-  const htmlContent = `<p>Your OTP for checkout is: <strong>${otp}</strong></p><p>Valid for 10 minutes.</p><p>Do not share this with anyone.</p>`;
   const activeChannel = config.notificationChannel?.toLowerCase() || 'email';
 
   try {
@@ -90,8 +90,8 @@ const sendOTPViaChannel = async (contact: string, contactType: string, otp: stri
         await sendEmail({
           to: contact,
           subject: 'Your OTP Code for Checkout',
-          html: htmlContent,
-          text: otpMessage
+          html: otpTemplate(otp),
+          text: `Your OTP for checkout is: ${otp}. Valid for 10 minutes.`
         });
         break;
       }
