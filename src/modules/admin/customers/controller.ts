@@ -11,6 +11,7 @@ import {
 import { AuthenticatedRequest } from "../middleware";
 import logger from "../../../utils/logger";
 import { sendEmail } from "../../../utils/sendEmail";
+import { welcomeTemplate } from "../../templates/WelcomeTemplate";
 
 export const listUsersHandler = async (
   req: AuthenticatedRequest,
@@ -54,23 +55,10 @@ export const createUserHandler = async (
     await sendEmail({
       to: email,
       subject: "Welcome to Sappey - Your Account Details",
-      html: `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #4b3832;">Welcome to Sappey!</h2>
-          <p>Your account has been created successfully. Here are your login details:</p>
-          <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Password:</strong> ${password}</p>
-          </div>
-          <p style="color: #d32f2f; font-weight: bold;">⚠️ Please change your password after first login for security.</p>
-          <p>You can now log in to your account and start shopping.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-          <p style="color: #666; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
-        </div>
-      `,
+      html: welcomeTemplate(email, password), // Use the new TypeScript template
+      text: `Welcome to Sappey! Your login email is ${email} and your temporary password is ${password}.`,
       fromMailType: 'support'
     });
-    
   } catch (error: any) {
     logger.error("Create user error", { error });
     next(error);

@@ -12,6 +12,7 @@ import logger from '../../../utils/logger';
 import { hashPassword, generateRandomPassword } from '../../../utils/password';
 import { sendEmail } from '../../../utils/sendEmail';
 import { sequelize } from '../../../db/sequelize';
+import { sellerWelcomeTemplate } from '../../templates/SellerWelcomeTemplate';
 
 export const adminListSellers = async (query: AdminSellerQuery) => {
   try {
@@ -79,7 +80,7 @@ export const adminCreateSeller = async (data: {
   let transaction;
   try {
     transaction = await sequelize.transaction();
-    
+
     // Check if seller already exists
     const existingSeller = await Seller.findOne({
       where: {
@@ -124,21 +125,9 @@ export const adminCreateSeller = async (data: {
       await sendEmail({
         to: data.email,
         subject: 'Welcome to Sappey Seller Program - Your Account Details',
-        html: `
-          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-            <h2 style="color: #4b3832;">Welcome to Sappey Seller Program!</h2>
-            <p>Your seller account has been created successfully. Here are your login details:</p>
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <p><strong>Email:</strong> ${data.email}</p>
-              <p><strong>Password:</strong> ${plainPassword}</p>
-            </div>
-            <p style="color: #d32f2f; font-weight: bold;">⚠️ Please change your password after first login for security.</p>
-            <p>Your account is currently under review. You will receive an email once your account is approved and you can start selling.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-            <p style="color: #666; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
-          </div>
-        `,
-        fromMailType: 'support'
+        html: sellerWelcomeTemplate(data.email, plainPassword),
+        text: `Welcome to Sappey Seller Program! Your login is ${data.email}. Note: Your account is currently under review.`,
+        fromMailType: 'support' // or 'sales' if you prefer
       });
     } catch (emailError) {
       logger.error('Failed to send welcome email to seller', { sellerId: seller.id, email: data.email, error: emailError });
@@ -216,7 +205,7 @@ export const adminUpdateSeller = async (
   let transaction;
   try {
     transaction = await sequelize.transaction();
-    
+
     const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
@@ -253,7 +242,7 @@ export const adminDeleteSeller = async (id: string) => {
   let transaction;
   try {
     transaction = await sequelize.transaction();
-    
+
     const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
@@ -261,7 +250,7 @@ export const adminDeleteSeller = async (id: string) => {
     }
 
     await seller.destroy({ transaction });
-    
+
     await transaction.commit();
     logger.info('Seller deleted by admin', { sellerId: id });
     return { success: true, message: 'Seller deleted successfully' };
@@ -281,7 +270,7 @@ export const adminApproveSeller = async (id: string) => {
   let transaction;
   try {
     transaction = await sequelize.transaction();
-    
+
     const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
@@ -313,7 +302,7 @@ export const adminRejectSeller = async (id: string, reason?: string) => {
   let transaction;
   try {
     transaction = await sequelize.transaction();
-    
+
     const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
@@ -353,7 +342,7 @@ export const adminSuspendSeller = async (id: string, reason?: string) => {
   let transaction;
   try {
     transaction = await sequelize.transaction();
-    
+
     const seller = await Seller.findByPk(id, { transaction });
 
     if (!seller) {
@@ -388,7 +377,7 @@ export const adminRestoreSeller = async (id: string) => {
   let transaction;
   try {
     transaction = await sequelize.transaction();
-    
+
     const seller = await Seller.findByPk(id, { paranoid: false, transaction });
 
     if (!seller) {
@@ -396,7 +385,7 @@ export const adminRestoreSeller = async (id: string) => {
     }
 
     await seller.restore({ transaction });
-    
+
     await transaction.commit();
     logger.info('Seller restored by admin', { sellerId: id });
     return adminGetSeller(id);

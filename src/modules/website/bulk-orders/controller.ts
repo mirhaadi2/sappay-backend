@@ -4,6 +4,8 @@ import { sendEmail } from '../../../utils/sendEmail';
 import { config } from '../../../config';
 import { AppError } from '../../../utils/AppError';
 import { BulkOrderRequest } from './types';
+import { bulkOrderInquiryTemplate } from '../../templates/BulkOrderInquiryTemplate';
+import { bulkOrderCustomerTemplate } from '../../templates/BulkOrderCustomerTemplate';
 
 export const submitBulkOrderHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -43,55 +45,39 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
         // Send email notification to sales team
         const salesTeamEmail = config.email.salesTeamEmail || config.email.fromEmail || 'support@sappey.com';
         const emailSubject = `🚀 New Bulk Order Inquiry from ${companyName}`;
-        const emailBody = `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-                <h2 style="color: #8b5535;">New Bulk Order Inquiry</h2>
-                <p><strong>Company:</strong> ${companyName}</p>
-                <p><strong>Contact Person:</strong> ${contactPerson}</p>
-                <p><strong>Phone:</strong> ${phone}</p>
-                <p><strong>Email:</strong> ${email}</p>
-                <p><strong>Product/Category:</strong> ${product}</p>
-                <p><strong>Estimated Quantity:</strong> ${estimatedQuantity}</p>
-                <p><strong>Additional Requirements:</strong> ${additionalRequirements || 'None'}</p>
-                <p><strong>Order ID:</strong> ${bulkOrderId}</p>
-                <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
-                <hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
-                <p style="font-weight: bold; color: #d97706;">⏰ Please follow up with this lead as soon as possible while they are interested!</p>
-            </div>
-        `;
-
-        // Send email (non-blocking - don't wait for response)
-        sendEmail({
+        await sendEmail({
             to: salesTeamEmail,
             subject: emailSubject,
-            html: emailBody,
-            fromMailType: 'support'
+            html: bulkOrderInquiryTemplate({
+                companyName,
+                contactPerson,
+                phone,
+                email,
+                product,
+                estimatedQuantity,
+                additionalRequirements,
+                bulkOrderId
+            }),
+            fromMailType: 'support' // Or 'sales' if you want internal leads to come from sales@sappey.com
         }).catch((err: any) => {
             console.error('Failed to send bulk order email notification:', err);
         });
 
         // Send confirmation email to customer
         const customerEmailSubject = '✓ Your Bulk Order Inquiry Received - Sappey';
-        const customerEmailBody = `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-                <h2 style="color: #8b5535;">Thank You for Your Bulk Order Inquiry</h2>
-                <p>Dear ${contactPerson},</p>
-                <p>We have received your bulk order inquiry for <strong>${product}</strong> (Quantity: ${estimatedQuantity}).</p>
-                <p>Our dedicated sales team will review your request and contact you at <strong>${phone}</strong> or <strong>${email}</strong> within <strong>24 business hours</strong>.</p>
-                <p style="background-color: #f5f5f5; padding: 10px; border-left: 4px solid #8b5535;">
-                    <strong>Order Reference ID:</strong> ${bulkOrderId}
-                </p>
-                <p>Thank you for choosing Sappey for your wholesale needs.</p>
-                <p>Best regards,<br><strong>The Sappey Team</strong></p>
-            </div>
-        `;
-
-        sendEmail({
-            to: email,
+        await sendEmail({
+            to: email, // Customer's email
             subject: customerEmailSubject,
-            html: customerEmailBody,
-            from: salesTeamEmail,
-            fromMailType: 'sales'
+            html: bulkOrderCustomerTemplate({
+                contactPerson,
+                product,
+                estimatedQuantity,
+                bulkOrderId,
+                phone,
+                email
+            }),
+            text: `Hello ${contactPerson}, we received your inquiry for ${product}. Ref ID: ${bulkOrderId}.`,
+            fromMailType: 'sales' // Using the sales account for B2B feel
         }).catch((err: any) => {
             console.error('Failed to send customer confirmation email:', err);
         });
