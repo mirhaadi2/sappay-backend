@@ -6,6 +6,7 @@ import { AppError } from '../../../utils/AppError';
 import { BulkOrderRequest } from './types';
 import { bulkOrderInquiryTemplate } from '../../templates/BulkOrderInquiryTemplate';
 import { bulkOrderCustomerTemplate } from '../../templates/BulkOrderCustomerTemplate';
+import { generateBulkOrderNumber } from './utils';
 
 export const submitBulkOrderHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -28,19 +29,23 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
             throw new AppError('ValidationError', 400, 'Phone number must be at least 10 digits');
         }
 
+        // Generate bulk order number
+        const bulkOrderNumber = await generateBulkOrderNumber();
+
         // Save to database using raw query
         const query = `
-            INSERT INTO bulk_orders (id, company_name, contact_person, phone, email, product, estimated_quantity, additional_requirements, status, created_at, updated_at)
-            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'pending', NOW(), NOW())
-            RETURNING id, company_name, contact_person, email, created_at
+            INSERT INTO bulk_orders (id, bulk_order_number, company_name, contact_person, phone, email, product, estimated_quantity, additional_requirements, status, created_at, updated_at)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW(), NOW())
+            RETURNING id, bulk_order_number, company_name, contact_person, email, created_at
         `;
 
         const result = await sequelize.query(query, {
-            bind: [companyName, contactPerson, phone, email, product, estimatedQuantity, additionalRequirements || ''],
+            bind: [bulkOrderNumber, companyName, contactPerson, phone, email, product, estimatedQuantity, additionalRequirements || ''],
             type: 'INSERT',
         });
 
         const bulkOrderId = (result[0] as any)?.[0]?.id || 'N/A';
+        const returnedBulkOrderNumber = (result[0] as any)?.[0]?.bulk_order_number || bulkOrderNumber;
 
         // Send email notification to sales team
         const salesTeamEmail = config.email.salesTeamEmail || config.email.fromEmail || 'support@sappey.com';
@@ -56,7 +61,7 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
                 product,
                 estimatedQuantity,
                 additionalRequirements,
-                bulkOrderId
+                bulkOrderId: returnedBulkOrderNumber
             }),
             fromMailType: 'support' // Or 'sales' if you want internal leads to come from sales@sappey.com
         }).catch((err: any) => {
@@ -72,11 +77,11 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
                 contactPerson,
                 product,
                 estimatedQuantity,
-                bulkOrderId,
+                bulkOrderId: returnedBulkOrderNumber,
                 phone,
                 email
             }),
-            text: `Hello ${contactPerson}, we received your inquiry for ${product}. Ref ID: ${bulkOrderId}.`,
+            text: `Hello ${contactPerson}, we received your inquiry for ${product}. Ref ID: ${returnedBulkOrderNumber}.`,
             fromMailType: 'sales' // Using the sales account for B2B feel
         }).catch((err: any) => {
             console.error('Failed to send customer confirmation email:', err);
@@ -85,7 +90,7 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
         res.status(201).json({
             success: true,
             message: 'Bulk order submitted successfully. Our sales team will contact you shortly.',
-            bulkOrderId,
+            bulkOrderId: returnedBulkOrderNumber,
         });
     } catch (error) {
         console.error('Error submitting bulk order:', error);
@@ -96,7 +101,7 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
 export const getBulkOrdersHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const query = `
-            SELECT id, company_name, contact_person, email, phone, product, estimated_quantity, status, created_at
+            SELECT id, bulk_order_number, company_name, contact_person, email, phone, product, estimated_quantity, status, created_at
             FROM bulk_orders
             ORDER BY created_at DESC
             LIMIT 100

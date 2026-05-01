@@ -15,6 +15,7 @@ export interface BulkOrderRequest {
 
 export interface BulkOrderResponse {
     id: string;
+    bulkOrderNumber: string;
     companyName: string;
     contactPerson: string;
     email: string;
