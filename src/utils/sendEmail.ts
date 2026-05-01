@@ -11,6 +11,7 @@ interface SendEmailOptions {
   subject: string;
   html: string;
   from?: string;
+  fromMailType?: 'sales' | 'support';
 }
 
 /**
@@ -25,7 +26,7 @@ export const sendEmail = async (options: SendEmailOptions) => {
   };
 
   try {
-    const result = await emailTransporter.sendMail(mailOptions);
+    const result = await emailTransporter(options.fromMailType || 'support').sendMail(mailOptions);
     console.log(`✅ Email sent to ${options.to}`);
     return result;
   } catch (error) {
@@ -51,6 +52,7 @@ export const sendOtpToEmail = async (email: string, code: string) => {
         <p style="font-size: 12px; color: #999;">If you did not request this code, please ignore this email.</p>
       </div>
     `,
+    fromMailType: 'support'
   });
 };
 
@@ -74,6 +76,7 @@ export const sendPasswordResetEmail = async (email: string, resetLink: string) =
         <p style="font-size: 12px; color: #999;">If you did not request this, please ignore this email.</p>
       </div>
     `,
+    fromMailType: 'support'
   });
 };
 
@@ -99,6 +102,7 @@ export const sendWelcomeEmail = async (email: string, name: string) => {
         <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>
       </div>
     `,
+    fromMailType: 'support'
   });
 };
 
@@ -118,6 +122,7 @@ export const sendSellerApprovalEmail = async (email: string, name: string) => {
         <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>
       </div>
     `,
+    fromMailType: 'support'
   });
 };
 
@@ -138,6 +143,7 @@ export const sendSellerRejectionEmail = async (email: string, name: string, reas
         <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>
       </div>
     `,
+    fromMailType: 'support'
   });
 };
 
@@ -154,5 +160,6 @@ export const sendSellerReapplyConfirmationEmail = async (email: string, name: st
         <p style="font-size: 12px; color: #999;">Questions? Contact us at support@sappey.com</p>
       </div>
     `,
+    fromMailType: 'support'
   });
 };

@@ -1,28 +1,34 @@
 import nodemailer from "nodemailer";
 import { config } from "../config/index";
 
-/**
- * Email Transporter Configuration
- * Centralized setup for sending emails via Gmail SMTP
- */
 
-export const emailTransporter = nodemailer.createTransport({
-  host: config.email.smtpHost,
-  port: config.email.smtpPort,
-  secure: config.email.smtpPort === 465,
-  auth: {
-    user: config.email.smtpUser,      // Gmail address
-    pass: config.email.smtpPassword,  // Gmail App Password
-  },
+// 1. Pre-initialize the transporters
+const transporters = {
+  sales: nodemailer.createTransport({
+    host: config.email.smtpHost,
+    port: config.email.smtpPort,
+    secure: config.email.smtpPort === 465,
+    auth: { user: config.email.salesTeamEmail, pass: config.email.salesTeamPassword },
+  }),
+  support: nodemailer.createTransport({
+    host: config.email.smtpHost,
+    port: config.email.smtpPort,
+    secure: config.email.smtpPort === 465,
+    auth: { user: config.email.smtpUser, pass: config.email.smtpPassword },
+  }),
+};
+
+type EmailAccountType = keyof typeof transporters;
+
+// 2. Export a simple getter function
+export const emailTransporter = (type: EmailAccountType) => {
+  return transporters[type];
+};
+
+// 3. Verify all transporters on startup
+Object.entries(transporters).forEach(([name, transporter]) => {
+  transporter.verify((error) => {
+    if (error) console.error(`❌ ${name} email failed:`, error);
+    else console.log(`✅ ${name} email ready`);
+  });
 });
-
-// Verify transporter connection on startup
-emailTransporter.verify((error: Error | null, success: boolean) => {
-  if (error) {
-    console.error("Email transporter verification failed:", error);
-  } else {
-    console.log("✅ Email transporter ready");
-  }
-});
-
-export default emailTransporter;

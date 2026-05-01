@@ -303,6 +303,7 @@ export const placeOrderService = async (
     return {
       id: orderId,
       orderNumber: (order as any).orderNumber,
+      customerId: finalCustomerId,
       status: 'CONFIRMED',
       finalAmount,
       message: 'Order placed successfully. Awaiting payment confirmation.',

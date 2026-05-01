@@ -68,6 +68,7 @@ export const createUserHandler = async (
           <p style="color: #666; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
         </div>
       `,
+      fromMailType: 'support'
     });
     
   } catch (error: any) {

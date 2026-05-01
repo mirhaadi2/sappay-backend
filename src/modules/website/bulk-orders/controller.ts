@@ -65,6 +65,7 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
             to: salesTeamEmail,
             subject: emailSubject,
             html: emailBody,
+            fromMailType: 'support'
         }).catch((err: any) => {
             console.error('Failed to send bulk order email notification:', err);
         });
@@ -89,6 +90,8 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
             to: email,
             subject: customerEmailSubject,
             html: customerEmailBody,
+            from: salesTeamEmail,
+            fromMailType: 'sales'
         }).catch((err: any) => {
             console.error('Failed to send customer confirmation email:', err);
         });

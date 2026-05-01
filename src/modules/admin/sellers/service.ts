@@ -138,6 +138,7 @@ export const adminCreateSeller = async (data: {
             <p style="color: #666; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
           </div>
         `,
+        fromMailType: 'support'
       });
     } catch (emailError) {
       logger.error('Failed to send welcome email to seller', { sellerId: seller.id, email: data.email, error: emailError });
