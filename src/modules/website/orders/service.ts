@@ -137,7 +137,7 @@ export const placeOrderService = async (
       });
     }
 
-    const finalAmount = parseFloat(orderData.totalAmount.toFixed(2));
+    const finalAmount = Math.round(orderData.totalAmount);
 
     // Handle customer and shipping address for both logged-in and guest users
     let finalCustomerId = customerId;
@@ -263,7 +263,7 @@ export const placeOrderService = async (
       subtotal: parseFloat(subtotal.toFixed(2)),
       taxAmount: parseFloat(taxAmount.toFixed(2)),
       discountAmount: parseFloat(orderData.discountAmount.toFixed(2)),
-      totalAmount: parseFloat(orderData.subtotal.toFixed(2)),
+      totalAmount: Math.round(orderData.totalAmount),
       finalAmount,
       shippingCost: parseFloat(shippingCost.toFixed(2)),
       metadata: (promotionInfo || promotionDetails) ? {
