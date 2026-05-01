@@ -251,8 +251,6 @@ export const adminUpdateOrderStatus = async (
 ): Promise<AdminOrder> => {
   const transaction = await sequelize.transaction();
   try {
-    console.log("Admin updating order status", { id, data });
-
     const order = await Order.findByPk(id);
     if (!order) {
       throw new AppError("NotFoundError", 404, "Order not found");
@@ -273,13 +271,9 @@ export const adminUpdateOrderStatus = async (
       cancelled: "CANCELLED",
       refunded: "CANCELLED",
     };
-    console.log(statusMap);
-
 
     const newStatus =
       statusMap[data.status.toLowerCase()] || data.status.toUpperCase();
-
-          console.log(newStatus,'newStatus');
 
     // 2. Logic Validation: Prevent Handover/Shipping without Tracking Info
     // This stops "ghost" shipments that can't be tracked later

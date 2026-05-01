@@ -17,7 +17,6 @@ export const checkPincodeServiceability = async (pincode: string): Promise<any> 
     const response = await delhiveryClient.get(`/c/api/pin-codes/json/`, {
       params: { filter_codes: pincode },
     });
-    console.log('Delhivery API Response [checkPincode]:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('Delhivery Service Error [checkPincode]:', error.response?.data || error.message);

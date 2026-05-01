@@ -265,7 +265,6 @@ Order.init(
         }
 
         order.orderNumber = `${PREFIX}${nextNumber}`;
-        console.log("Assigned order number to new order:", order.orderNumber);
       },
     },
   },

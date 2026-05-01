@@ -10,7 +10,6 @@ const smtpConfig = {
     secure: config.email.smtpSecure,
     fromEmail: config.email.fromEmail,
 };
-console.log(smtpConfig, "smtp config");
 
 if (!smtpConfig.host || !smtpConfig.user || !smtpConfig.password) {
     logger.warn("SMTP not fully configured. Email notifications will not work.", {
