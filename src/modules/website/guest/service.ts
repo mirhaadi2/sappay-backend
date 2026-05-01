@@ -8,6 +8,7 @@ import { awsSNSService, emailService, whatsappService } from '../../notification
 import { findCustomerByEmail, findCustomerByPhone, findCustomerByWhatsapp, getOrCreateCustomer } from '../guests/customer.service';
 import { findCustomerAddresses } from '../orders/shipping-address.repository';
 import { Order } from '../../admin/orders/order.model';
+import { sendEmail } from '../../../utils/sendEmail';
 
 // Type-safe Redis client
 const redisClient = baseRedisClient as any;
@@ -86,7 +87,12 @@ const sendOTPViaChannel = async (contact: string, contactType: string, otp: stri
           throw new AppError('ChannelMismatch', 400, 'Email channel requires email contact type');
         }
         logger.info('[EMAIL] Sending OTP', { recipient: maskContact(contact, 'email') });
-        await emailService.sendEmail(contact, 'Your OTP Code for Checkout', htmlContent, otpMessage);
+        await sendEmail({
+          to: contact,
+          subject: 'Your OTP Code for Checkout',
+          html: htmlContent,
+          text: otpMessage
+        });
         break;
       }
 

@@ -3,6 +3,7 @@ import { OtpType } from '../../admin/customers/otp.model';
 import { createOtp, findOtpByContact, deleteOtp, cleanupExpiredOtps } from './repository';
 import { AppError } from '../../../utils/AppError';
 import { awsSNSService, emailService, whatsappService } from '../../notifications';
+import { sendEmail } from '../../../utils/sendEmail';
 
 export const generateOtp = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -36,7 +37,12 @@ export const sendOtp = async (contact: string, contactType: 'email' | 'phone' | 
   try {
     switch (contactType) {
       case 'email':
-        await emailService.sendEmail(contact, 'Your OTP Code', htmlContent, otpMessage);
+        await sendEmail({
+          to: contact,
+          subject: "Your Sappey Verification Code",
+          html: htmlContent,
+          text: otpMessage
+        });
         console.log(`✅ OTP sent to email: ${contact}`);
         break;
       case 'phone':

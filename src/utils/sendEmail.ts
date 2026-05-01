@@ -10,6 +10,7 @@ interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  text?: string;
   from?: string;
   fromMailType?: 'sales' | 'support';
 }
@@ -23,6 +24,7 @@ export const sendEmail = async (options: SendEmailOptions) => {
     to: options.to,
     subject: options.subject,
     html: options.html,
+    text: options.text || options.html.replace(/<[^>]+>/g, '') // Fallback text by stripping HTML tags
   };
 
   try {

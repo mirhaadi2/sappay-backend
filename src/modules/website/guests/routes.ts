@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { sendOtpToEmail, verifyOtp, generateOtp } from '../customers/otp.service';
+import { generateOtp } from '../customers/otp.service';
 import { OtpType } from '../../admin/customers/otp.model';
 import { AppError } from '../../../utils/AppError';
 // import { sendOtpToPhone } from '../../../utils/sendSms';
