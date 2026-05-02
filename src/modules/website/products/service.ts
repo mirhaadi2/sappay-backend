@@ -17,6 +17,7 @@ import {
   createProductVariants,
   invalidateProductsCache,
   invalidateCategoriesCache,
+  findProductByIdOrSlug,
 } from './repository';
 import { generateSku, normalizeSku } from '../../../utils/sku';
 import { sequelize } from '../../../db/sequelize';
@@ -194,7 +195,7 @@ export const addProductToSellerService = async (
 };
 
 export const getProductDetailsService = async (productId: string) => {
-  const product = await findProductById(productId);
+  const product = await findProductByIdOrSlug(productId);
   return product;
 };
 

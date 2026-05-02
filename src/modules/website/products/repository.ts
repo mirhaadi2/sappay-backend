@@ -111,8 +111,115 @@ export const findProductById = async (id: string, transaction?: Transaction) => 
   };
 };
 
-export const findProductBySlug = async (slug: string) => {
-  return await Product.findOne({ where: { slug } });
+export const findProductBySlug = async (slug: string, transaction?: Transaction) => {
+  const query = `
+    SELECT
+      p.id, p.name, p.slug, p.benefits, p.ingredients, p.description,
+      p.images, p.gst_rate, p.category_id as "categoryId",
+      p.nutrition_facts as "nutritionFacts",
+      p.is_new as "isNew",
+      p.is_customer_favourites as "isCustomerFavourites",
+      p.is_best_seller as "isBestseller",
+      c.name as "category",
+      COALESCE(MAX(i.available_stock), 0) as "availableStock",
+      COALESCE(
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'id', pv.id,
+            'sku', pv.sku,
+            'price', pv.price,
+            'discountedPrice', pv.discounted_price,
+            'discountedPercent', pv.discounted_percent,
+            'weight', pv.weight,
+            'weightUnit', pv.weight_unit
+          )
+        ) FILTER (WHERE pv.id IS NOT NULL), '[]'
+      ) as "variants"
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN inventory i ON i.product_id = p.id
+    LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 'ACTIVE'
+    WHERE p.slug = :slug AND p.status = 'ACTIVE'
+    GROUP BY p.id, c.name
+    LIMIT 1
+  `;
+
+  const products = await sequelize.query(query, {
+    replacements: { slug },
+    type: QueryTypes.SELECT,
+    plain: true, // Returns a single object instead of an array
+    benchmark: true,
+    logging: (sql, timing) => console.log(`[SQL] ${timing}ms`),
+    transaction,
+  }) as any | null;
+
+  if (!products) return null;
+
+  const [resolvedImages] = await Promise.all([
+    resolveR2Urls(products.images || [])
+  ]);
+
+  const variants = products.variants || [];
+  const availableStock = products?.availableStock ? parseFloat(products?.availableStock) : 0;
+  const isProductAvailable = availableStock > 0;
+
+  // Add isAvailable to each variant
+  const variantsWithAvailability = (variants || []).map((variant: any) => {
+    // 1. Convert availableStock (e.g., 1.75) to total grams (1750)
+    const stockInGrams = (availableStock || 0) * 1000;
+
+    // 2. Convert variant weight to grams based on its unit
+    let variantWeightInGrams = Number(variant.weight) || 0;
+
+    if (variant.weightUnit?.toLowerCase() === 'kg') {
+      variantWeightInGrams = variantWeightInGrams * 1000;
+    }
+
+    return {
+      ...variant,
+      isAvailable: stockInGrams >= variantWeightInGrams
+    };
+  });
+
+  let minPrice = 0;
+  if (variants.length > 0) {
+    minPrice = variants.reduce((min: number, v: any) => (v.price < min ? v.price : min), variants[0].price);
+  }
+
+  return {
+    ...products,
+    images: resolvedImages,
+    price: Number(minPrice),
+    variantCount: variants.length,
+    variants: variantsWithAvailability,
+    isAvailable: isProductAvailable,
+  };
+};
+
+/**
+ * Find product by slug or ID with intelligent fallback
+ * Tries slug first (for URLs), then falls back to UUID (for backward compatibility)
+ * This enables professional URL structure like /products/organic-almonds-500g
+ * while maintaining support for legacy UUID-based URLs
+ */
+export const findProductByIdOrSlug = async (identifier: string, transaction?: Transaction) => {
+  if (!identifier) return null;
+
+  // Detect if identifier is a UUID pattern (36 chars with hyphens at specific positions)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isUuid = uuidRegex.test(identifier);
+
+  if (isUuid) {
+    // If it's a UUID, try ID lookup
+    return await findProductById(identifier, transaction);
+  } else {
+    // If it's not a UUID (likely a slug), try slug lookup with full data processing
+    const product = await findProductBySlug(identifier, transaction);
+    if (product) return product;
+
+    // Fallback to ID lookup for any other format (edge cases)
+    return await findProductById(identifier, transaction);
+  }
 };
 
 export const findProductBySku = async (sku: string) => {

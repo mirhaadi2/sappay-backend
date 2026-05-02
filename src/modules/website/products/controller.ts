@@ -53,6 +53,14 @@ export const getProductDetailsHandler = async (
     const { id } = req.params;
     const product = await getProductDetailsService(id);
 
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found',
+        statusCode: 404 
+      });
+    }
+
     const payload = JSON.stringify(product);
     const etag = createHash('md5').update(payload).digest('hex');
     res.setHeader('ETag', etag);
