@@ -183,15 +183,28 @@ export const deleteReview = async (id: string, customerId: string): Promise<void
 export const getProductReviews = async (productId: string, page: number = 1, limit: number = 10) => {
   const offset = (page - 1) * limit;
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isUuid = uuidRegex.test(productId);
+  let product;
+  if (isUuid) {
+    product = await Product.findByPk(productId, { attributes: ['id', 'slug', 'rating', 'ratingCount'], raw: true });
+  } else {
+    product = await Product.findOne({ where: { slug: productId }, attributes: ['id', 'slug', 'rating', 'ratingCount'], raw: true });
+  }
+
+  if (!product) {
+    throw new AppError("NotFound", 404, "Product not found");
+  }
+
   const { reviews, total } = await getReviews({
-    productId,
+    productId: product?.id,
     limit,
     offset,
   });
 
   // Get rating statistics
   const ratingStats = await Review.findAll({
-    where: { productId },
+    where: { productId: product?.id },
     attributes: [
       [sequelize.fn("COUNT", sequelize.col("rating")), "total"],
       [sequelize.fn("AVG", sequelize.col("rating")), "average"],
