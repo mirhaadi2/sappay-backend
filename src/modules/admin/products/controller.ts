@@ -109,6 +109,7 @@ export const updateProductHandler = async (req: AuthenticatedRequest, res: Respo
     const { id } = req.params;
     const {
       name,
+      slug,
       description,
       descriptionDetails,
       category,
@@ -124,6 +125,7 @@ export const updateProductHandler = async (req: AuthenticatedRequest, res: Respo
     } = req.body;
     const product = await adminUpdateProduct(id, {
       name,
+      slug,
       description,
       descriptionDetails,
       category,

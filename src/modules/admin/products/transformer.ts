@@ -103,6 +103,7 @@ export async function transformProductToAdmin(row: ProductRow): Promise<AdminPro
   return {
     id: row.id,
     name: row.name,
+    slug: row.slug,
     description: row.description || '',
     benefits: row.benefits || [],
     ingredients: row.ingredients || [],

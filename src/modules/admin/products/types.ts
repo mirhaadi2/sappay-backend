@@ -77,6 +77,7 @@ export interface AdminProductSellerOffering {
 export interface AdminProduct {
   id: string;
   name: string;
+  slug: string;
   description: string;
   descriptionDetails?: Array<{
     type: 'text' | 'highlight' | 'point';
