@@ -444,11 +444,11 @@ const buildProductConditions = (filters: any) => {
   });
 
   const sortMapping: Record<string, string> = {
-    'newest': 'p.created_at DESC',
-    'price-asc': 'min_price ASC',
-    'price-desc': 'min_price DESC',
-    'rating': 'p.rating DESC',
-    'default': 'p.created_at DESC'
+    'newest': 'p.created_at DESC NULLS LAST',
+    'price-asc': '"minPrice" ASC NULLS LAST',
+    'price-desc': '"minPrice" DESC NULLS LAST',
+    'rating': 'p.rating DESC NULLS LAST',
+    'default': 'p.created_at DESC NULLS LAST'
   };
 
   // When searching, prioritize by relevance score, then by selected sort
@@ -475,8 +475,12 @@ const generateMainQuery = (whereClause: string, orderBy: string) => {
       p.is_best_seller as "isBestseller",
       p.is_customer_favourites as "isCustomerFavourites",
       COALESCE(MAX(i.available_stock), 0) as "availableStock",
-      -- Use MIN() across the group to find the lowest price among variants
-      MIN(LEAST(COALESCE(pv.discounted_price, pv.price), pv.price)) AS "minPrice",
+      -- Calculate effective price per variant (discounted if available, else original)
+      -- Then find minimum across all ACTIVE variants for this product
+      COALESCE(
+        MIN(COALESCE(pv.discounted_price, pv.price)),
+        999999
+      ) AS "minPrice",
       COALESCE(JSON_AGG(
         JSON_BUILD_OBJECT(
           'id', pv.id, 
