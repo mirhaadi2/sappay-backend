@@ -95,12 +95,12 @@ export const createProductService = async (data: any) => {
 
     if (variants.length > 0) {
       const finalVariants = await generateProductVariantsWithSku(data.name, variants);
-      await createProductVariants(product.id, finalVariants, transaction);
+      await createProductVariants(product?.dataValues?.id || product.id, finalVariants, transaction);
     }
 
     // Initialize stock for admin-created products
     if (stock && parseInt(stock) > 0) {
-      await initializeAdminProductStockService(product.id, parseInt(stock), data?.addedBy, transaction);
+      await initializeAdminProductStockService(product?.dataValues?.id || product.id, parseInt(stock), data?.addedBy, transaction);
     }
 
     // Invalidate product list cache for consistent reads across categories/flows

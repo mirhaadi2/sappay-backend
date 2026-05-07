@@ -12,7 +12,7 @@ import logger from "../../../utils/logger";
 
 export const createProduct = async (data: any, transaction?: any) => {
   const product = await Product.create(data, { transaction });
-  logger.info('Product created', { productId: product.id, name: data.name });
+  logger.info('Product created', { productId: product?.dataValues?.id || product.id, name: data.name });
   return product;
 };
 
@@ -294,6 +294,7 @@ export const invalidateProductsCache = async () => {
     console.warn("Failed to invalidate products cache:", err?.message || err);
   }
 };
+
 export const invalidateCategoriesCache = async () => {
   try {
     if (!redisClient.isOpen) return;
