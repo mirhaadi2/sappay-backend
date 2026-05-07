@@ -1,11 +1,11 @@
 import { InventoryHistory } from './model';
 import { AppError } from '../../../../utils/AppError';
 import { sequelize } from '../../../../db/sequelize';
-import { QueryTypes } from 'sequelize';
+import { QueryTypes, Transaction } from 'sequelize';
 import { buildPaginatedResponse } from '../../../shared/pagination';
 
-export const createHistoryRecord = async (data: any) => {
-    return await InventoryHistory.create(data);
+export const createHistoryRecord = async (data: any, transaction?: Transaction) => {
+    return await InventoryHistory.create(data, { transaction });
 };
 
 

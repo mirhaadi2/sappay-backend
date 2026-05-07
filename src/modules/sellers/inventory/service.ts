@@ -175,6 +175,7 @@ export const logInventoryTransaction = async (
   newStock: number,
   reference?: string,
   notes?: string,
+  transaction?: Transaction,
 ) => {
   return await createHistoryRecord({
     inventoryId,
@@ -185,7 +186,7 @@ export const logInventoryTransaction = async (
     newStock,
     reference,
     notes,
-  });
+  }, transaction);
 };
 
 /**
@@ -226,7 +227,7 @@ export const initializeAdminProductStockService = async (
         previousStock: 0,
         newStock: initialStock,
         notes: "Initial stock entry",
-      });
+      }, transaction);
     }
 
     // For now, just acknowledge the stock initialization
