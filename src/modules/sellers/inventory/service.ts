@@ -218,7 +218,7 @@ export const initializeAdminProductStockService = async (
     // Create history record for initial stock entry
     if (initialStock > 0) {
       await createHistoryRecord({
-        inventoryId: inventory.id,
+        inventoryId: inventory?.dataValues?.id || inventory.id,
         productId,
         addedBy: addedBy ?? null, // system action
         type: "STOCK_ADDED",

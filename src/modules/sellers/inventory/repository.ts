@@ -13,7 +13,7 @@ export const findInventoryByProductId = async (productId: string, transaction?: 
 
 export const createInventory = async (data: any, transaction?: any) => {
   const inventory = await Inventory.create(data, { transaction });
-  logger.info('Inventory created', { inventoryId: inventory.id });
+  logger.info('Inventory created', { inventoryId: inventory?.dataValues?.id });
   return inventory;
 };
 
