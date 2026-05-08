@@ -10,7 +10,7 @@ import {
 } from './service';
 import { findById } from '../../sellers/repository';
 import { AppError } from '../../../utils/AppError';
-import { sendEmail } from '../../../utils/sendEmail';
+import { sendEmail, sendNewOrderNotificationEmail, sendOrderConfirmationEmail } from '../../../utils/sendEmail';
 import { config } from '../../../config';
 import logger from '../../../utils/logger';
 import { Customer } from '../guests/customer.model';
@@ -41,16 +41,12 @@ export const placeOrderHandler = async (
     let customer = await Customer.findByPk(result.customerId, { raw: true });
     // Send notification to sales team
     try {
-      await sendEmail(
-        {
-          to: config.email.salesTeamEmail,
-          subject: 'New Order Notification',
-          html: `<h2>New Order Placed</h2>
-            <p><strong>Order Number:</strong> ${result?.orderNumber || result?.dataValues?.orderNumber}</p>
-            <p><strong>Customer Email:</strong> ${customer?.email || 'Guest'}</p>
-            <p><strong>Total Amount:</strong> ₹${result?.finalAmount || result?.dataValues?.finalAmount}</p>
-            <p>Please check the admin panel for order details.</p>`
-        });
+      await sendNewOrderNotificationEmail(
+        result?.orderNumber || result?.dataValues?.orderNumber,
+        customer?.email || 'Guest',
+        result?.finalAmount || result?.dataValues?.finalAmount,
+        'support'
+      );
       logger.info('Sales team notification sent', { orderId: result.id, orderNumber: result.orderNumber });
     } catch (error) {
       logger.error('Failed to send sales team notification', { error, orderId: result.id });
@@ -59,19 +55,12 @@ export const placeOrderHandler = async (
     // Send confirmation to customer
     if (customer?.email) {
       try {
-        await sendEmail(
-          {
-            to: customer.email,
-            subject: 'Order Confirmation - Sappay',
-            html:`<h2>Order Confirmation</h2>
-              <p>Thank you for shopping with us!</p>
-              <p><strong>Order Number:</strong> ${result?.orderNumber || result?.dataValues?.orderNumber}</p>
-              <p><strong>Total Amount:</strong> ₹${result?.finalAmount || result?.dataValues?.finalAmount}</p>
-              <p>Your order has been placed successfully. Our sales team will contact you shortly for payment and delivery details.</p>
-              <p>If you have any questions, please reply to this email.</p>`,
-            from: config.email.salesTeamEmail,
-            fromMailType: 'sales'
-          });
+        await sendOrderConfirmationEmail(
+          customer.email,
+          result?.orderNumber || result?.dataValues?.orderNumber,
+          result?.finalAmount || result?.dataValues?.finalAmount,
+          'sales'
+        );
         logger.info('Customer confirmation email sent', { orderId: result.id, customerEmail: customer.email });
       } catch (error) {
         logger.error('Failed to send customer confirmation', { error, orderId: result.id, customerEmail: customer.email });

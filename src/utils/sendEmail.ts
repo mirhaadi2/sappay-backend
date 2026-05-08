@@ -6,6 +6,8 @@ import { passwordResetTemplate } from "../modules/templates/PasswordResetTemplat
 import { sellerApprovalTemplate } from "../modules/templates/SellerApprovalTemplate";
 import { sellerRejectionTemplate } from "../modules/templates/SellerRejectionTemplate";
 import { reapplyConfirmationTemplate } from "../modules/templates/ReapplySellerTemplate";
+import { newOrderNotificationTemplate } from "../modules/templates/NewOrderNotificationTemplate";
+import { orderConfirmationTemplate } from "../modules/templates/OrderConfirmationTemplate";
 
 /**
  * Email Sending Utilities
@@ -103,5 +105,30 @@ export const sendSellerReapplyConfirmationEmail = async (email: string, name: st
     subject: 'Sappey Seller Reapplication Received',
     html: reapplyConfirmationTemplate(name), // Use the new TypeScript template
     fromMailType: 'support'
+  });
+};
+
+/**
+ * Send new order notification to sales team
+ */
+export const sendNewOrderNotificationEmail = async (orderNumber: string, customerEmail: string, finalAmount: number, fromMailType: 'sales' | 'support' = 'sales') => {
+  return sendEmail({
+    to: config.email.salesTeamEmail,
+    subject: 'New Order Notification',
+    html: newOrderNotificationTemplate({ orderNumber, customerEmail, finalAmount }),
+    fromMailType: fromMailType
+  });
+};
+
+/**
+ * Send order confirmation to customer
+ */
+export const sendOrderConfirmationEmail = async (email: string, orderNumber: string, finalAmount: number, fromMailType: 'sales' | 'support' = 'sales') => {
+  return sendEmail({
+    to: email,
+    subject: 'Order Confirmation - Sappay',
+    html: orderConfirmationTemplate({ orderNumber, finalAmount }),
+    from: config.email.salesTeamEmail,
+    fromMailType: fromMailType
   });
 };
