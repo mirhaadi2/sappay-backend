@@ -541,3 +541,81 @@ export const removeMetadata = async (
   await executeModify(query, [key, new Date(), id], transaction);
   return true;
 };
+
+/**
+ * Update product images with proper validation and tracking
+ * Handles addition, removal, and unchanged images with audit logging
+ */
+export const updateProductImages = async (
+  id: string,
+  newImages: string[],
+  transaction?: any,
+): Promise<{
+  success: boolean;
+  previousImages: string[];
+  updatedImages: string[];
+  added: string[];
+  removed: string[];
+}> => {
+  try {
+    // Fetch current product to get existing images
+    const currentProduct = await executeSelect<ProductRow>(
+      `SELECT id, images FROM products WHERE id = ? AND deleted_at IS NULL`,
+      [id],
+      transaction
+    );
+
+    if (!currentProduct || currentProduct.length === 0) {
+      throw new Error(`Product with id ${id} not found`);
+    }
+
+    const previousImages: string[] = currentProduct[0].images || [];
+    const sanitizedNewImages: string[] = (newImages || [])
+      .filter(img => img && typeof img === 'string')
+      .map(img => String(img).trim())
+      .filter(img => img.length > 0);
+
+    // Calculate differences
+    const previousSet = new Set(previousImages);
+    const newSet = new Set(sanitizedNewImages);
+    const added = Array.from(newSet).filter(img => !previousSet.has(img));
+    const removed = Array.from(previousSet).filter(img => !newSet.has(img));
+
+    // Update the images in database
+    const query = `
+      UPDATE products
+      SET images = ?, updated_at = ?
+      WHERE id = ? AND deleted_at IS NULL
+    `;
+
+    await executeModify(
+      query,
+      [JSON.stringify(sanitizedNewImages), new Date(), id],
+      transaction
+    );
+
+    logger.info('Product images updated', {
+      productId: id,
+      previousImageCount: previousImages.length,
+      newImageCount: sanitizedNewImages.length,
+      addedCount: added.length,
+      removedCount: removed.length,
+      added: added.length > 0 ? added : undefined,
+      removed: removed.length > 0 ? removed : undefined,
+    });
+
+    return {
+      success: true,
+      previousImages,
+      updatedImages: sanitizedNewImages,
+      added,
+      removed,
+    };
+  } catch (error: any) {
+    logger.error('Failed to update product images', {
+      productId: id,
+      error: error?.message,
+    });
+    throw error;
+  }
+};

@@ -22,6 +22,7 @@ import {
   deleteProductVariantsByProduct,
   createProductVariants,
   upsertProductVariants,
+  updateProductImages,
 } from "./repository";
 import {
   createProductService,
@@ -39,6 +40,8 @@ import {
   validatePaginationParams,
   validateFilterParams,
   handleServiceError,
+  validateProductImages,
+  compareProductImages,
 } from "./guards";
 import {
   transformProductToAdmin,
@@ -223,10 +226,36 @@ export const adminUpdateProduct = async (
     delete updates.discountedPercent;
     delete updates.weight;
 
+    // Handle images separately with proper validation and tracking
+    const newImages = updates.images;
+    if (newImages !== undefined) {
+      const validatedImages = validateProductImages(newImages);
+      const imageUpdateResult = await updateProductImages(id, validatedImages, transaction);
+      
+      // Log image changes for audit trail
+      if (imageUpdateResult.added.length > 0 || imageUpdateResult.removed.length > 0) {
+        logger.info('Product images updated - Audit Trail', {
+          productId: id,
+          previousImageCount: imageUpdateResult.previousImages.length,
+          newImageCount: imageUpdateResult.updatedImages.length,
+          imagesAdded: imageUpdateResult.added.length,
+          imagesRemoved: imageUpdateResult.removed.length,
+          addedDetails: imageUpdateResult.added,
+          removedDetails: imageUpdateResult.removed,
+        });
+      }
+      
+      // Remove from updates object since we handled it separately
+      delete updates.images;
+    }
+
     const variantUpdateData = updates.variants;
     delete updates.variants;
 
-    await updateFields(id, updates, transaction);
+    // Update remaining fields (excluding images which we handled separately)
+    if (Object.keys(updates).length > 0) {
+      await updateFields(id, updates, transaction);
+    }
 
     // Handle variant updates intelligently - only update/create what's provided
     if (Array.isArray(variantUpdateData) && variantUpdateData.length > 0) {
@@ -235,7 +264,7 @@ export const adminUpdateProduct = async (
 
     await invalidateProductsCache();
 
-    logger.info("Product updated", { productId: id, updates });
+    logger.info("Product updated", { productId: id, fieldsUpdated: Object.keys(updates) });
     return await adminGetProduct(id);
   });
 };

@@ -27,7 +27,7 @@ export async function requireProductExists(
  */
 export function validateUpdateData(
   data: any,
-  allowedFields: string[] = ['name', 'description', 'slug', 'category', 'price', 'discountedPrice', 'sku', 'weight', 'gst_rate', 'status', 'isNew', 'isCustomerFavourites', 'isBestseller', 'variants']
+  allowedFields: string[] = ['name', 'description', 'slug', 'category', 'price', 'discountedPrice', 'sku', 'weight', 'gst_rate', 'status', 'isNew', 'isCustomerFavourites', 'isBestseller', 'variants', 'images', 'benefits', 'ingredients', 'nutritionFacts']
 ): Record<string, any> {
   const updates: Record<string, any> = {};
 
@@ -133,4 +133,62 @@ export function handleServiceError(
     500,
     `${context} failed. Please try again later.`
   );
+}
+
+/**
+ * Validates and sanitizes product images array
+ * Ensures it's an array of valid URLs/paths
+ */
+export function validateProductImages(
+  images: any
+): string[] {
+  // If images is undefined or null, return empty array
+  if (!images) {
+    return [];
+  }
+
+  // Ensure it's an array
+  if (!Array.isArray(images)) {
+    throw new AppError(
+      'ValidationError',
+      400,
+      'Images must be an array'
+    );
+  }
+
+  // Filter and validate each image entry
+  const validImages = images
+    .filter(img => img && (typeof img === 'string'))
+    .map(img => String(img).trim())
+    .filter(img => img.length > 0);
+
+  return validImages;
+}
+
+/**
+ * Compares old and new images to detect changes
+ * Returns object with added, removed, and unchanged images
+ */
+export function compareProductImages(
+  oldImages: string[] = [],
+  newImages: string[] = []
+): {
+  added: string[];
+  removed: string[];
+  unchanged: string[];
+  hasChanges: boolean;
+} {
+  const oldSet = new Set(oldImages || []);
+  const newSet = new Set(newImages || []);
+
+  const added = Array.from(newSet).filter(img => !oldSet.has(img));
+  const removed = Array.from(oldSet).filter(img => !newSet.has(img));
+  const unchanged = Array.from(oldSet).filter(img => newSet.has(img));
+
+  return {
+    added,
+    removed,
+    unchanged,
+    hasChanges: added.length > 0 || removed.length > 0,
+  };
 }
