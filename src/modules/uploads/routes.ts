@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { uploadImageHandler } from './controller';
+import { uploadImageHandler, refreshImageUrlHandler } from './controller';
 import { upload } from './multer';
 
 const router = Router();
 
 router.post('/', upload.single('file'), uploadImageHandler);
+router.get('/refresh', refreshImageUrlHandler);
 
 export default router;

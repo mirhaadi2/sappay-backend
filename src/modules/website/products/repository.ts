@@ -234,12 +234,14 @@ export const findProductVariantBySku = async (sku: string) => {
 };
 
 const resolveR2Url = async (key: string) => {
-  if (!key) return "";
-  if (key.startsWith("http://") || key.startsWith("https://")) return key;
-  // Try to fetch file from R2 (optional, for existence check)
+  if (!key || typeof key !== 'string') return "";
+  const trimmedKey = key.trim();
+  if (!trimmedKey) return "";
+  if (trimmedKey.startsWith("http://") || trimmedKey.startsWith("https://")) return trimmedKey;
+
   try {
-    const data = await fetchFromR2(key);
-    return getR2SignedUrl(key);
+    await fetchFromR2(trimmedKey);
+    return getR2SignedUrl(trimmedKey, 604800);
   } catch (err) {
     return "";
   }

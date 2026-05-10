@@ -32,6 +32,7 @@ export const config = {
     secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY ?? "",
     bucket: process.env.CLOUDFLARE_BUCKET ?? "",
     endpoint: process.env.CLOUDFLARE_ENDPOINT ?? "",
+    publicUrl: process.env.CLOUDFLARE_PUBLIC_URL ?? "",
   },
   aws: {
     region: process.env.AWS_REGION ?? "ap-south-1",
