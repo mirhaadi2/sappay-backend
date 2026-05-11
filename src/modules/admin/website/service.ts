@@ -889,7 +889,9 @@ export const getHomepageData = async () => {
         try {
             const cached = await redisClient.get(HOMEPAGE_CACHE_KEY);
             if (cached) {
-                return JSON.parse(cached);
+                const rawData = JSON.parse(cached);
+                // Resolve image URLs on every request to prevent expiry
+                return await resolveHomepageUrls(rawData);
             }
         } catch (err: any) {
             console.warn("Redis homepage cache read failed:", err?.message || String(err));
@@ -913,9 +915,22 @@ export const getHomepageData = async () => {
         instagramPosts,
     };
 
+    // Cache raw data without resolved URLs
     if (redisClient.isOpen) {
         try {
-            await redisClient.set(HOMEPAGE_CACHE_KEY, JSON.stringify(result), {
+            const cachePayload = {
+                banners, // No images
+                hero: hero.map(h => ({ ...h, videoUrl: h.videoUrl?.replace(/^https?:\/\//, '') })), // Store raw keys
+                sections: sections.map(s => ({
+                    ...s,
+                    imageUrl: s.imageUrl?.replace(/^https?:\/\//, ''),
+                    videoUrl: s.videoUrl?.replace(/^https?:\/\//, ''),
+                    backgroundImageUrl: s.backgroundImageUrl?.replace(/^https?:\/\//, '')
+                })), // Store raw keys
+                testimonials, // No images
+                instagramPosts: instagramPosts.map(p => ({ ...p, imageUrl: p.imageUrl?.replace(/^https?:\/\//, '') })), // Store raw keys
+            };
+            await redisClient.set(HOMEPAGE_CACHE_KEY, JSON.stringify(cachePayload), {
                 EX: HOMEPAGE_CACHE_TTL,
             });
         } catch (err: any) {
@@ -924,6 +939,39 @@ export const getHomepageData = async () => {
     }
 
     return result;
+};
+
+// Helper to resolve URLs from cached raw data
+const resolveHomepageUrls = async (rawData: any) => {
+    const [banners, hero, sections, testimonials, instagramPosts] = await Promise.all([
+        Promise.all(rawData.banners.map(async (b: any) => ({
+            ...b,
+            imageUrl: await resolveR2Url(b.imageUrl)
+        }))),
+        Promise.all(rawData.hero.map(async (h: any) => ({
+            ...h,
+            videoUrl: await resolveR2Url(h.videoUrl)
+        }))),
+        Promise.all(rawData.sections.map(async (s: any) => ({
+            ...s,
+            imageUrl: await resolveR2Url(s.imageUrl),
+            videoUrl: await resolveR2Url(s.videoUrl),
+            backgroundImageUrl: await resolveR2Url(s.backgroundImageUrl)
+        }))),
+        rawData.testimonials, // No images to resolve
+        Promise.all(rawData.instagramPosts.map(async (p: any) => ({
+            ...p,
+            imageUrl: await resolveR2Url(p.imageUrl)
+        }))),
+    ]);
+
+    return {
+        banners,
+        hero,
+        sections,
+        testimonials,
+        instagramPosts,
+    };
 };
 
 // ===================== WEBSITE DATA AGGREGATOR =====================

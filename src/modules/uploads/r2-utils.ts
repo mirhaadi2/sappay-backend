@@ -33,52 +33,36 @@ export const fetchFromR2 = async (key: string) => {
   return result.Body; // Returns the Readable stream
 };
 
-const sanitizeImageKeys = (keys: any[]): string[] => {
-  if (!Array.isArray(keys)) return [];
-  return keys
-    .filter((key) => typeof key === 'string' && key.trim().length > 0)
-    .map((key) => key.trim());
-};
-
-const tryPublicUrl = (key: string): string | null => {
-  if (!config.cloudflare.publicUrl) return null;
-  const normalized = config.cloudflare.publicUrl.replace(/\/+$/, '');
-  return `${normalized}/${key}`;
-};
-
-export const resolveR2Url = async (key: string): Promise<string> => {
-  if (!key || typeof key !== 'string') return "";
-  const trimmedKey = key.trim();
-  if (!trimmedKey) return "";
-  if (trimmedKey.startsWith("http://") || trimmedKey.startsWith("https://")) return trimmedKey;
-
-  const publicUrl = tryPublicUrl(trimmedKey);
-  if (publicUrl) return publicUrl;
-
-  try {
-    const command = new GetObjectCommand({
-      Bucket: config.cloudflare.bucket,
-      Key: trimmedKey,
-    });
-    return await getSignedUrl(r2Client, command, { expiresIn: 604800 });
-  } catch (err) {
-    console.error(`Failed to sign URL for key: ${trimmedKey}`, err);
-    return "";
-  }
-};
-
 export const resolveR2Urls = async (keys: string[]): Promise<string[]> => {
-  const sanitizedKeys = sanitizeImageKeys(keys);
-  if (sanitizedKeys.length === 0) return [];
+  if (!Array.isArray(keys) || keys.length === 0) return [];
 
-  return Promise.all(sanitizedKeys.map(resolveR2Url));
+  return Promise.all(
+    keys.map(async (key) => {
+      if (!key) return "";
+      if (key.startsWith("http")) return key;
+
+      try {
+        // Generate the signed URL locally (No network request made here)
+        const command = new GetObjectCommand({
+          Bucket: config.cloudflare.bucket,
+          Key: key,
+        });
+        
+        // expiresIn: 3600 (1 hour) - adjust based on your caching strategy
+        return await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+      } catch (err) {
+        console.error(`Failed to sign URL for key: ${key}`, err);
+        return "";
+      }
+    })
+  );
 };
 
 /**
  * Generate a secure, time-limited Signed URL for the B2C/Admin portals
- * Default expiry is 7 days (604800 seconds) to avoid browser display breakage
+ * Default expiry is 1 hour (3600 seconds)
  */
-export const getR2SignedUrl = async (key: string, expiresIn = 604800): Promise<string> => {
+export const getR2SignedUrl = async (key: string, expiresIn = 3600): Promise<string> => {
   const command = new GetObjectCommand({
     Bucket: config.cloudflare.bucket,
     Key: key,

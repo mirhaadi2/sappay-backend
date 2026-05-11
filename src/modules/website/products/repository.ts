@@ -234,14 +234,12 @@ export const findProductVariantBySku = async (sku: string) => {
 };
 
 const resolveR2Url = async (key: string) => {
-  if (!key || typeof key !== 'string') return "";
-  const trimmedKey = key.trim();
-  if (!trimmedKey) return "";
-  if (trimmedKey.startsWith("http://") || trimmedKey.startsWith("https://")) return trimmedKey;
-
+  if (!key) return "";
+  if (key.startsWith("http://") || key.startsWith("https://")) return key;
+  // Try to fetch file from R2 (optional, for existence check)
   try {
-    await fetchFromR2(trimmedKey);
-    return getR2SignedUrl(trimmedKey, 604800);
+    const data = await fetchFromR2(key);
+    return getR2SignedUrl(key);
   } catch (err) {
     return "";
   }
@@ -315,7 +313,16 @@ export const findAllProducts = async (filters: ProductFilters) => {
   try {
     if (redisClient.isOpen) {
       const cached = await redisClient.get(cacheKey);
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const products = parsed.products || [];
+        const formattedProducts = await fastFormatProducts(products);
+
+        return {
+          ...parsed,
+          products: formattedProducts,
+        };
+      }
     }
   } catch (err) {
     console.warn('Redis read failed:', err);
@@ -355,9 +362,16 @@ export const findAllProducts = async (filters: ProductFilters) => {
     totalPages: Math.ceil(total / parsedLimit),
   };
 
-  // Fire-and-forget cache write (don't await)
+  // Cache raw product rows, not signed URLs, so each API request re-resolves image URLs.
   if (redisClient.isOpen) {
-    redisClient.set(cacheKey, JSON.stringify(result), { EX: 120 }).catch(() => { });
+    const cachePayload = {
+      products,
+      total,
+      page: Math.max(Number(page), 1),
+      limit: parsedLimit,
+      totalPages: Math.ceil(total / parsedLimit),
+    };
+    redisClient.set(cacheKey, JSON.stringify(cachePayload), { EX: 120 }).catch(() => { });
   }
 
   return result;
