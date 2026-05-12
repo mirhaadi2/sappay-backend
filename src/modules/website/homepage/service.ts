@@ -55,7 +55,9 @@ export const getActiveHero = async () => {
 export const createHero = async (data: {
     title: string;
     subtitle: string;
-    videoUrl: string;
+    videoUrl?: string;
+    imageUrl?: string;
+    backgroundImageUrl?: string;
     videoPosterUrl?: string;
     buttonText: string;
     buttonLink: string;
@@ -84,7 +86,9 @@ export const createHero = async (data: {
 export const updateHero = async (id: string, data: Partial<{
     title: string;
     subtitle: string;
-    videoUrl: string;
+    videoUrl?: string;
+    imageUrl?: string;
+    backgroundImageUrl?: string;
     videoPosterUrl?: string;
     buttonText: string;
     buttonLink: string;

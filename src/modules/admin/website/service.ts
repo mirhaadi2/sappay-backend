@@ -106,6 +106,8 @@ export const getActiveHero = async (status?: boolean) => {
                 title,
                 subtitle,
                 "video_url" AS "videoUrl",
+                "image_url" AS "imageUrl",
+                "background_image_url" AS "backgroundImageUrl",
                 "video_poster_url" AS "videoPosterUrl",
                 "button_text" AS "buttonText",
                 "button_link" AS "buttonLink",
@@ -129,10 +131,16 @@ export const getActiveHero = async (status?: boolean) => {
 
         const resolvedHeroes = await Promise.all(
             heroes.map(async (hero) => {
-                const videoUrl = await resolveR2Url(hero.videoUrl);
+                const [videoUrl, imageUrl, backgroundImageUrl] = await Promise.all([
+                    resolveR2Url(hero.videoUrl ?? null),
+                    resolveR2Url(hero.imageUrl ?? null),
+                    resolveR2Url(hero.backgroundImageUrl ?? null),
+                ]);
                 return {
                     ...hero,
                     videoUrl,
+                    imageUrl,
+                    backgroundImageUrl,
                 };
             }),
         );
@@ -158,7 +166,9 @@ const resolveR2Url = async (key: string | null): Promise<string> => {
 export const createHero = async (data: {
     title: string;
     subtitle: string;
-    videoUrl: string;
+    videoUrl?: string;
+    imageUrl?: string;
+    backgroundImageUrl?: string;
     videoPosterUrl?: string;
     buttonText: string;
     buttonLink: string;
@@ -170,6 +180,10 @@ export const createHero = async (data: {
                 { isActive: false },
                 { where: { isActive: true }, transaction },
             );
+        }
+
+        if (!data.videoUrl && !data.imageUrl && !data.backgroundImageUrl) {
+            throw new Error('Hero section must include either a video or an image.');
         }
 
         const hero = await HomepageHero.create(
@@ -189,7 +203,9 @@ export const updateHero = async (
     data: Partial<{
         title: string;
         subtitle: string;
-        videoUrl: string;
+        videoUrl?: string;
+        imageUrl?: string;
+        backgroundImageUrl?: string;
         videoPosterUrl?: string;
         buttonText: string;
         buttonLink: string;
@@ -920,7 +936,12 @@ export const getHomepageData = async () => {
         try {
             const cachePayload = {
                 banners, // No images
-                hero: hero.map(h => ({ ...h, videoUrl: h.videoUrl?.replace(/^https?:\/\//, '') })), // Store raw keys
+                hero: hero.map(h => ({
+                    ...h,
+                    videoUrl: h.videoUrl?.replace(/^https?:\/\//, ''),
+                    imageUrl: h.imageUrl?.replace(/^https?:\/\//, ''),
+                    backgroundImageUrl: h.backgroundImageUrl?.replace(/^https?:\/\//, ''),
+                })), // Store raw keys
                 sections: sections.map(s => ({
                     ...s,
                     imageUrl: s.imageUrl?.replace(/^https?:\/\//, ''),
@@ -950,15 +971,17 @@ const resolveHomepageUrls = async (rawData: any) => {
         }))),
         Promise.all(rawData.hero.map(async (h: any) => ({
             ...h,
-            videoUrl: await resolveR2Url(h.videoUrl)
+            videoUrl: await resolveR2Url(h.videoUrl),
+            imageUrl: await resolveR2Url(h.imageUrl),
+            backgroundImageUrl: await resolveR2Url(h.backgroundImageUrl),
         }))),
         Promise.all(rawData.sections.map(async (s: any) => ({
             ...s,
             imageUrl: await resolveR2Url(s.imageUrl),
             videoUrl: await resolveR2Url(s.videoUrl),
-            backgroundImageUrl: await resolveR2Url(s.backgroundImageUrl)
+            backgroundImageUrl: await resolveR2Url(s.backgroundImageUrl),
         }))),
-        rawData.testimonials, // No images to resolve
+        rawData.testimonials,
         Promise.all(rawData.instagramPosts.map(async (p: any) => ({
             ...p,
             imageUrl: await resolveR2Url(p.imageUrl)

@@ -42,7 +42,9 @@ interface HomepageHeroAttributes {
     id: string;
     title: string;
     subtitle: string;
-    videoUrl: string;
+    videoUrl?: string;
+    imageUrl?: string;
+    backgroundImageUrl?: string;
     videoPosterUrl?: string;
     buttonText: string;
     buttonLink: string;
@@ -52,13 +54,15 @@ interface HomepageHeroAttributes {
     deletedAt?: Date;
 }
 
-type HomepageHeroCreationAttributes = Optional<HomepageHeroAttributes, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'videoPosterUrl'>;
+type HomepageHeroCreationAttributes = Optional<HomepageHeroAttributes, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'videoPosterUrl' | 'videoUrl' | 'imageUrl' | 'backgroundImageUrl'>;
 
 export class HomepageHero extends Model<HomepageHeroAttributes, HomepageHeroCreationAttributes> implements HomepageHeroAttributes {
     public id!: string;
     public title!: string;
     public subtitle!: string;
-    public videoUrl!: string;
+    public videoUrl?: string;
+    public imageUrl?: string;
+    public backgroundImageUrl?: string;
     public videoPosterUrl?: string;
     public buttonText!: string;
     public buttonLink!: string;
@@ -73,10 +77,12 @@ HomepageHero.init(
         id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
         title: { type: DataTypes.STRING(255), allowNull: false },
         subtitle: { type: DataTypes.TEXT, allowNull: false },
-        videoUrl: { type: DataTypes.STRING(500), allowNull: false },
-        videoPosterUrl: { type: DataTypes.STRING(500), allowNull: true },
-        buttonText: { type: DataTypes.STRING(100), allowNull: false },
-        buttonLink: { type: DataTypes.STRING(500), allowNull: false },
+        videoUrl: { type: DataTypes.STRING(500), allowNull: true, field: 'video_url' },
+        imageUrl: { type: DataTypes.STRING(500), allowNull: true, field: 'image_url' },
+        backgroundImageUrl: { type: DataTypes.STRING(500), allowNull: true, field: 'background_image_url' },
+        videoPosterUrl: { type: DataTypes.STRING(500), allowNull: true, field: 'video_poster_url' },
+        buttonText: { type: DataTypes.STRING(100), allowNull: false, field: 'button_text' },
+        buttonLink: { type: DataTypes.STRING(500), allowNull: false, field: 'button_link' },
         isActive: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'is_active' },
         createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'created_at' },
         updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'updated_at' },
