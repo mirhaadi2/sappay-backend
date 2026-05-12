@@ -381,8 +381,11 @@ const fastFormatProducts = async (products: any[]) => {
   if (!products.length) return [];
 
   // Extract every unique image key across the entire result set
-  const allImageKeys = products.flatMap(p => p.images || []);
-  const uniqueKeys = [...new Set(allImageKeys)];
+  const firstImageKeys = products
+    .map(p => p?.images?.[0])
+    .filter(Boolean);
+
+  const uniqueKeys = [...new Set(firstImageKeys)];
 
   const signedUrls = await resolveR2Urls(uniqueKeys);
 
@@ -414,7 +417,7 @@ const fastFormatProducts = async (products: any[]) => {
 
     return {
       ...p,
-      images: (p.images || []).map((key: string) => signedUrlMap.get(key)),
+      images: p.images?.[0] ? [signedUrlMap.get(p.images[0])] : [],
       price: Number(p.minPrice || 0), // Use SQL-calculated min price
       variantCount: p.variants?.length || 0,
       variants: variantsWithAvailability,
