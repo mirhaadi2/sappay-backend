@@ -13,12 +13,19 @@ export const createOrder = async (data: any, transaction: Transaction) => {
   }
 };
 
-export const findOrderById = async (id: string) => {
-  return await Order.findByPk(id);
+export const findOrderById = async (id: string, transaction?: Transaction) => {
+  const options = transaction ? { transaction } : {};
+  return await Order.findByPk(id, options);
 };
 
 export const findOrderByNumber = async (orderNumber: string) => {
   return await Order.findOne({ where: { orderNumber } });
+};
+
+export const findOrderByGatewayOrderId = async (gatewayOrderId: string) => {
+  return await Order.findOne({
+    where: sequelize.where(sequelize.json('metadata.payment.gatewayOrderId') as any, gatewayOrderId),
+  });
 };
 
 export const findCustomerOrders = async (
@@ -156,13 +163,13 @@ export const findCustomerOrder = async (customerId: string, orderId: string, cus
 };
 
 export const updateOrder = async (id: string, data: any, transaction?: Transaction) => {
-  const order = await findOrderById(id);
+  const order = await findOrderById(id, transaction);
   if (!order) throw new AppError('NotFound', 404, 'Order not found');
   return await order.update(data, transaction ? { transaction } : {});
 };
 
 export const updateOrderStatus = async (id: string, status: string, transaction?: Transaction) => {
-  const order = await findOrderById(id);
+  const order = await findOrderById(id, transaction);
   if (!order) throw new AppError('NotFound', 404, 'Order not found');
   return await order.update({ status: status as any }, transaction ? { transaction } : {});
 };
@@ -186,7 +193,7 @@ export const findOrderItems = async (orderId: string) => {
 };
 
 export const updateOrderItem = async (id: string, data: any, transaction?: Transaction) => {
-  const item = await OrderItem.findByPk(id);
+  const item = await OrderItem.findByPk(id, transaction ? { transaction } : {});
   if (!item) throw new AppError('NotFound', 404, 'Order item not found');
   return await item.update(data, transaction ? { transaction } : {});
 };

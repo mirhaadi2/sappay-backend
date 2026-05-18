@@ -97,7 +97,7 @@ export const getSellerInventory = async (sellerId: string, filters: any = {}) =>
   }
 };
 
-export const decrementStock = async (sellerProductId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
+export const decrementStock = async (productId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
   let txn = transaction;
   const needsCommit = !transaction; // Only commit if we created the transaction
 
@@ -106,7 +106,7 @@ export const decrementStock = async (sellerProductId: string, productVariantId: 
       txn = await sequelize.transaction();
     }
 
-    const inventory = await Inventory.findOne({ where: { sellerProductId }, transaction: txn });
+    const inventory = await Inventory.findOne({ where: { productId }, transaction: txn });
     if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
 
     const productVariant = await ProductVariant.findByPk(productVariantId, {
@@ -144,7 +144,7 @@ export const decrementStock = async (sellerProductId: string, productVariantId: 
       await txn!.commit();
     }
     logger.info('Stock decremented', {
-      sellerProductId,
+      productId,
       productVariantId,
       quantity,
       totalWeightToDecrement,
@@ -160,7 +160,7 @@ export const decrementStock = async (sellerProductId: string, productVariantId: 
     if (needsCommit && txn) {
       await txn.rollback();
     }
-    logger.error('Error decrementing stock', { sellerProductId, productVariantId, quantity, error });
+    logger.error('Error decrementing stock', { productId, productVariantId, quantity, error });
     throw error;
   }
 };

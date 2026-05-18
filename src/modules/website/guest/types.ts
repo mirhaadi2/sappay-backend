@@ -69,7 +69,7 @@ export interface GuestOrderRequest {
   taxAmount: number;
   shippingCost?: number;
   shippingAddress: GuestShippingAddress;
-  paymentMethod: 'card' | 'cod' | 'upi' | 'netbanking';
+  paymentMethod: 'cod' | 'online';
   promotionId?: string;
   promotionDetails?: {
     id: string;

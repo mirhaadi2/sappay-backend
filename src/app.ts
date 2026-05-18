@@ -41,6 +41,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(cookieParser(config.session.secret));
+app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 // Create session middleware instances for each portal upfront (not per-request)

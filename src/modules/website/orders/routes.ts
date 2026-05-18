@@ -7,6 +7,7 @@ import {
   getSellerOrdersHandler,
   updateItemStatusHandler,
   getOrderHandler,
+  webhookHandler,
 } from './controller';
 import { requireAuth, allowAuthOrGuest } from "../../../middleware/auth.middleware";
 
@@ -14,12 +15,14 @@ const router = Router();
 
 // Customer endpoints - guest checkout and authenticated users
 router.post('/', allowAuthOrGuest, placeOrderHandler);
+router.post('/webhook', webhookHandler);
+router.post('/:id/payment', confirmPaymentHandler);
+router.post('/:id/confirm-payment', confirmPaymentHandler);
 
 // Authenticated user only endpoints
 router.use(requireAuth);
 router.get('/', getOrdersHandler);
 router.get('/:id', getOrderHandler); // Get specific order details
-router.post('/:id/confirm-payment', confirmPaymentHandler);
 router.post('/:id/cancel', cancelOrderHandler);
 
 // Seller endpoints

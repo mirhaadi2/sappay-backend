@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import {
   placeOrderService,
   confirmPaymentService,
@@ -8,6 +9,7 @@ import {
   updateItemStatusService,
   getCustomerOrderService,
 } from './service';
+import { findOrderByGatewayOrderId, findOrderById } from './repository';
 import { findById } from '../../sellers/repository';
 import { AppError } from '../../../utils/AppError';
 import { sendEmail, sendNewOrderNotificationEmail, sendOrderConfirmationEmail } from '../../../utils/sendEmail';
@@ -39,21 +41,24 @@ export const placeOrderHandler = async (
     });
 
     let customer = await Customer.findByPk(result.customerId, { raw: true });
+    const isPrepaid = result.paymentMethod !== 'cod';
     // Send notification to sales team
     try {
-      await sendNewOrderNotificationEmail(
-        result?.orderNumber || result?.dataValues?.orderNumber,
-        customer?.email || 'Guest',
-        result?.finalAmount || result?.dataValues?.finalAmount,
-        'support'
-      );
+      if (!isPrepaid) {
+        await sendNewOrderNotificationEmail(
+          result?.orderNumber || result?.dataValues?.orderNumber,
+          customer?.email || 'Guest',
+          result?.finalAmount || result?.dataValues?.finalAmount,
+          'support'
+        );
+      }
       logger.info('Sales team notification sent', { orderId: result.id, orderNumber: result.orderNumber });
     } catch (error) {
       logger.error('Failed to send sales team notification', { error, orderId: result.id });
     }
 
     // Send confirmation to customer
-    if (customer?.email) {
+    if (!isPrepaid && customer?.email) {
       try {
         await sendOrderConfirmationEmail(
           customer.email,
@@ -61,13 +66,38 @@ export const placeOrderHandler = async (
           result?.finalAmount || result?.dataValues?.finalAmount,
           'sales'
         );
-        logger.info('Customer confirmation email sent', { orderId: result.id, customerEmail: customer.email });
       } catch (error) {
-        logger.error('Failed to send customer confirmation', { error, orderId: result.id, customerEmail: customer.email });
+        logger.error('Failed to send sales team notification', { error, orderId: result.id });
       }
     }
   } catch (error) {
     next(error);
+  }
+};
+
+interface RazorpayPaymentConfirmationPayload {
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+  razorpaySignature?: string;
+}
+
+const verifyRazorpayCheckoutSignature = (
+  razorpayOrderId: string,
+  razorpayPaymentId: string,
+  razorpaySignature: string
+) => {
+  if (!config.payment.apiSecret) {
+    throw new AppError('ServiceUnavailable', 503, 'Payment gateway secret is not configured');
+  }
+
+  const payload = `${razorpayOrderId}|${razorpayPaymentId}`;
+  const expectedSignature = crypto
+    .createHmac('sha256', config.payment.apiSecret)
+    .update(payload)
+    .digest('hex');
+
+  if (expectedSignature !== razorpaySignature) {
+    throw new AppError('BadRequest', 400, 'Invalid Razorpay payment signature');
   }
 };
 
@@ -78,11 +108,80 @@ export const confirmPaymentHandler = async (
 ) => {
   try {
     const { id } = req.params;
+    const { razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body as RazorpayPaymentConfirmationPayload;
+
+    if (razorpayPaymentId || razorpayOrderId || razorpaySignature) {
+      if (!razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+        throw new AppError('BadRequest', 400, 'Invalid Razorpay confirmation payload');
+      }
+
+      const order = await findOrderById(id);
+      if (!order) {
+        throw new AppError('NotFound', 404, 'Order not found');
+      }
+
+      const gatewayOrderId = (order as any).metadata?.payment?.gatewayOrderId;
+      if (gatewayOrderId !== razorpayOrderId) {
+        throw new AppError('BadRequest', 400, 'Razorpay order id does not match local order');
+      }
+
+      verifyRazorpayCheckoutSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    }
+
     const result = await confirmPaymentService(id);
     res.json({
       success: true,
       data: result,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const webhookHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'] as string | undefined;
+    if (!signature) {
+      throw new AppError('BadRequest', 400, 'Missing Razorpay webhook signature');
+    }
+
+    const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : JSON.stringify(req.body);
+    const expectedSignature = crypto
+      .createHmac('sha256', config.payment.webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      throw new AppError('BadRequest', 400, 'Invalid Razorpay webhook signature');
+    }
+
+    const event = JSON.parse(rawBody);
+    const razorpayOrderId = event?.payload?.payment?.entity?.order_id;
+    if (!razorpayOrderId) {
+      throw new AppError('BadRequest', 400, 'Missing Razorpay order reference');
+    }
+
+    const order = await findOrderByGatewayOrderId(razorpayOrderId);
+    if (!order) {
+      throw new AppError('NotFound', 404, 'Order not found for Razorpay payment');
+    }
+
+    if (event.event === 'payment.captured') {
+      try {
+        await confirmPaymentService((order as any).id);
+      } catch (webhookError: any) {
+        if (webhookError instanceof AppError && webhookError.name === 'BadRequest' && webhookError.statusCode === 400) {
+          return res.json({ success: true });
+        }
+        throw webhookError;
+      }
+    }
+
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

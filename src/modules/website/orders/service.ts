@@ -25,9 +25,75 @@ import { resolveR2Url } from '../../admin/products/transformer';
 import { getOrCreateCustomer, findCustomerByEmail, findCustomerByPhone } from '../guests/customer.service';
 import { findOrCreateCustomerAddress } from './shipping-address.repository';
 import { AppError } from '../../../utils/AppError';
+import { config } from '../../../config';
+import axios from 'axios';
 import { withTransaction } from '../../../utils/transaction';
 import logger from '../../../utils/logger';
 import { Promotion } from '../../../models';
+import { sendEmail, sendNewOrderNotificationEmail, sendOrderConfirmationEmail } from '../../../utils/sendEmail';
+import { Customer } from '../guests/customer.model';
+
+const isPrepaidPaymentMethod = (paymentMethod: string) => paymentMethod !== 'cod';
+
+const createPaymentGatewayOrder = async (
+  paymentMethod: string,
+  amountInPaise: number,
+  receipt: string
+) => {
+  if (!isPrepaidPaymentMethod(paymentMethod)) return undefined;
+
+  if (!config.payment.provider || config.payment.provider === 'none') {
+    throw new AppError(
+      'ServiceUnavailable',
+      503,
+      'Payment gateway is not configured. Set PAYMENT_PROVIDER, PAYMENT_API_KEY, and PAYMENT_API_SECRET in .env'
+    );
+  }
+
+  if (!config.payment.apiKey || !config.payment.apiSecret) {
+    throw new AppError(
+      'ServiceUnavailable',
+      503,
+      'Payment provider credentials are missing. Set PAYMENT_API_KEY and PAYMENT_API_SECRET in .env'
+    );
+  }
+
+  const provider = config.payment.provider.toLowerCase();
+  console.log(config?.payment, 'payment')
+  if (provider === 'razorpay') {
+    const auth = Buffer.from(`${config.payment.apiKey}:${config.payment.apiSecret}`).toString('base64');
+    const response = await axios.post(
+      'https://api.razorpay.com/v1/orders',
+      {
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt,
+        payment_capture: 1,
+        notes: { paymentMethod },
+      },
+      {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      }
+    );
+
+    return {
+      provider: 'razorpay',
+      gatewayOrderId: response.data?.id,
+      publicKey: config.payment.apiKey,
+      rawResponse: response.data,
+    };
+  }
+
+  throw new AppError(
+    'ServiceUnavailable',
+    503,
+    `Configured payment provider "${config.payment.provider}" is not supported`
+  );
+};
 
 export const placeOrderService = async (
   customerId: string | undefined,
@@ -59,6 +125,10 @@ export const placeOrderService = async (
       country: string;
     };
     paymentMethod: string;
+    paymentDetails?: {
+      upiId?: string;
+      netbankingBank?: string;
+    };
     promotionId?: string;
     promotionDetails?: {
       id: string;
@@ -73,7 +143,7 @@ export const placeOrderService = async (
   }
 ) => {
   return withTransaction(async (transaction) => {
-    const { items, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails, shippingAddress, shippingAddressId, promotionId } = orderData;
+    const { items, paymentMethod, subtotal, taxAmount, shippingCost = 0, promotionDetails, shippingAddress, shippingAddressId, promotionId, paymentDetails } = orderData;
 
     if (!items || items.length === 0) {
       throw new AppError('BadRequest', 400, 'Order must have at least one item');
@@ -89,6 +159,8 @@ export const placeOrderService = async (
 
     const orderItems = [];
     const itemsToProcess = [];
+
+    const finalAmount = Math.round(orderData.totalAmount);
 
     // Validate all items WITHIN transaction to prevent race conditions
     for (const item of items) {
@@ -136,8 +208,6 @@ export const placeOrderService = async (
         discountedPercent: item.discountedPercent,
       });
     }
-
-    const finalAmount = Math.round(orderData.totalAmount);
 
     // Handle customer and shipping address for both logged-in and guest users
     let finalCustomerId = customerId;
@@ -252,13 +322,32 @@ export const placeOrderService = async (
     }
 
     // Create order with PENDING status (not CONFIRMED) since payment is PENDING
+    const initialOrderStatus = isPrepaidPaymentMethod(paymentMethod) ? 'PENDING' : 'CONFIRMED';
+    const paymentMetadata: any = {
+      method: paymentMethod,
+      provider: isPrepaidPaymentMethod(paymentMethod) ? config.payment.provider : 'cod',
+      paymentDetails: paymentDetails || {},
+    };
+
+    const metadata: any = { payment: paymentMetadata };
+    if (promotionInfo || promotionDetails) {
+      metadata.promotion = {
+        id: promotionInfo?.id || promotionDetails?.id,
+        title: promotionInfo?.title || promotionDetails?.title,
+        type: promotionInfo?.type || promotionDetails?.type,
+        discountAmount: promotionDetails?.discount ?? null,
+      };
+      metadata.appliedAt = new Date().toISOString();
+    }
+
+    // Create order WITHOUT orderNumber first (to avoid race conditions)
     const order = await createOrder({
       customerId: finalCustomerId,
       guestEmail,
       guestPhone,
       shippingAddressId: finalShippingAddressId,
       paymentMethod,
-      status: 'CONFIRMED',
+      status: initialOrderStatus,
       paymentStatus: 'PENDING',
       subtotal: parseFloat(subtotal.toFixed(2)),
       taxAmount: parseFloat(taxAmount.toFixed(2)),
@@ -266,18 +355,32 @@ export const placeOrderService = async (
       totalAmount: Math.round(orderData.totalAmount),
       finalAmount,
       shippingCost: parseFloat(shippingCost.toFixed(2)),
-      metadata: (promotionInfo || promotionDetails) ? {
-        promotion: {
-          id: promotionInfo?.id || promotionDetails?.id,
-          title: promotionInfo?.title || promotionDetails?.title,
-          type: promotionInfo?.type || promotionDetails?.type,
-          discountAmount: promotionDetails?.discount ?? null,
-        },
-        appliedAt: new Date().toISOString(),
-      } : undefined,
+      metadata,
     }, transaction);
 
     const orderId = order?.dataValues?.id ?? (order as any).id;
+
+    // Now generate unique orderNumber using the order ID
+    // const orderNumber = await generateOrderNumber();
+
+    // Create Razorpay order only for prepaid payments (using orderNumber as receipt)
+    // IMPORTANT: Razorpay expects amount in paise (multiply rupees by 100)
+    const paymentSession = isPrepaidPaymentMethod(paymentMethod)
+      ? await createPaymentGatewayOrder(paymentMethod, Math.round(orderData?.totalAmount * 100), (order as any).orderNumber)
+      : undefined;
+
+    // Update order with generated orderNumber and gateway order ID
+    await updateOrder(orderId, {
+      orderNumber: (order as any).orderNumber,
+      metadata: {
+        ...metadata,
+        payment: {
+          ...paymentMetadata,
+          gatewayOrderId: paymentSession?.gatewayOrderId,
+          publicKey: paymentSession?.publicKey,
+        },
+      },
+    }, transaction);
 
     // Create order items and reserve stock within transaction
     for (const itemData of orderItems) {
@@ -297,29 +400,43 @@ export const placeOrderService = async (
       }, transaction);
 
       // Reserve stock within transaction
-      await reserveStockByProductIdService(itemData.productId, itemData?.productVariantId, itemData.quantity, transaction);
+      if (paymentMethod !== 'online') {
+        await reserveStockByProductIdService(itemData.productId, itemData?.productVariantId, itemData.quantity, transaction);
+      }
     }
 
     return {
       id: orderId,
       orderNumber: (order as any).orderNumber,
       customerId: finalCustomerId,
-      status: 'CONFIRMED',
+      status: initialOrderStatus,
+      paymentMethod,
       finalAmount,
-      message: 'Order placed successfully. Awaiting payment confirmation.',
+      paymentSession,
+      message: isPrepaidPaymentMethod(paymentMethod)
+        ? 'Order created successfully. Complete payment using the secure checkout session.'
+        : 'Order placed successfully. Awaiting payment confirmation.',
     };
   });
 };
 
 export const confirmPaymentService = async (orderId: string) => {
-  return withTransaction(async (transaction) => {
+  const result: any = await withTransaction(async (transaction) => {
     const order = await findOrderById(orderId);
     if (!order) {
       throw new AppError('NotFound', 404, 'Order not found');
     }
 
-    if ((order as any).paymentStatus !== 'PENDING') {
-      throw new AppError('BadRequest', 400, 'Payment already processed');
+    if ((order as any)?.paymentStatus === 'COMPLETED' || order?.dataValues?.paymentStatus === 'COMPLETED') {
+      return {
+        id: (order as any)?.id || order?.dataValues?.id,
+        status: (order as any).status || order?.dataValues?.status,
+        message: 'Payment already confirmed',
+      };
+    }
+
+    if ((order as any).paymentStatus !== 'PENDING' || order?.dataValues?.paymentStatus !== "PENDING") {
+      throw new AppError('BadRequest', 400, 'Payment already processed or invalid payment state');
     }
 
     // Update order status from PENDING to CONFIRMED when payment is confirmed
@@ -329,21 +446,59 @@ export const confirmPaymentService = async (orderId: string) => {
     }, transaction);
 
     const items = await findOrderItems(orderId);
-    for (const item of items) {
-      await updateOrderItem((item as any).id, {
+    for (let item of items) {
+      let orderItem = item.get({ plain: true });
+      await updateOrderItem((orderItem as any).id, {
         status: 'CONFIRMED',
       }, transaction);
 
-      await confirmOrderService((item as any).productId, item?.productVariantId, (item as any).quantity, transaction);
+      await reserveStockByProductIdService(orderItem?.productId, orderItem?.productVariantId, orderItem?.quantity, transaction);
+      // await confirmOrderService((orderItem as any).productId, orderItem?.productVariantId, (orderItem as any).quantity, transaction);
     }
 
     logger.info('Payment confirmed', { orderId });
     return {
-      id: (order as any).id,
+      id: (order as any)?.id || order?.dataValues?.id,
       status: 'CONFIRMED',
+      orderNumber: (order as any).orderNumber || order?.dataValues?.orderNumber,
+      finalAmount: (order as any).finalAmount || order?.dataValues?.finalAmount,
+      customerId: (order as any).customerId || order?.dataValues?.customerId,
       message: 'Payment confirmed. Order forwarded to sellers.',
     };
   });
+
+  // Send emails after transaction commit
+  const customer = await Customer.findByPk(result?.customerId, { raw: true });
+
+  try {
+    await sendNewOrderNotificationEmail(
+      result?.orderNumber || result?.dataValues?.orderNumber,
+      customer?.email || 'Guest',
+      result?.finalAmount || result?.dataValues?.finalAmount,
+      'support'
+    );
+
+    logger.info('Sales team notification sent for confirmed payment', { orderId: result.id, orderNumber: result.orderNumber });
+  } catch (error) {
+    logger.error('Failed to send sales team notification for confirmed payment', { error, orderId: result.id });
+  }
+
+  // Send confirmation to customer
+  if (customer?.email) {
+    try {
+      await sendOrderConfirmationEmail(
+        customer.email,
+        result?.orderNumber || result?.dataValues?.orderNumber,
+        result?.finalAmount || result?.dataValues?.finalAmount,
+        'sales'
+      );
+      logger.info('Customer confirmation email sent for confirmed payment', { orderId: result.id || result?.dataValues?.id, customerEmail: customer?.email });
+    } catch (error) {
+      logger.error('Failed to send customer confirmation for confirmed payment', { error, orderId: result.id, customerEmail: customer.email });
+    }
+  }
+
+  return result;
 };
 
 export const getCustomerOrdersService = async (customerId: string, filters: any, customerEmail?: string) => {
