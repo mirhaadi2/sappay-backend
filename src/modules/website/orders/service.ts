@@ -20,6 +20,7 @@ import {
   checkInventoryByProductIdService,
   reserveStockByProductIdService,
 } from '../../sellers/inventory/service';
+import { recordCouponUsage } from '../../coupons/service';
 import { findSellerProductById, findProductById } from '../products/repository';
 import { resolveR2Url } from '../../admin/products/transformer';
 import { getOrCreateCustomer, findCustomerByEmail, findCustomerByPhone } from '../guests/customer.service';
@@ -129,6 +130,10 @@ export const placeOrderService = async (
       upiId?: string;
       netbankingBank?: string;
     };
+    couponId?: string;
+    couponCode?: string;
+    couponType?: string;
+    couponDiscount?: number;
     promotionId?: string;
     promotionDetails?: {
       id: string;
@@ -161,6 +166,7 @@ export const placeOrderService = async (
     const itemsToProcess = [];
 
     const finalAmount = Math.round(orderData.totalAmount);
+    const totalDiscount = parseFloat((orderData.discountAmount + (orderData.couponDiscount || 0)).toFixed(2));
 
     // Validate all items WITHIN transaction to prevent race conditions
     for (const item of items) {
@@ -324,6 +330,7 @@ export const placeOrderService = async (
     const isFreeOrder = Math.round(orderData.totalAmount) === 0;
     // Create order with PENDING status only when payment is required
     const initialOrderStatus = isFreeOrder ? 'CONFIRMED' : (isPrepaidPaymentMethod(paymentMethod) ? 'PENDING' : 'CONFIRMED');
+    const initialPaymentStatus = isFreeOrder ? 'COMPLETED' : 'PENDING';
     const paymentMetadata: any = {
       method: paymentMethod,
       provider: isFreeOrder ? 'free' : (isPrepaidPaymentMethod(paymentMethod) ? config.payment.provider : 'cod'),
@@ -341,6 +348,17 @@ export const placeOrderService = async (
       metadata.appliedAt = new Date().toISOString();
     }
 
+    if (orderData.couponId || orderData.couponCode) {
+      metadata.coupon = {
+        id: orderData.couponId,
+        code: orderData.couponCode,
+        type: orderData.couponType,
+        discountAmount: orderData.couponDiscount ?? 0,
+      };
+      metadata.couponAppliedAt = new Date().toISOString();
+      metadata.appliedAt = metadata.appliedAt || new Date().toISOString();
+    }
+
     // Create order WITHOUT orderNumber first (to avoid race conditions)
     const order = await createOrder({
       customerId: finalCustomerId,
@@ -349,10 +367,10 @@ export const placeOrderService = async (
       shippingAddressId: finalShippingAddressId,
       paymentMethod,
       status: initialOrderStatus,
-      paymentStatus: 'PENDING',
+      paymentStatus: initialPaymentStatus,
       subtotal: parseFloat(subtotal.toFixed(2)),
       taxAmount: parseFloat(taxAmount.toFixed(2)),
-      discountAmount: parseFloat(orderData.discountAmount.toFixed(2)),
+      discountAmount: totalDiscount,
       totalAmount: Math.round(orderData.totalAmount),
       finalAmount,
       shippingCost: parseFloat(shippingCost.toFixed(2)),
@@ -369,6 +387,18 @@ export const placeOrderService = async (
     const paymentSession = isPrepaidPaymentMethod(paymentMethod) && !isFreeOrder
       ? await createPaymentGatewayOrder(paymentMethod, Math.round(orderData?.totalAmount * 100), (order as any).orderNumber)
       : undefined;
+
+    if (orderData.couponId && (isFreeOrder || paymentMethod === 'cod')) {
+      await recordCouponUsage(
+        orderData.couponId,
+        finalCustomerId!,
+        orderId,
+        orderData.couponCode || '',
+        Number(orderData.couponDiscount || 0),
+        Number(orderData.totalAmount),
+        transaction,
+      );
+    }
 
     // Update order with generated orderNumber and gateway order ID
     await updateOrder(orderId, {
@@ -423,7 +453,7 @@ export const placeOrderService = async (
 
 export const confirmPaymentService = async (orderId: string) => {
   const result: any = await withTransaction(async (transaction) => {
-    const order = await findOrderById(orderId);
+    const order = await findOrderById(orderId, transaction);
     if (!order) {
       throw new AppError('NotFound', 404, 'Order not found');
     }
@@ -455,6 +485,19 @@ export const confirmPaymentService = async (orderId: string) => {
 
       await reserveStockByProductIdService(orderItem?.productId, orderItem?.productVariantId, orderItem?.quantity, transaction);
       // await confirmOrderService((orderItem as any).productId, orderItem?.productVariantId, (orderItem as any).quantity, transaction);
+    }
+
+    const couponMetadata = (order as any)?.metadata?.coupon || order?.dataValues?.metadata?.coupon;
+    if (couponMetadata?.id) {
+      await recordCouponUsage(
+        couponMetadata.id,
+        (order as any)?.customerId || order?.dataValues?.customerId,
+        orderId,
+        couponMetadata.code || '',
+        Number(couponMetadata.discountAmount || 0),
+        Number((order as any)?.totalAmount || order?.dataValues?.totalAmount),
+        transaction,
+      );
     }
 
     logger.info('Payment confirmed', { orderId });

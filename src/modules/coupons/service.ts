@@ -117,8 +117,10 @@ export const recordCouponUsage = async (
   couponCode: string,
   discountAmount: number,
   orderAmount: number,
+  transaction?: Transaction,
 ) => {
-  const t = await sequelize.transaction();
+  const t = transaction || await sequelize.transaction();
+  let committed = false;
   try {
     await CouponUsage.create(
       {
@@ -130,18 +132,23 @@ export const recordCouponUsage = async (
         orderAmount,
         usedAt: new Date(),
       },
-      { transaction: t },
+      transaction ? { transaction } : { transaction: t },
     );
 
     // increment coupon usage
-    const coupon = await Coupon.findByPk(couponId, { transaction: t });
+    const coupon = await Coupon.findByPk(couponId, { transaction: transaction || t });
     if (!coupon) throw new Error('Coupon not found');
-    await coupon.update({ currentUsage: (coupon.currentUsage || 0) + 1 }, { transaction: t });
+    await coupon.update({ currentUsage: (coupon.currentUsage || 0) + 1 }, { transaction: transaction || t });
 
-    await t.commit();
+    if (!transaction) {
+      await t.commit();
+      committed = true;
+    }
     return true;
   } catch (err) {
-    await t.rollback();
+    if (!transaction && !committed) {
+      await t.rollback();
+    }
     throw err;
   }
 };

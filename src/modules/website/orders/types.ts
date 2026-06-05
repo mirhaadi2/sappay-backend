@@ -30,6 +30,10 @@ export interface PlaceOrderRequest {
     subtotal: number;
     totalAmount: number;
     discountAmount: number;
+    couponDiscount?: number;
+    couponCode?: string;
+    couponId?: string;
+    couponType?: string;
     taxAmount: number;
     shippingCost?: number;
     shippingAddressId?: string;
