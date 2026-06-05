@@ -17,6 +17,8 @@ import {
     getAllPages, getPageBySlug, createPage, updatePage, deletePage,
     // Promotion services
     getActivePromotions, getApplicablePromotions, getAllPromotions, getPromotionById, createPromotion, updatePromotion, deletePromotion,
+    // Coupon services
+    getAllCoupons, getCouponById, createCoupon, updateCoupon, deleteCoupon,
     // Generic page service
     getPage, createOrUpdatePage, deletePageByType,
     // Data aggregators
@@ -598,6 +600,75 @@ router.delete('/promotions/:id', requireAuth, requireActiveStaff, requirePermiss
     try {
         await deletePromotion(req.params.id);
         res.json({ success: true, message: 'Promotion deleted successfully' });
+    } catch (error: any) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// ===================== COUPON MANAGEMENT =====================
+
+/**
+ * GET /admin/website/coupons
+ * Get all coupons (admin view with pagination)
+ */
+router.get('/coupons', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+    try {
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+        const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+        const data = await getAllCoupons(limit, offset);
+        res.json({ success: true, data: data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /admin/website/coupons/:id
+ * Get coupon by ID
+ */
+router.get('/coupons/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.read'), async (req, res) => {
+    try {
+        const coupon = await getCouponById(req.params.id);
+        res.json({ success: true, data: coupon });
+    } catch (error: any) {
+        res.status(404).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /admin/website/coupons
+ * Create new coupon
+ */
+router.post('/coupons', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        const coupon = await createCoupon(req.body);
+        res.json({ success: true, data: coupon });
+    } catch (error: any) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * PUT /admin/website/coupons/:id
+ * Update coupon
+ */
+router.put('/coupons/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        const coupon = await updateCoupon(req.params.id, req.body);
+        res.json({ success: true, data: coupon });
+    } catch (error: any) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * DELETE /admin/website/coupons/:id
+ * Delete coupon
+ */
+router.delete('/coupons/:id', requireAuth, requireActiveStaff, requirePermission('admin.content.write'), async (req, res) => {
+    try {
+        await deleteCoupon(req.params.id);
+        res.json({ success: true, message: 'Coupon deleted successfully' });
     } catch (error: any) {
         res.status(400).json({ success: false, error: error.message });
     }

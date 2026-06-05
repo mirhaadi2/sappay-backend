@@ -321,11 +321,12 @@ export const placeOrderService = async (
       );
     }
 
-    // Create order with PENDING status (not CONFIRMED) since payment is PENDING
-    const initialOrderStatus = isPrepaidPaymentMethod(paymentMethod) ? 'PENDING' : 'CONFIRMED';
+    const isFreeOrder = Math.round(orderData.totalAmount) === 0;
+    // Create order with PENDING status only when payment is required
+    const initialOrderStatus = isFreeOrder ? 'CONFIRMED' : (isPrepaidPaymentMethod(paymentMethod) ? 'PENDING' : 'CONFIRMED');
     const paymentMetadata: any = {
       method: paymentMethod,
-      provider: isPrepaidPaymentMethod(paymentMethod) ? config.payment.provider : 'cod',
+      provider: isFreeOrder ? 'free' : (isPrepaidPaymentMethod(paymentMethod) ? config.payment.provider : 'cod'),
       paymentDetails: paymentDetails || {},
     };
 
@@ -365,7 +366,7 @@ export const placeOrderService = async (
 
     // Create Razorpay order only for prepaid payments (using orderNumber as receipt)
     // IMPORTANT: Razorpay expects amount in paise (multiply rupees by 100)
-    const paymentSession = isPrepaidPaymentMethod(paymentMethod)
+    const paymentSession = isPrepaidPaymentMethod(paymentMethod) && !isFreeOrder
       ? await createPaymentGatewayOrder(paymentMethod, Math.round(orderData?.totalAmount * 100), (order as any).orderNumber)
       : undefined;
 

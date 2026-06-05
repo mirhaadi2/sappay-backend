@@ -12,6 +12,7 @@ import {
     PromotionType,
     PromotionAttributes,
 } from "./models";
+// import { Coupon, CouponAttributes } from "../../models/Coupon";
 import { getR2SignedUrl } from "../../uploads/r2-utils";
 import { sequelize } from "../../../db/sequelize";
 import { Op, QueryTypes } from "sequelize";
@@ -19,6 +20,7 @@ import { redisClient } from "../../../config/session";
 import { createHash } from "crypto";
 import logger from "../../../utils/logger";
 import { withTransaction } from "../../../utils/transaction";
+import { Coupon, CouponAttributes } from "../../../models/Coupon";
 
 const HOMEPAGE_CACHE_KEY = "website:homepage:data";
 const HOMEPAGE_CACHE_TTL = 60 * 2; // 2 minutes
@@ -1034,6 +1036,8 @@ export const getActivePromotions = async () => {
     return promotions;
 };
 
+// (coupon code lookup removed - coupons are handled by dedicated Coupon module)
+
 /**
  * Get promotion by ID with full details
  */
@@ -1052,7 +1056,6 @@ export const getApplicablePromotions = async (cartValue: number = 0) => {
     const promotions = await Promotion.findAll({
         where: {
             isActive: true,
-            displayOnCheckout: true,
             validFrom: { [Op.lte]: now },
             validUntil: { [Op.gte]: now },
         },
@@ -1084,13 +1087,13 @@ export const createPromotion = async (data: Partial<PromotionAttributes>) => {
             Object.entries(data).filter(([, value]) => value !== undefined)
         ) as Record<string, any>;
 
+        // couponCode is not part of Promotion anymore
+
         const promotion = await Promotion.create(
             {
                 ...filteredData,
                 currentUsage: 0,
                 isActive: filteredData.isActive ?? true,
-                displayOnHomepage: filteredData.displayOnHomepage ?? true,
-                displayOnCheckout: filteredData.displayOnCheckout ?? true,
                 priority: filteredData.priority ?? 0,
             } as any,
             { transaction }
@@ -1117,7 +1120,10 @@ export const updatePromotion = async (
         const promotion = await Promotion.findByPk(id, { transaction });
         if (!promotion) throw new Error('Promotion not found');
         
-        const updated = await promotion.update(data, { transaction });
+        const updateData: Record<string, any> = { ...data };
+        // couponCode is not part of Promotion anymore
+
+        const updated = await promotion.update(updateData, { transaction });
         await transaction.commit();
         logger.info('Promotion updated in admin', { promotionId: id });
         return updated;
@@ -1191,6 +1197,107 @@ export const incrementPromotionUsage = async (promotionId: string) => {
         logger.error('Error incrementing promotion usage', { promotionId, error });
         throw error;
     }
+};
+
+// ===================== COUPON SERVICES =====================
+
+/**
+ * Create coupon (admin)
+ */
+export const createCoupon = async (data: Partial<CouponAttributes>) => {
+    const transaction = await sequelize.transaction();
+    try {
+        // Filter out undefined properties
+        const filteredData = Object.fromEntries(
+            Object.entries(data).filter(([, value]) => value !== undefined)
+        ) as Record<string, any>;
+
+        const coupon = await Coupon.create(
+            {
+                ...filteredData,
+                currentUsage: 0,
+                isActive: filteredData.isActive ?? true,
+                firstOrderOnly: filteredData.firstOrderOnly ?? false,
+            } as any,
+            { transaction }
+        );
+        await transaction.commit();
+        logger.info('Coupon created in admin', { couponId: coupon.id, code: coupon.code });
+        return coupon;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error creating coupon', { error });
+        throw error;
+    }
+};
+
+/**
+ * Update coupon (admin)
+ */
+export const updateCoupon = async (
+    id: string,
+    data: Partial<CouponAttributes>
+) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const coupon = await Coupon.findByPk(id, { transaction });
+        if (!coupon) throw new Error('Coupon not found');
+        
+        const updated = await coupon.update(data, { transaction });
+        await transaction.commit();
+        logger.info('Coupon updated in admin', { couponId: id });
+        return updated;
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error updating coupon', { couponId: id, error });
+        throw error;
+    }
+};
+
+/**
+ * Delete coupon (soft delete)
+ */
+export const deleteCoupon = async (id: string) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const coupon = await Coupon.findByPk(id, { transaction });
+        if (!coupon) throw new Error('Coupon not found');
+        
+        await coupon.destroy({ transaction });
+        await transaction.commit();
+        logger.info('Coupon deleted in admin', { couponId: id });
+    } catch (error) {
+        await transaction.rollback();
+        logger.error('Error deleting coupon', { couponId: id, error });
+        throw error;
+    }
+};
+
+/**
+ * Get coupon by ID (admin)
+ */
+export const getCouponById = async (id: string) => {
+    const coupon = await Coupon.findByPk(id);
+    if (!coupon) throw new Error('Coupon not found');
+    return coupon;
+};
+
+/**
+ * Get all coupons (admin view with pagination)
+ */
+export const getAllCoupons = async (limit = 20, offset = 0) => {
+    const { count, rows } = await Coupon.findAndCountAll({
+        limit,
+        offset,
+        order: [['createdAt', 'DESC']],
+    });
+    
+    return {
+        total: count,
+        data: rows,
+        page: Math.floor(offset / limit) + 1,
+        pageSize: limit,
+    };
 };
 
 // ===================== HELPER FUNCTIONS =====================

@@ -8,11 +8,13 @@ const router = Router();
  * Get active promotions (public endpoint for customers)
  * Query params:
  *   - cartValue: optional number for filtering applicable promotions
+ *   - promoCode: optional coupon code for applying hidden/internal promotions
  */
 router.get('/active', async (req, res) => {
     try {
         const cartValue = req.query.cartValue ? parseFloat(req.query.cartValue as string) : 0;
-        
+        // promoCode query param is ignored here; coupon codes are handled via Coupon APIs
+        const promoCode = req.query.promoCode ? String(req.query.promoCode).trim() : '';
         const promotions = cartValue > 0 
             ? await getApplicablePromotions(cartValue)
             : await getActivePromotions();

@@ -501,10 +501,6 @@ export interface PromotionAttributes {
     isActive: boolean;                      // Enable/disable promotion
     priority: number;                       // Higher = shown first (0-100)
     
-    // Display Settings
-    displayOnHomepage: boolean;              // Show banner on homepage
-    displayOnCheckout: boolean;              // Show at checkout
-    displayOnProductPages: boolean;          // Show on product pages
     badgeIcon?: string;                     // Icon/emoji for badge (e.g., "🎁", "💰")
     
     createdAt: Date;
@@ -541,9 +537,6 @@ export class Promotion extends Model<PromotionAttributes, PromotionCreationAttri
     public currentUsage!: number;
     public isActive!: boolean;
     public priority!: number;
-    public displayOnHomepage!: boolean;
-    public displayOnCheckout!: boolean;
-    public displayOnProductPages!: boolean;
     public badgeIcon?: string;
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
@@ -588,9 +581,6 @@ Promotion.init(
         currentUsage: { type: DataTypes.INTEGER, defaultValue: 0, field: 'current_usage' },
         isActive: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'is_active' },
         priority: { type: DataTypes.INTEGER, defaultValue: 0 },
-        displayOnHomepage: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'display_on_homepage' },
-        displayOnCheckout: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'display_on_checkout' },
-        displayOnProductPages: { type: DataTypes.BOOLEAN, defaultValue: false, field: 'display_on_product_pages' },
         badgeIcon: { type: DataTypes.STRING(10), allowNull: true, field: 'badge_icon' },
         createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'created_at' },
         updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'updated_at' },
