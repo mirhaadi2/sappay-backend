@@ -28,6 +28,11 @@ import { bulkOrderRoutes } from "./modules/website/bulk-orders/routes";
 import { reviewRoutes } from "./modules/website/reviews/routes";
 import { delhiveryRoutes } from "./modules/integrations/delhivery/routes";
 import { delhiveryAdminRoutes } from "./modules/admin/integrations/delhivery/routes";
+import farmerAuthRoutes from "./modules/farmers/auth/routes";
+import farmerRoutes from "./modules/farmers/routes";
+import farmerProductsRoutes from "./modules/farmers/products/routes";
+import farmerInventoryRoutes from "./modules/farmers/inventory/routes";
+import farmerSalesRoutes from "./modules/farmers/sales/routes";
 
 const app = express();
 
@@ -52,7 +57,7 @@ const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
 
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews", "/api/delhivery"], (req, res, next) => {
+app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/farmers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews", "/api/delhivery"], (req, res, next) => {
   // Determine the effective path to support mounted routers (req.path may be stripped)
   const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toString();
   const cookieHeader =
@@ -84,6 +89,11 @@ app.use("/api/guest", guestRoutes);
 app.use("/api/bulk-orders", bulkOrderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/sellers", sellerRoutes);
+app.use("/api/farmers/auth", farmerAuthRoutes);
+app.use("/api/farmers", farmerRoutes);
+app.use("/api/farmers/products", farmerProductsRoutes);
+app.use("/api/farmers/inventory", farmerInventoryRoutes);
+app.use("/api/farmers/sales", farmerSalesRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/uploads", uploadsRoutes);
