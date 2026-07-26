@@ -19,6 +19,7 @@ export const findAdminByEmail = async (email: string): Promise<Admin | null> => 
   try {
     return await Admin.findOne({
       where: { email: email.toLowerCase().trim() },
+      raw: true,
     });
   } catch (error) {
     logger.error('Error finding admin by email', { email, error });
