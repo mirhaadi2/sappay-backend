@@ -4,7 +4,6 @@
     "noEmit": false,
     "declaration": true,
     "sourceMap": false,
-    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*"],
   "exclude": ["**/*.test.ts", "src/tests/**"]
