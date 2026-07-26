@@ -3,7 +3,8 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "sourceMap": false
+    "sourceMap": false,
+    "moduleResolution": "node"
   },
   "include": ["src/**/*"],
   "exclude": ["**/*.test.ts", "src/tests/**"]
