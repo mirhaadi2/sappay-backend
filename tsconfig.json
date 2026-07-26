@@ -14,7 +14,7 @@
     "resolveJsonModule": true,
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node", "jest"]
+    "types": ["node"]
   },
   "include": ["src/**/*", "src/modules/sellers/inventory/.model.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
