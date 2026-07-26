@@ -480,6 +480,7 @@ const buildProductConditions = (filters: any) => {
 
   return { conditions, replacements, orderBy };
 }
+
 const generateMainQuery = (whereClause: string, orderBy: string) => {
   return `
     SELECT
