@@ -13,9 +13,15 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "outDir": "dist",
-    "rootDir": "src",
-    "types": ["node", "jest"]
+    "rootDir": "src"
   },
-  "include": ["src/**/*", "src/modules/sellers/inventory/.model.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": [
+    "src/**/*",
+    "src/modules/sellers/inventory/.model.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts"
+  ]
 }
