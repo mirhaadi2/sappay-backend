@@ -4,7 +4,6 @@
     "noEmit": false,
     "declaration": true,
     "sourceMap": false,
-    "moduleResolution": "node",
     "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*"],
