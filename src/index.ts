@@ -1,3 +1,8 @@
+import dns from "node:dns";
+
+// Force Node.js to prefer IPv4 over IPv6
+dns.setDefaultResultOrder("ipv4first");
+
 import app from "./app";
 import { config } from "./config";
 import { sequelize } from "./db/sequelize";
