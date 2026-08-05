@@ -1,11 +1,24 @@
 import * as dotenv from "dotenv";
 
 dotenv.config();
+console.log({
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  secure: process.env.SMTP_SECURE,
+  user: process.env.SMTP_USER,
+  from: process.env.SMTP_FROM_EMAIL,
+});
 
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   nodeEnv: process.env.NODE_ENV ?? "development",
-  frontendOrigin: process.env.FRONTEND_ORIGINS ? JSON.parse(process.env.FRONTEND_ORIGINS) : ["http://localhost:5173", "http://localhost:5174","http://localhost:5175"],
+  frontendOrigin: process.env.FRONTEND_ORIGINS
+    ? JSON.parse(process.env.FRONTEND_ORIGINS)
+    : [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+      ],
   jwt: {
     secret: process.env.JWT_SECRET ?? "change_me",
     expiresIn: process.env.JWT_EXPIRES_IN ?? "1h",
@@ -23,7 +36,11 @@ export const config = {
     smtpPassword: process.env.SMTP_PASSWORD ?? "",
     smtpSecure: (process.env.SMTP_SECURE ?? "false").toLowerCase() === "true",
     fromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
-    salesTeamEmail: process.env.SALES_TEAM_EMAIL ?? process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
+    salesTeamEmail:
+      process.env.SALES_TEAM_EMAIL ??
+      process.env.SMTP_FROM_EMAIL ??
+      process.env.SMTP_USER ??
+      "",
     salesTeamPassword: process.env.SALES_TEAM_PASSWORD ?? "",
   },
   cloudflare: {
@@ -43,13 +60,19 @@ export const config = {
     snsEmailTopicArn: process.env.AWS_SNS_EMAIL_TOPIC_ARN ?? "",
   },
   whatsapp: {
-    baseUrl: process.env.WHATSAPP_BASE_URL ?? "https://graph.facebook.com/v18.0",
+    baseUrl:
+      process.env.WHATSAPP_BASE_URL ?? "https://graph.facebook.com/v18.0",
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
     token: process.env.WHATSAPP_TOKEN ?? "",
   },
   delhivery: {
     token: process.env.DELHIVERY_TOKEN ?? "",
-    baseUrl: process.env.NODE_ENV === "production" ? process.env.PRODUCTION_DELHIVERY_BASE_URL ?? "https://track.delhivery.com" : process.env.TESTING_DELHIVERY_BASE_URL ?? "https://staging-express.delhivery.com",
+    baseUrl:
+      process.env.NODE_ENV === "production"
+        ? (process.env.PRODUCTION_DELHIVERY_BASE_URL ??
+          "https://track.delhivery.com")
+        : (process.env.TESTING_DELHIVERY_BASE_URL ??
+          "https://staging-express.delhivery.com"),
   },
   payment: {
     provider: process.env.PAYMENT_PROVIDER?.toLowerCase() ?? "none",
@@ -58,5 +81,7 @@ export const config = {
     webhookSecret: process.env.PAYMENT_WEBHOOK_SECRET ?? "",
   },
   // ⚠️ IMPORTANT: Only ONE notification channel can be active at a time
-  notificationChannel: (process.env.NOTIFICATION_CHANNEL ?? "sms").toLowerCase() as 'sms' | 'email' | 'whatsapp' | 'in_app',
+  notificationChannel: (
+    process.env.NOTIFICATION_CHANNEL ?? "sms"
+  ).toLowerCase() as "sms" | "email" | "whatsapp" | "in_app",
 };
