@@ -12,17 +12,31 @@ const transporters = {
   sales: nodemailer.createTransport({
     host: config.email.smtpHost,
     port: config.email.smtpPort,
-    secure: config.email.smtpPort === 465,
+    secure: config.email.smtpSecure,
+    logger: true,
+    debug: true,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
     auth: {
       user: config.email.salesTeamEmail,
       pass: config.email.salesTeamPassword,
     },
   }),
+
   support: nodemailer.createTransport({
     host: config.email.smtpHost,
     port: config.email.smtpPort,
-    secure: config.email.smtpPort === 465,
-    auth: { user: config.email.smtpUser, pass: config.email.smtpPassword },
+    secure: config.email.smtpSecure,
+    logger: true,
+    debug: true,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+    auth: {
+      user: config.email.smtpUser,
+      pass: config.email.smtpPassword,
+    },
   }),
 };
 
