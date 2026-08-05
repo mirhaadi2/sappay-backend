@@ -1,6 +1,11 @@
 import nodemailer from "nodemailer";
 import { config } from "../config/index";
 
+console.log({
+  host: config.email.smtpHost,
+  port: config.email.smtpPort,
+  secure: config.email.smtpSecure,
+});
 
 // 1. Pre-initialize the transporters
 const transporters = {
@@ -8,7 +13,10 @@ const transporters = {
     host: config.email.smtpHost,
     port: config.email.smtpPort,
     secure: config.email.smtpPort === 465,
-    auth: { user: config.email.salesTeamEmail, pass: config.email.salesTeamPassword },
+    auth: {
+      user: config.email.salesTeamEmail,
+      pass: config.email.salesTeamPassword,
+    },
   }),
   support: nodemailer.createTransport({
     host: config.email.smtpHost,
