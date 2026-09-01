@@ -4,66 +4,35 @@
  */
 
 import { Staff } from './models';
-import { Op } from 'sequelize';
 import bcrypt from 'bcrypt';
 import { StaffCreateDTO, StaffUpdateDTO, StaffListFilters, StaffListResult } from './types';
 import { validateCreateStaff, validateUpdateStaff, validateUUID } from '../shared/validators';
 import logger from '../../utils/logger';
 import { withTransaction } from '../../utils/transaction';
+import {
+    activateStaffRecord,
+    createStaffRecord,
+    deleteStaffRecord,
+    getStaffByCredentialsRecord,
+    getStaffByEmailRecord,
+    getStaffByIdRecord,
+    listStaffRecord,
+    suspendStaffRecord,
+    updateStaffRecord,
+} from './repository';
 
 /**
  * Get all staff with pagination and filters
  */
 const listStaff = async (filters: StaffListFilters = {}): Promise<StaffListResult> => {
-    const { status, department, limit = 20, offset = 0, search } = filters;
-
-    const where: any = {
-        deletedAt: null,
-    };
-
-    if (status) {
-        where.status = status;
-    }
-
-    if (department) {
-        where.department = department;
-    }
-
-    if (search) {
-        where[Op.or] = [
-            { name: { [Op.iLike]: `%${search}%` } },
-            { email: { [Op.iLike]: `%${search}%` } },
-        ];
-    }
-
-    const { count, rows } = await Staff.findAndCountAll({
-        where,
-        limit,
-        offset,
-        order: [['createdAt', 'DESC']],
-        raw: true,
-        attributes: {
-            exclude: ['password'],
-        },
-    });
-
-    return {
-        staff: rows,
-        total: count,
-        limit,
-        offset,
-    };
+    return listStaffRecord(filters);
 };
 
 /**
  * Get staff by ID
  */
 const getStaffById = async (staffId: string): Promise<Staff> => {
-    const staff = await Staff.findByPk(staffId, {
-        attributes: {
-            exclude: ['password'],
-        },
-    });
+    const staff = await getStaffByIdRecord(staffId);
 
     if (!staff) {
         throw new Error(`Staff member not found with ID: ${staffId}`);
@@ -76,12 +45,7 @@ const getStaffById = async (staffId: string): Promise<Staff> => {
  * Get staff by email
  */
 const getStaffByEmail = async (email: string): Promise<Staff | null> => {
-    return Staff.findOne({
-        where: { email },
-        attributes: {
-            exclude: ['password'],
-        },
-    });
+    return getStaffByEmailRecord(email);
 };
 
 /**
@@ -98,11 +62,8 @@ const createStaff = async (data: StaffCreateDTO): Promise<Staff> => {
     return withTransaction(async (transaction) => {
         // Normalize email to lowercase
         const normalizedEmail = data.email.toLowerCase().trim();
-        
-        const existingStaff = await Staff.findOne({
-            where: { email: normalizedEmail },
-            transaction,
-        });
+
+        const existingStaff = await getStaffByEmailRecord(normalizedEmail, transaction);
 
         if (existingStaff) {
             throw new Error('EMAIL_ALREADY_EXISTS');
@@ -110,7 +71,7 @@ const createStaff = async (data: StaffCreateDTO): Promise<Staff> => {
 
         // Validate manager exists if provided
         if (data.manager_id) {
-            const manager = await Staff.findByPk(data.manager_id, { transaction });
+            const manager = await getStaffByIdRecord(data.manager_id, transaction);
             if (!manager) throw new Error('INVALID_MANAGER_ID');
             // Prevent circular reference
             if (data.manager_id === data.manager_id) throw new Error('CIRCULAR_REFERENCE');
@@ -118,18 +79,17 @@ const createStaff = async (data: StaffCreateDTO): Promise<Staff> => {
 
         const hashedPassword = await bcrypt.hash(data.password, 12);
 
-        const staff = await Staff.create(
+        const staff = await createStaffRecord(
             {
                 email: normalizedEmail,
                 password: hashedPassword,
                 name: data.name.trim(),
-                phone: data.phone?.trim(),
-                department: data.department?.trim(),
+                phone: data.phone,
+                department: data.department,
                 manager_id: data.manager_id,
                 hire_date: data.hire_date,
-                status: 'active',
             },
-            { transaction }
+            transaction,
         );
 
         logger.info('Staff member created', { staffId: staff.id, email: normalizedEmail });
@@ -149,16 +109,16 @@ const updateStaff = async (staffId: string, data: StaffUpdateDTO): Promise<Staff
     if (!uuidValidation.valid) {
         throw new Error('INVALID_UUID');
     }
-    
+
     // Validate update data
     const validation = validateUpdateStaff(data);
     if (!validation.valid) {
         logger.warn('Staff update validation failed', { staffId, errors: validation.errors });
         throw new Error('VALIDATION_ERROR');
     }
-    
+
     return withTransaction(async (transaction) => {
-        const staff = await Staff.findByPk(staffId, { transaction });
+        const staff = await getStaffByIdRecord(staffId, transaction);
 
         if (!staff) {
             throw new Error('STAFF_NOT_FOUND');
@@ -167,34 +127,28 @@ const updateStaff = async (staffId: string, data: StaffUpdateDTO): Promise<Staff
         if (data.email) {
             const normalizedEmail = data.email.toLowerCase().trim();
             if (normalizedEmail !== staff.email) {
-                const existingStaff = await Staff.findOne({
-                    where: { email: normalizedEmail },
-                    transaction,
-                });
+                const existingStaff = await getStaffByEmailRecord(normalizedEmail, transaction);
                 if (existingStaff) throw new Error('EMAIL_ALREADY_EXISTS');
             }
             staff.email = normalizedEmail;
         }
-        
+
         // Validate manager if being updated
         if (data.manager_id && data.manager_id !== staff.manager_id) {
-            const manager = await Staff.findByPk(data.manager_id, { transaction });
+            const manager = await getStaffByIdRecord(data.manager_id, transaction);
             if (!manager) throw new Error('INVALID_MANAGER_ID');
             // Prevent self-assignment
             if (data.manager_id === staffId) throw new Error('CANNOT_BE_OWN_MANAGER');
         }
 
-        if (data.name !== undefined) staff.name = data.name.trim();
-        if (data.phone !== undefined) staff.phone = data.phone?.trim();
-        if (data.department !== undefined) staff.department = data.department?.trim();
-        if (data.manager_id !== undefined) staff.manager_id = data.manager_id;
-        if (data.hire_date !== undefined) staff.hire_date = data.hire_date;
+        const updatedStaff = await updateStaffRecord(staffId, data, transaction);
+        if (!updatedStaff) {
+            throw new Error('STAFF_NOT_FOUND');
+        }
 
-        await staff.save({ transaction });
-        
         logger.info('Staff updated', { staffId });
 
-        const result = staff.toJSON();
+        const result = updatedStaff.toJSON();
         delete (result as any).password;
         return result as Staff;
     });
@@ -208,9 +162,9 @@ const suspendStaff = async (staffId: string): Promise<Staff> => {
     if (!validation.valid) {
         throw new Error('INVALID_UUID');
     }
-    
+
     return withTransaction(async (transaction) => {
-        const staff = await Staff.findByPk(staffId, { transaction });
+        const staff = await getStaffByIdRecord(staffId, transaction);
 
         if (!staff) {
             throw new Error('STAFF_NOT_FOUND');
@@ -220,12 +174,14 @@ const suspendStaff = async (staffId: string): Promise<Staff> => {
             throw new Error('ALREADY_SUSPENDED');
         }
 
-        staff.status = 'suspended';
-        await staff.save({ transaction });
-        
-        logger.warn('Staff suspended', { staffId, email: staff.email });
+        const suspendedStaff = await suspendStaffRecord(staffId, transaction);
+        if (!suspendedStaff) {
+            throw new Error('STAFF_NOT_FOUND');
+        }
 
-        const result = staff.toJSON();
+        logger.warn('Staff suspended', { staffId, email: suspendedStaff.email });
+
+        const result = suspendedStaff.toJSON();
         delete (result as any).password;
         return result as Staff;
     });
@@ -239,9 +195,9 @@ const activateStaff = async (staffId: string): Promise<Staff> => {
     if (!validation.valid) {
         throw new Error('INVALID_UUID');
     }
-    
+
     return withTransaction(async (transaction) => {
-        const staff = await Staff.findByPk(staffId, { transaction });
+        const staff = await getStaffByIdRecord(staffId, transaction);
 
         if (!staff) {
             throw new Error('STAFF_NOT_FOUND');
@@ -251,12 +207,14 @@ const activateStaff = async (staffId: string): Promise<Staff> => {
             throw new Error('ALREADY_ACTIVE');
         }
 
-        staff.status = 'active';
-        await staff.save({ transaction });
-        
-        logger.info('Staff activated', { staffId, email: staff.email });
+        const activatedStaff = await activateStaffRecord(staffId, transaction);
+        if (!activatedStaff) {
+            throw new Error('STAFF_NOT_FOUND');
+        }
 
-        const result = staff.toJSON();
+        logger.info('Staff activated', { staffId, email: activatedStaff.email });
+
+        const result = activatedStaff.toJSON();
         delete (result as any).password;
         return result as Staff;
     });
@@ -270,16 +228,19 @@ const deleteStaff = async (staffId: string): Promise<void> => {
     if (!validation.valid) {
         throw new Error('INVALID_UUID');
     }
-    
+
     return withTransaction(async (transaction) => {
-        const staff = await Staff.findByPk(staffId, { transaction });
+        const staff = await getStaffByIdRecord(staffId, transaction);
 
         if (!staff) {
             throw new Error('STAFF_NOT_FOUND');
         }
 
-        await staff.destroy({ transaction });
-        
+        const deleted = await deleteStaffRecord(staffId, transaction);
+        if (!deleted) {
+            throw new Error('STAFF_NOT_FOUND');
+        }
+
         logger.warn('Staff deleted', { staffId, email: staff.email });
     });
 };
@@ -288,7 +249,7 @@ const deleteStaff = async (staffId: string): Promise<void> => {
  * Check if staff member is active
  */
 const isStaffActive = async (staffId: string): Promise<boolean> => {
-    const staff = await Staff.findByPk(staffId);
+    const staff = await getStaffByIdRecord(staffId);
     return staff?.status === 'active' && !staff?.deletedAt;
 };
 
@@ -296,9 +257,7 @@ const isStaffActive = async (staffId: string): Promise<boolean> => {
  * Verify staff credentials for login
  */
 const verifyCredentials = async (email: string, password: string): Promise<Staff | null> => {
-    const staff = await Staff.findOne({
-        where: { email, status: 'active' },
-    });
+    const staff = await getStaffByCredentialsRecord(email);
 
     if (!staff) {
         return null;

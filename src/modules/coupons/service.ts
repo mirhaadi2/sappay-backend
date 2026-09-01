@@ -1,7 +1,14 @@
-import { Op, Transaction } from 'sequelize';
+import { Transaction } from 'sequelize';
 import { sequelize } from '../../db/sequelize';
-import { Order } from '../admin/orders/order.model';
-import { Coupon, CouponUsage } from './models';
+import { Coupon } from './models';
+import {
+    countCouponUsageByUserRecord,
+    countUserOrdersRecord,
+    createCouponUsageRecord,
+    findCouponByCodeRecord,
+    getCouponByIdRecord,
+    updateCouponUsageCountRecord,
+} from './repository';
 
 interface ValidateResult {
     valid: boolean;
@@ -21,14 +28,7 @@ export const validateCoupon = async (
         return { valid: false, coupon: null, discountAmount: 0, message: 'Invalid code' };
 
     const now = new Date();
-    const coupon = await Coupon.findOne({
-        where: {
-            code: normalized,
-            isActive: true,
-            validFrom: { [Op.lte]: now },
-            validUntil: { [Op.gte]: now },
-        },
-    });
+    const coupon = await findCouponByCodeRecord(normalized);
 
     if (!coupon)
         return {
@@ -45,7 +45,7 @@ export const validateCoupon = async (
 
     // per user limit
     if (userId && coupon.perUserLimit) {
-        const usedByUser = await CouponUsage.count({ where: { couponId: coupon.id, userId } });
+        const usedByUser = await countCouponUsageByUserRecord(coupon.id, userId);
         if (usedByUser >= coupon.perUserLimit) {
             return { valid: false, coupon, discountAmount: 0, message: 'Per-user limit exceeded' };
         }
@@ -53,7 +53,7 @@ export const validateCoupon = async (
 
     // first order only
     if (coupon.firstOrderOnly && userId) {
-        const userOrders = await Order.count({ where: { customerId: userId } as any });
+        const userOrders = await countUserOrdersRecord(userId);
         if (userOrders > 0) {
             return {
                 valid: false,
@@ -152,7 +152,7 @@ export const recordCouponUsage = async (
     const t = transaction || (await sequelize.transaction());
     let committed = false;
     try {
-        await CouponUsage.create(
+        await createCouponUsageRecord(
             {
                 couponId,
                 userId,
@@ -162,16 +162,11 @@ export const recordCouponUsage = async (
                 orderAmount,
                 usedAt: new Date(),
             },
-            transaction ? { transaction } : { transaction: t },
+            transaction || t,
         );
 
         // increment coupon usage
-        const coupon = await Coupon.findByPk(couponId, { transaction: transaction || t });
-        if (!coupon) throw new Error('Coupon not found');
-        await coupon.update(
-            { currentUsage: (coupon.currentUsage || 0) + 1 },
-            { transaction: transaction || t },
-        );
+        await updateCouponUsageCountRecord(couponId, transaction || t);
 
         if (!transaction) {
             await t.commit();
