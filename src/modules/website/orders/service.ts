@@ -32,9 +32,9 @@ import {
 import { findOrCreateCustomerAddress } from './shipping-address.repository';
 import { AppError } from '../../../utils/AppError';
 import { config } from '../../../config';
-import axios from 'axios';
 import { withTransaction } from '../../../utils/transaction';
 import logger from '../../../utils/logger';
+import { createRazorpayOrder } from '../../../integrations/razorpay/services';
 import {
     sendEmail,
     sendNewOrderNotificationEmail,
@@ -51,51 +51,9 @@ const createPaymentGatewayOrder = async (
 ) => {
     if (!isPrepaidPaymentMethod(paymentMethod)) return undefined;
 
-    if (!config.payment.provider || config.payment.provider === 'none') {
-        throw new AppError(
-            'ServiceUnavailable',
-            503,
-            'Payment gateway is not configured. Set PAYMENT_PROVIDER, PAYMENT_API_KEY, and PAYMENT_API_SECRET in .env',
-        );
-    }
-
-    if (!config.payment.apiKey || !config.payment.apiSecret) {
-        throw new AppError(
-            'ServiceUnavailable',
-            503,
-            'Payment provider credentials are missing. Set PAYMENT_API_KEY and PAYMENT_API_SECRET in .env',
-        );
-    }
-
-    const provider = config.payment.provider.toLowerCase();
+    const provider = config.payment.provider?.toLowerCase();
     if (provider === 'razorpay') {
-        const auth = Buffer.from(`${config.payment.apiKey}:${config.payment.apiSecret}`).toString(
-            'base64',
-        );
-        const response = await axios.post(
-            'https://api.razorpay.com/v1/orders',
-            {
-                amount: amountInPaise,
-                currency: 'INR',
-                receipt,
-                payment_capture: 1,
-                notes: { paymentMethod },
-            },
-            {
-                headers: {
-                    Authorization: `Basic ${auth}`,
-                    'Content-Type': 'application/json',
-                },
-                timeout: 10000,
-            },
-        );
-
-        return {
-            provider: 'razorpay',
-            gatewayOrderId: response.data?.id,
-            publicKey: config.payment.apiKey,
-            rawResponse: response.data,
-        };
+        return createRazorpayOrder(paymentMethod, amountInPaise, receipt);
     }
 
     throw new AppError(
