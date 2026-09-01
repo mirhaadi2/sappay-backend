@@ -1,7 +1,4 @@
-/**
- * Admin Authentication Module Exports
- */
-
+/*** Admin Authentication Module Exportsnm*/
 export * from './service';
 export * from './controller';
 export * from './middleware';

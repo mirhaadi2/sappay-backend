@@ -4,111 +4,106 @@
  * Functional approach for simplicity and composability
  */
 
-import { sequelize } from "../../../db/sequelize";
-import { ProductRow, CountRow } from "./database.types";
-import { QueryTypes } from "sequelize";
-import { randomUUID } from "crypto";
-import { generateSku } from "../../../utils/sku";
-import logger from "../../../utils/logger";
+import { sequelize } from '../../../db/sequelize';
+import { ProductRow, CountRow } from './database.types';
+import { QueryTypes } from 'sequelize';
+import { randomUUID } from 'crypto';
+import { generateSku } from '../../../utils/sku';
+import logger from '../../../utils/logger';
 
 /**
  * Execute parameterized SELECT query with type safety
  */
 const executeSelect = async <T>(
-  query: string,
-  replacements: any = [],
-  transaction?: any,
+    query: string,
+    replacements: any = [],
+    transaction?: any,
 ): Promise<T[]> => {
-  var timing = 0;
-  try {
-    const result = (await sequelize.query(query, {
-      replacements,
-      type: QueryTypes.SELECT,
-      transaction,
-      logging(sql, queryTiming) {
-        logger.debug("Database SELECT query executed", {
-          sql,
-          timing: queryTiming,
+    var timing = 0;
+    try {
+        const result = (await sequelize.query(query, {
+            replacements,
+            type: QueryTypes.SELECT,
+            transaction,
+            logging(sql, queryTiming) {
+                logger.debug('Database SELECT query executed', {
+                    sql,
+                    timing: queryTiming,
+                });
+                timing = queryTiming || 0;
+            },
+            benchmark: true,
+        })) as T[];
+        logger.info('Database SELECT query completed successfully', {
+            rowCount: result?.length || 0,
         });
-        timing = queryTiming || 0;
-      },
-      benchmark: true,
-    })) as T[];
-    logger.info("Database SELECT query completed successfully", {
-      rowCount: result?.length || 0,
-    });
-    return result || [];
-  } catch (error: any) {
-    logger.error("Database SELECT query failed", {
-      query,
-      replacements,
-      error,
-    });
-    throw error;
-  }
+        return result || [];
+    } catch (error: any) {
+        logger.error('Database SELECT query failed', {
+            query,
+            replacements,
+            error,
+        });
+        throw error;
+    }
 };
 
 /**
  * Execute parameterized UPDATE/DELETE query
  */
 const executeModify = async (
-  query: string,
-  replacements: any = [],
-  transaction?: any,
+    query: string,
+    replacements: any = [],
+    transaction?: any,
 ): Promise<number> => {
-  var timing = 0;
-  try {
-    await sequelize.query(query, {
-      replacements,
-      transaction,
-      logging(sql, queryTiming) {
-        logger.debug("Database MODIFY query executed", {
-          sql,
-          timing: queryTiming,
+    var timing = 0;
+    try {
+        await sequelize.query(query, {
+            replacements,
+            transaction,
+            logging(sql, queryTiming) {
+                logger.debug('Database MODIFY query executed', {
+                    sql,
+                    timing: queryTiming,
+                });
+                timing = queryTiming || 0;
+            },
+            benchmark: true,
         });
-        timing = queryTiming || 0;
-      },
-      benchmark: true,
-    });
-    logger.info("Database MODIFY query completed successfully");
-    return 1;
-  } catch (error: any) {
-    logger.error("Database MODIFY query failed", {
-      query,
-      replacements,
-      error,
-    });
-    throw error;
-  }
+        logger.info('Database MODIFY query completed successfully');
+        return 1;
+    } catch (error: any) {
+        logger.error('Database MODIFY query failed', {
+            query,
+            replacements,
+            error,
+        });
+        throw error;
+    }
 };
 
 /**
  * Get product count with optional WHERE conditions
  */
-export const getProductCount = async (
-  whereClause: string,
-  params: any[] = [],
-): Promise<number> => {
-  const query = `SELECT COUNT(*) as count FROM products p WHERE ${whereClause}`;
-  const replacements = Object.fromEntries(
-    params.map((v, i) => [`param${i}`, v]),
-  );
-  const result = await executeSelect<CountRow>(query, replacements);
-  return parseInt(result[0]?.count || "0", 10);
+export const getProductCount = async (whereClause: string, params: any[] = []): Promise<number> => {
+    const query = `SELECT COUNT(*) as count FROM products p WHERE ${whereClause}`;
+    const replacements = Object.fromEntries(params.map((v, i) => [`param${i}`, v]));
+    const result = await executeSelect<CountRow>(query, replacements);
+    return parseInt(result[0]?.count || '0', 10);
 };
 
 /**
  * Find products with pagination and filtering
  */
 export const findProducts = async (
-  whereClause: string,
-  params: any[],
-  sortBy: string,
-  sortOrder: string,
-  limit: number,
-  offset: number,
+    whereClause: string,
+    params: any[],
+    sortBy: string,
+    sortOrder: string,
+    limit: number,
+    offset: number,
 ): Promise<ProductRow[]> => {
-  const query = `
+    const query = `
     WITH InventoryStats AS (
         -- Aggregate inventory at the product level directly
       SELECT 
@@ -160,19 +155,19 @@ export const findProducts = async (
     ORDER BY ${sortBy} ${sortOrder}
     LIMIT :limit OFFSET :offset
   `;
-  const replacements = {
-    ...Object.fromEntries(params.map((v, i) => [`param${i}`, v])),
-    limit,
-    offset,
-  };
-  return executeSelect<ProductRow>(query, replacements);
+    const replacements = {
+        ...Object.fromEntries(params.map((v, i) => [`param${i}`, v])),
+        limit,
+        offset,
+    };
+    return executeSelect<ProductRow>(query, replacements);
 };
 
 /**
  * Find single product by ID
  */
 export const findById = async (id: string): Promise<ProductRow | null> => {
-  const query = `
+    const query = `
     SELECT 
       p.id, 
       p.name, 
@@ -206,12 +201,12 @@ export const findById = async (id: string): Promise<ProductRow | null> => {
       p.id, ct.name
   `;
 
-  const result = await executeSelect<ProductRow>(query, [id]);
-  return result[0] || null;
+    const result = await executeSelect<ProductRow>(query, [id]);
+    return result[0] || null;
 };
 
 export const getProductVariants = async (productId: string, transaction?: any) => {
-  const query = `
+    const query = `
     SELECT 
       id, 
       product_id as "productId", 
@@ -228,122 +223,169 @@ export const getProductVariants = async (productId: string, transaction?: any) =
     WHERE product_id = ?
     ORDER BY created_at ASC
   `;
-  return await executeSelect<any>(query, [productId], transaction);
+    return await executeSelect<any>(query, [productId], transaction);
+};
+
+export const getSellerOfferingsCount = async (
+    productId: string,
+    transaction?: any,
+): Promise<number> => {
+    const query = `SELECT COUNT(*) as count FROM seller_products WHERE product_id = :productId`;
+    const result = await executeSelect<{ count: string }>(query, { productId }, transaction);
+    return parseInt(result[0]?.count || '0', 10);
+};
+
+export const getSellerOfferings = async (
+    productId: string,
+    limit: number,
+    offset: number,
+    transaction?: any,
+): Promise<any[]> => {
+    const query = `
+    SELECT
+      sp.id as "sellerProductId",
+      sp.seller_id as "sellerId",
+      sp.seller_sku as "sellerSku",
+      sp.seller_price as "sellerPrice",
+      sp.cost_price as "costPrice",
+      sp.discounted_price as "discountedPrice",
+      sp.discounted_percent as "discountedPercent",
+      sp.rating as "rating",
+      sp.rating_count as "ratingCount",
+      sp.description as "sellerDescription",
+      sp.images as "sellerImages",
+      sp.weight as "sellerWeight",
+      sp.dimensions as "sellerDimensions",
+      sp.warranty_months as "warrantyMonths",
+      sp.status as "sellerProductStatus",
+      sp.created_at as "sellerProductCreatedAt",
+      sp.updated_at as "sellerProductUpdatedAt",
+      s.business_name as "sellerBusinessName",
+      s.owner_name as "sellerOwnerName",
+      s.owner_email as "sellerOwnerEmail",
+      s.business_phone as "sellerBusinessPhone",
+      s.commission_rate as "sellerCommissionRate",
+      s.status as "sellerStatus",
+      i.id as "inventoryId",
+      i.total_stock as "totalStock",
+      i.available_stock as "availableStock",
+      i.reserved_stock as "reservedStock",
+      i.sold_stock as "soldStock",
+      i.reorder_level as "reorderLevel",
+      i.last_restocked_at as "lastRestockedAt"
+    FROM seller_products sp
+    INNER JOIN sellers s ON sp.seller_id = s.id
+    LEFT JOIN inventory i ON sp.id = i.seller_product_id
+    WHERE sp.product_id = :productId
+    ORDER BY sp.created_at DESC
+    LIMIT :limit OFFSET :offset
+  `;
+
+    return executeSelect<any>(query, { productId, limit, offset }, transaction);
 };
 
 /**
  * Get product variants count
  * Enterprise-grade optimization for list views
  */
-export const getProductVariantsCount = async (
-  productId: string,
-): Promise<number> => {
-  const query = `
+export const getProductVariantsCount = async (productId: string): Promise<number> => {
+    const query = `
     SELECT COUNT(*) as count
     FROM product_variants
     WHERE product_id = ?
   `;
-  const result = await executeSelect<{ count: string }>(query, [productId]);
-  return parseInt(result[0]?.count || "0", 10);
+    const result = await executeSelect<{ count: string }>(query, [productId]);
+    return parseInt(result[0]?.count || '0', 10);
 };
 
 export const deleteProductVariantsByProduct = async (productId: string, transaction?: any) => {
-  const query = `DELETE FROM product_variants WHERE product_id = ?`;
-  await executeModify(query, [productId], transaction);
-  return true;
+    const query = `DELETE FROM product_variants WHERE product_id = ?`;
+    await executeModify(query, [productId], transaction);
+    return true;
 };
 
 export const createProductVariants = async (
-  productId: string,
-  productName: string,
-  variants: any[],
-  transaction?: any,
+    productId: string,
+    productName: string,
+    variants: any[],
+    transaction?: any,
 ) => {
-  if (!Array.isArray(variants) || variants.length === 0) return [];
+    if (!Array.isArray(variants) || variants.length === 0) return [];
 
-  const values = variants
-    .filter((v) => v && v.price !== undefined && v.price !== null)
-    .map((v) => [
-      randomUUID(), // Generate UUID for id
-      productId,
-      v.sku || generateSku(productName, v.weight), // Auto-generate SKU if not provided
-      Number(v.price),
-      v.discountedPrice !== undefined ? Number(v.discountedPrice) : null,
-      v.discountedPercent !== undefined ? Number(v.discountedPercent) : null,
-      v.weight !== undefined ? Number(v.weight) : null,
-      v.weightUnit || "G",
-      v.status || "ACTIVE",
-      new Date(),
-      new Date(),
-    ]);
+    const values = variants
+        .filter((v) => v && v.price !== undefined && v.price !== null)
+        .map((v) => [
+            randomUUID(), // Generate UUID for id
+            productId,
+            v.sku || generateSku(productName, v.weight), // Auto-generate SKU if not provided
+            Number(v.price),
+            v.discountedPrice !== undefined ? Number(v.discountedPrice) : null,
+            v.discountedPercent !== undefined ? Number(v.discountedPercent) : null,
+            v.weight !== undefined ? Number(v.weight) : null,
+            v.weightUnit || 'G',
+            v.status || 'ACTIVE',
+            new Date(),
+            new Date(),
+        ]);
 
-  if (values.length === 0) return [];
+    if (values.length === 0) return [];
 
-  const query = `
+    const query = `
     INSERT INTO product_variants
       (id, product_id, sku, price, discounted_price, discounted_percent, weight, weight_unit, status, created_at, updated_at)
     VALUES
-      ${values.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}
+      ${values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}
   `;
 
-  await executeModify(query, values.flat(), transaction);
-  return getProductVariants(productId, transaction);
+    await executeModify(query, values.flat(), transaction);
+    return getProductVariants(productId, transaction);
 };
 
 /**
  * Update existing product variant
  */
 export const updateProductVariant = async (variantId: string, updates: any, transaction?: any) => {
-  const entries = Object.entries(updates);
-  if (entries.length === 0) return true;
+    const entries = Object.entries(updates);
+    if (entries.length === 0) return true;
 
-  const mappedEntries = entries.map(([key, val]) => {
-    let finalKey = key;
-    let finalValue = val;
+    const mappedEntries = entries.map(([key, val]) => {
+        let finalKey = key;
+        let finalValue = val;
 
-    // 1. Handle Numeric Conversions
-    const numericFields = [
-      "price",
-      "discountedPrice",
-      "discountedPercent",
-      "weight",
-    ];
-    if (numericFields.includes(key) && typeof val === "string") {
-      finalValue = Number(val);
-    }
+        // 1. Handle Numeric Conversions
+        const numericFields = ['price', 'discountedPrice', 'discountedPercent', 'weight'];
+        if (numericFields.includes(key) && typeof val === 'string') {
+            finalValue = Number(val);
+        }
 
-    // 2. Handle Key Transformation (CamelCase to snake_case)
-    if (key === "weightUnit") {
-      finalKey = "weight_unit";
-    }
+        // 2. Handle Key Transformation (CamelCase to snake_case)
+        if (key === 'weightUnit') {
+            finalKey = 'weight_unit';
+        }
 
-    if (key === "discountedPrice") {
-      finalKey = "discounted_price";
-    }
+        if (key === 'discountedPrice') {
+            finalKey = 'discounted_price';
+        }
 
-    if (key === "discountedPercent") {
-      finalKey = "discounted_percent";
-    }
+        if (key === 'discountedPercent') {
+            finalKey = 'discounted_percent';
+        }
 
-    // Return the potentially modified key and value
-    return [finalKey, finalValue];
-  });
+        // Return the potentially modified key and value
+        return [finalKey, finalValue];
+    });
 
-  const setClauses = mappedEntries.map(([key]) => `"${key}" = ?`).join(", ");
-  const values = [
-    ...mappedEntries.map(([, val]) => val),
-    new Date(),
-    variantId,
-  ];
+    const setClauses = mappedEntries.map(([key]) => `"${key}" = ?`).join(', ');
+    const values = [...mappedEntries.map(([, val]) => val), new Date(), variantId];
 
-  const query = `
+    const query = `
     UPDATE product_variants
     SET ${setClauses}, updated_at = ?
     WHERE id = ?
   `;
 
-  await executeModify(query, values, transaction);
-  return true;
+    await executeModify(query, values, transaction);
+    return true;
 };
 
 /**
@@ -351,185 +393,182 @@ export const updateProductVariant = async (variantId: string, updates: any, tran
  * This is the professional way to handle variant updates
  */
 export const upsertProductVariants = async (
-  productId: string,
-  variants: any[],
-  transaction?: any,
+    productId: string,
+    variants: any[],
+    transaction?: any,
 ) => {
-  if (!Array.isArray(variants) || variants.length === 0) return [];
+    if (!Array.isArray(variants) || variants.length === 0) return [];
 
-  // Get product name for SKU generation
-  const product = await findById(productId);
-  if (!product) {
-    throw new Error("Product not found");
-  }
-  const productName = product.name;
-
-  const existingVariants = await getProductVariants(productId, transaction);
-  const existingVariantMap = new Map(existingVariants.map((v) => [v.id, v]));
-
-  const results = [];
-
-  for (const variant of variants) {
-    if (variant.id && existingVariantMap.has(variant.id)) {
-      // Update existing variant
-      const updates: any = {};
-      if (variant.sku !== undefined) updates.sku = variant.sku;
-      if (variant.price !== undefined) updates.price = variant.price;
-      if (variant.discountedPrice !== undefined)
-        updates.discountedPrice = variant.discountedPrice;
-      if (variant.discountedPercent !== undefined)
-        updates.discountedPercent = variant.discountedPercent;
-      if (variant.weight !== undefined) updates.weight = variant.weight;
-      if (variant.weightUnit !== undefined)
-        updates.weightUnit = variant.weightUnit;
-      if (variant.status !== undefined) updates.status = variant.status;
-
-      await updateProductVariant(variant.id, updates, transaction);
-      results.push({ ...existingVariantMap.get(variant.id), ...updates });
-    } else {
-      // Create new variant - remove ID if present and auto-generate SKU if needed
-      const { id, createdAt, updatedAt, ...variantData } = variant;
-      if (!variantData.sku) {
-        const weightInfo = variantData.weight
-          ? `${variantData.weight}${variantData.weightUnit || "G"}`
-          : "";
-        variantData.sku = generateSku(productName, weightInfo);
-      }
-      const newVariants = await createProductVariants(productId, productName, [
-        variantData,
-      ], transaction);
-      results.push(...newVariants);
+    // Get product name for SKU generation
+    const product = await findById(productId);
+    if (!product) {
+        throw new Error('Product not found');
     }
-  }
+    const productName = product.name;
 
-  return results;
+    const existingVariants = await getProductVariants(productId, transaction);
+    const existingVariantMap = new Map(existingVariants.map((v) => [v.id, v]));
+
+    const results = [];
+
+    for (const variant of variants) {
+        if (variant.id && existingVariantMap.has(variant.id)) {
+            // Update existing variant
+            const updates: any = {};
+            if (variant.sku !== undefined) updates.sku = variant.sku;
+            if (variant.price !== undefined) updates.price = variant.price;
+            if (variant.discountedPrice !== undefined)
+                updates.discountedPrice = variant.discountedPrice;
+            if (variant.discountedPercent !== undefined)
+                updates.discountedPercent = variant.discountedPercent;
+            if (variant.weight !== undefined) updates.weight = variant.weight;
+            if (variant.weightUnit !== undefined) updates.weightUnit = variant.weightUnit;
+            if (variant.status !== undefined) updates.status = variant.status;
+
+            await updateProductVariant(variant.id, updates, transaction);
+            results.push({ ...existingVariantMap.get(variant.id), ...updates });
+        } else {
+            // Create new variant - remove ID if present and auto-generate SKU if needed
+            const { id, createdAt, updatedAt, ...variantData } = variant;
+            if (!variantData.sku) {
+                const weightInfo = variantData.weight
+                    ? `${variantData.weight}${variantData.weightUnit || 'G'}`
+                    : '';
+                variantData.sku = generateSku(productName, weightInfo);
+            }
+            const newVariants = await createProductVariants(
+                productId,
+                productName,
+                [variantData],
+                transaction,
+            );
+            results.push(...newVariants);
+        }
+    }
+
+    return results;
 };
 
 /**
  * Check if product exists
  */
 export const exists = async (id: string): Promise<boolean> => {
-  const query = "SELECT 1 FROM products WHERE id = ? AND deleted_at IS NULL";
-  const result = await executeSelect<{ 1: number }>(query, [id]);
-  return result.length > 0;
+    const query = 'SELECT 1 FROM products WHERE id = ? AND deleted_at IS NULL';
+    const result = await executeSelect<{ 1: number }>(query, [id]);
+    return result.length > 0;
 };
 
 /**
  * Update product fields atomically
  */
 export const updateFields = async (
-  id: string,
-  updates: Record<string, any>,
-  transaction?: any,
+    id: string,
+    updates: Record<string, any>,
+    transaction?: any,
 ): Promise<boolean> => {
-  const entries = Object.entries(updates);
-  if (entries.length === 0) return true;
+    const entries = Object.entries(updates);
+    if (entries.length === 0) return true;
 
-  // Map model property names to database column names
-  // Updated Mapping: Front-end Key -> Database Column Name
-  const columnMapping: Record<string, string> = {
-    // Added
-    discountedPrice: "discounted_price", // Added
-    discountedPercent: "discounted_percent", // Added
-    category: "category_id",
-    gst_rate: "gst_rate",
-    isNew: "is_new",
-    isCustomerFavourites: "is_customer_favourites",
-    isBestseller: "is_best_seller",
-    // Existing mappings
-    // 'name', 'description', 'status' map 1:1, so fallback handles them
-  };
+    // Map model property names to database column names
+    // Updated Mapping: Front-end Key -> Database Column Name
+    const columnMapping: Record<string, string> = {
+        // Added
+        discountedPrice: 'discounted_price', // Added
+        discountedPercent: 'discounted_percent', // Added
+        category: 'category_id',
+        gst_rate: 'gst_rate',
+        isNew: 'is_new',
+        isCustomerFavourites: 'is_customer_favourites',
+        isBestseller: 'is_best_seller',
+        // Existing mappings
+        // 'name', 'description', 'status' map 1:1, so fallback handles them
+    };
 
-  // Inside updateFields function
-  const mappedEntries = entries.map(([key, val]) => {
-    const dbColumn = columnMapping[key] || key;
-    let finalValue = val;
+    // Inside updateFields function
+    const mappedEntries = entries.map(([key, val]) => {
+        const dbColumn = columnMapping[key] || key;
+        let finalValue = val;
 
-    // Fix: Convert number to string for the ENUM column
-    if (dbColumn === "gst_rate" && typeof val === "number") {
-      finalValue = String(val);
-    }
+        // Fix: Convert number to string for the ENUM column
+        if (dbColumn === 'gst_rate' && typeof val === 'number') {
+            finalValue = String(val);
+        }
 
-    return [dbColumn, finalValue];
-  });
+        return [dbColumn, finalValue];
+    });
 
-  // Rest of your logic remains the same...
+    // Rest of your logic remains the same...
 
-  const values = [...mappedEntries.map(([, val]) => val), new Date(), id];
+    const values = [...mappedEntries.map(([, val]) => val), new Date(), id];
 
-  const setClauses = mappedEntries.map(([key]) => `"${key}" = ?`).join(", ");
+    const setClauses = mappedEntries.map(([key]) => `"${key}" = ?`).join(', ');
 
-  const query = `
+    const query = `
     UPDATE products
     SET ${setClauses}, updated_at = ?
     WHERE id = ?
   `;
 
-  await executeModify(query, values, transaction);
-  return true;
+    await executeModify(query, values, transaction);
+    return true;
 };
 
 /**
  * Update product status (ACTIVE/INACTIVE)
  */
 export const updateStatus = async (
-  id: string,
-  status: "ACTIVE" | "INACTIVE",
-  transaction?: any,
+    id: string,
+    status: 'ACTIVE' | 'INACTIVE',
+    transaction?: any,
 ): Promise<boolean> => {
-  const query = `
+    const query = `
     UPDATE products
     SET status = ?, updated_at = ?
     WHERE id = ? AND deleted_at IS NULL
   `;
 
-  // order: status -> ?, updated_at -> ?, id -> ?
-  await executeModify(query, [status, new Date(), id], transaction);
-  return true;
+    // order: status -> ?, updated_at -> ?, id -> ?
+    await executeModify(query, [status, new Date(), id], transaction);
+    return true;
 };
 
 /**
  * Soft delete product
  */
 export const softDelete = async (id: string, transaction?: any): Promise<boolean> => {
-  const query = "UPDATE products SET deleted_at = ? WHERE id = ?";
-  await executeModify(query, [new Date(), id], transaction);
-  return true;
+    const query = 'UPDATE products SET deleted_at = ? WHERE id = ?';
+    await executeModify(query, [new Date(), id], transaction);
+    return true;
 };
 
 /**
  * Update JSONB metadata field
  */
 export const updateMetadata = async (
-  id: string,
-  key: string,
-  value: any,
-  transaction?: any,
+    id: string,
+    key: string,
+    value: any,
+    transaction?: any,
 ): Promise<boolean> => {
-  const query = `
+    const query = `
     UPDATE products
     SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), $1::text[], $2::jsonb),
         updated_at = $3
     WHERE id = $4 AND deleted_at IS NULL
   `;
-  await executeModify(query, [
-    `{${key}}`,
-    JSON.stringify(value),
-    new Date(),
-    id,
-  ], transaction);
-  return true;
+    await executeModify(query, [`{${key}}`, JSON.stringify(value), new Date(), id], transaction);
+    return true;
 };
 
 /**
  * Remove JSONB metadata field
  */
 export const removeMetadata = async (
-  id: string,
-  key: string,
-  transaction?: any,
+    id: string,
+    key: string,
+    transaction?: any,
 ): Promise<boolean> => {
-  const query = `
+    const query = `
     UPDATE products
     SET metadata = CASE 
       WHEN metadata IS NOT NULL THEN metadata - $1
@@ -538,8 +577,8 @@ export const removeMetadata = async (
     updated_at = $2
     WHERE id = $3 AND deleted_at IS NULL
   `;
-  await executeModify(query, [key, new Date(), id], transaction);
-  return true;
+    await executeModify(query, [key, new Date(), id], transaction);
+    return true;
 };
 
 /**
@@ -547,75 +586,75 @@ export const removeMetadata = async (
  * Handles addition, removal, and unchanged images with audit logging
  */
 export const updateProductImages = async (
-  id: string,
-  newImages: string[],
-  transaction?: any,
+    id: string,
+    newImages: string[],
+    transaction?: any,
 ): Promise<{
-  success: boolean;
-  previousImages: string[];
-  updatedImages: string[];
-  added: string[];
-  removed: string[];
+    success: boolean;
+    previousImages: string[];
+    updatedImages: string[];
+    added: string[];
+    removed: string[];
 }> => {
-  try {
-    // Fetch current product to get existing images
-    const currentProduct = await executeSelect<ProductRow>(
-      `SELECT id, images FROM products WHERE id = ? AND deleted_at IS NULL`,
-      [id],
-      transaction
-    );
+    try {
+        // Fetch current product to get existing images
+        const currentProduct = await executeSelect<ProductRow>(
+            `SELECT id, images FROM products WHERE id = ? AND deleted_at IS NULL`,
+            [id],
+            transaction,
+        );
 
-    if (!currentProduct || currentProduct.length === 0) {
-      throw new Error(`Product with id ${id} not found`);
-    }
+        if (!currentProduct || currentProduct.length === 0) {
+            throw new Error(`Product with id ${id} not found`);
+        }
 
-    const previousImages: string[] = currentProduct[0].images || [];
-    const sanitizedNewImages: string[] = (newImages || [])
-      .filter(img => img && typeof img === 'string')
-      .map(img => String(img).trim())
-      .filter(img => img.length > 0);
+        const previousImages: string[] = currentProduct[0].images || [];
+        const sanitizedNewImages: string[] = (newImages || [])
+            .filter((img) => img && typeof img === 'string')
+            .map((img) => String(img).trim())
+            .filter((img) => img.length > 0);
 
-    // Calculate differences
-    const previousSet = new Set(previousImages);
-    const newSet = new Set(sanitizedNewImages);
-    const added = Array.from(newSet).filter(img => !previousSet.has(img));
-    const removed = Array.from(previousSet).filter(img => !newSet.has(img));
+        // Calculate differences
+        const previousSet = new Set(previousImages);
+        const newSet = new Set(sanitizedNewImages);
+        const added = Array.from(newSet).filter((img) => !previousSet.has(img));
+        const removed = Array.from(previousSet).filter((img) => !newSet.has(img));
 
-    // Update the images in database
-    const query = `
+        // Update the images in database
+        const query = `
       UPDATE products
       SET images = ?, updated_at = ?
       WHERE id = ? AND deleted_at IS NULL
     `;
 
-    await executeModify(
-      query,
-      [JSON.stringify(sanitizedNewImages), new Date(), id],
-      transaction
-    );
+        await executeModify(
+            query,
+            [JSON.stringify(sanitizedNewImages), new Date(), id],
+            transaction,
+        );
 
-    logger.info('Product images updated', {
-      productId: id,
-      previousImageCount: previousImages.length,
-      newImageCount: sanitizedNewImages.length,
-      addedCount: added.length,
-      removedCount: removed.length,
-      added: added.length > 0 ? added : undefined,
-      removed: removed.length > 0 ? removed : undefined,
-    });
+        logger.info('Product images updated', {
+            productId: id,
+            previousImageCount: previousImages.length,
+            newImageCount: sanitizedNewImages.length,
+            addedCount: added.length,
+            removedCount: removed.length,
+            added: added.length > 0 ? added : undefined,
+            removed: removed.length > 0 ? removed : undefined,
+        });
 
-    return {
-      success: true,
-      previousImages,
-      updatedImages: sanitizedNewImages,
-      added,
-      removed,
-    };
-  } catch (error: any) {
-    logger.error('Failed to update product images', {
-      productId: id,
-      error: error?.message,
-    });
-    throw error;
-  }
+        return {
+            success: true,
+            previousImages,
+            updatedImages: sanitizedNewImages,
+            added,
+            removed,
+        };
+    } catch (error: any) {
+        logger.error('Failed to update product images', {
+            productId: id,
+            error: error?.message,
+        });
+        throw error;
+    }
 };
