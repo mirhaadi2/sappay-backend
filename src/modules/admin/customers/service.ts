@@ -4,13 +4,21 @@
  */
 
 import { Op } from 'sequelize';
-import { User, UserRole } from '../../admin/customers/models';
+import { UserRole } from '../../admin/customers/models';
 import { AppError } from '../../../utils/AppError';
 import { AdminUserQuery, AdminUser } from './types';
 import { calculatePagination, buildPaginatedResponse } from '../../shared/pagination';
 import logger from '../../../utils/logger';
 import { hashPassword, generateRandomPassword } from '../../../utils/password';
 import { withTransaction } from '../../../utils/transaction';
+import {
+    findUsers,
+    findUserByEmail,
+    findUserById,
+    createUser,
+    updateUser,
+    deleteUser,
+} from './repository';
 
 export const adminListUsers = async (query: AdminUserQuery) => {
     try {
@@ -29,14 +37,16 @@ export const adminListUsers = async (query: AdminUserQuery) => {
         }
 
         const sortBy = query.sortBy === 'email' ? 'email' : 'createdAt';
-        const sortOrder = (query.sortOrder || 'desc').toUpperCase();
+        const sortOrder = (
+            (query.sortOrder as 'asc' | 'desc' | 'ASC' | 'DESC') || 'desc'
+        ).toUpperCase();
 
-        const { count, rows } = await User.findAndCountAll({
-            where: whereClause,
+        const { count, rows } = await findUsers({
+            whereClause,
             offset,
             limit,
-            order: [[sortBy, sortOrder]],
-            attributes: { exclude: ['password', 'passwordResetToken', 'passwordResetExpires'] },
+            sortBy,
+            sortOrder,
         });
 
         const users = rows.map((user: any) => ({
@@ -64,18 +74,15 @@ export const adminListUsers = async (query: AdminUserQuery) => {
 
 export const adminCreateUser = async (data: { email: string; name?: string; phone?: string }) => {
     return withTransaction(async (transaction) => {
-        // Check if user already exists
-        const existingUser = await User.findOne({ where: { email: data.email }, transaction });
+        const existingUser = await findUserByEmail(data.email, transaction);
         if (existingUser) {
             throw new AppError('ValidationError', 400, 'User with this email already exists');
         }
 
-        // Generate random password
         const plainPassword = generateRandomPassword();
         const hashedPassword = await hashPassword(plainPassword);
 
-        // Create user
-        const user = await User.create(
+        const user = await createUser(
             {
                 email: data.email,
                 password: hashedPassword,
@@ -83,7 +90,7 @@ export const adminCreateUser = async (data: { email: string; name?: string; phon
                 phone: data.phone,
                 role: 'USER' as UserRole,
             },
-            { transaction },
+            transaction,
         );
 
         logger.info('Customer created by admin', { customerId: user.id, email: data.email });
@@ -96,22 +103,26 @@ export const adminCreateUser = async (data: { email: string; name?: string; phon
 
 export const adminGetUser = async (id: string): Promise<AdminUser> => {
     try {
-        const user = await User.findByPk(id, {
-            attributes: { exclude: ['password', 'passwordResetToken', 'passwordResetExpires'] },
-        });
+        const user = await findUserById(id);
 
         if (!user) {
             throw new AppError('NotFoundError', 404, 'User not found');
         }
 
         return {
-            id: user.id,
-            email: user.email,
-            name: user.name || '',
-            phone: user.phone,
+            id: user?.id || user?.dataValues?.id,
+            email: user?.email || user?.dataValues?.email || '',
+            name: user?.name || user?.dataValues?.name || '',
+            phone: user?.phone || user?.dataValues?.phone || '',
             status: 'active' as const,
-            createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
-            updatedAt: user.updatedAt?.toISOString() || new Date().toISOString(),
+            createdAt:
+                user?.createdAt?.toISOString() ||
+                user?.dataValues?.createdAt?.toISOString() ||
+                new Date().toISOString(),
+            updatedAt:
+                user?.updatedAt?.toISOString() ||
+                user?.dataValues?.updatedAt?.toISOString() ||
+                new Date().toISOString(),
         };
     } catch (error: any) {
         logger.error('Error fetching admin customer', { customerId: id, error });
@@ -122,7 +133,7 @@ export const adminGetUser = async (id: string): Promise<AdminUser> => {
 
 export const adminUpdateUser = async (id: string, data: { name?: string; phone?: string }) => {
     return withTransaction(async (transaction) => {
-        const user = await User.findByPk(id, { transaction });
+        const user = await findUserById(id, { transaction });
 
         if (!user) {
             throw new AppError('NotFoundError', 404, 'User not found');
@@ -133,7 +144,7 @@ export const adminUpdateUser = async (id: string, data: { name?: string; phone?:
         if (data.phone !== undefined) updateData.phone = data.phone;
 
         if (Object.keys(updateData).length > 0) {
-            await user.update(updateData, { transaction });
+            await updateUser(id, updateData, transaction);
         }
 
         logger.info('Customer updated by admin', { customerId: id, changes: updateData });
@@ -143,13 +154,13 @@ export const adminUpdateUser = async (id: string, data: { name?: string; phone?:
 
 export const adminDeleteUser = async (id: string) => {
     return withTransaction(async (transaction) => {
-        const user = await User.findByPk(id, { transaction });
+        const user = await findUserById(id, { transaction });
 
         if (!user) {
             throw new AppError('NotFoundError', 404, 'User not found');
         }
 
-        await user.destroy({ transaction });
+        await deleteUser(id, transaction);
         logger.info('Customer deleted by admin', { customerId: id });
         return { success: true, message: 'User deleted successfully' };
     });
@@ -157,13 +168,12 @@ export const adminDeleteUser = async (id: string) => {
 
 export const adminBanUser = async (id: string) => {
     try {
-        const user = await User.findByPk(id);
+        const user = await findUserById(id);
 
         if (!user) {
             throw new AppError('NotFoundError', 404, 'User not found');
         }
 
-        // Note: Ban functionality would require adding a status field to customer model
         logger.info('Customer ban action attempted by admin', { customerId: id });
         return adminGetUser(id);
     } catch (error: any) {
@@ -175,13 +185,12 @@ export const adminBanUser = async (id: string) => {
 
 export const adminUnbanUser = async (id: string) => {
     try {
-        const user = await User.findByPk(id);
+        const user = await findUserById(id);
 
         if (!user) {
             throw new AppError('NotFoundError', 404, 'User not found');
         }
 
-        // Note: Unban functionality would require adding a status field to customer model
         logger.info('Customer unban action attempted by admin', { customerId: id });
         return adminGetUser(id);
     } catch (error: any) {
