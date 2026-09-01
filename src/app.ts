@@ -49,7 +49,6 @@ app.use(
 app.use(cookieParser(config.session.secret));
 app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
-
 app.use(portalSessionPaths, portalSessionMiddleware);
 
 app.use('/api/auth', websiteAuthRoutes);
