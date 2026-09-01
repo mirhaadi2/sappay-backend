@@ -1,4 +1,3 @@
-import { Customer } from './customer.model';
 import { Transaction } from 'sequelize';
 import logger from '../../../utils/logger';
 import {
@@ -8,6 +7,7 @@ import {
     findCustomerByPhoneRecord,
     findCustomerByWhatsappRecord,
     getOrCreateCustomerRecord,
+    markCustomerVerifiedRecord,
 } from './repository';
 
 /**
@@ -29,15 +29,7 @@ export const getOrCreateCustomer = async (
  */
 export const markCustomerVerified = async (customerId: string) => {
     try {
-        const customer = await Customer.findByPk(customerId);
-        if (!customer) {
-            throw new Error('Customer not found');
-        }
-
-        // await customer.update({
-        //   isVerified: true,
-        //   verifiedAt: new Date(),
-        // });
+        const customer = await markCustomerVerifiedRecord(customerId);
 
         logger.info('Customer marked as verified', { customerId });
         return customer;

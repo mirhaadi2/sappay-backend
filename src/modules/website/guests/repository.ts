@@ -19,6 +19,14 @@ export const findCustomerByIdRecord = async (id: string, transaction?: Transacti
     return Customer.findByPk(id, { transaction });
 };
 
+export const markCustomerVerifiedRecord = async (customerId: string) => {
+    const customer = await Customer.findByPk(customerId);
+    if (!customer) {
+        throw new Error('Customer not found');
+    }
+    return customer;
+};
+
 export const countCustomerOrdersRecord = async (customerId: string) => {
     return Order.count({
         where: { customerId },
