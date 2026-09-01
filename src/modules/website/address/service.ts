@@ -1,129 +1,138 @@
-import { Address, AddressType } from "../../admin/address/model";
-import { withTransaction } from "../../../utils/transaction";
+import { Address, AddressType } from '../../admin/address/model';
+import { withTransaction } from '../../../utils/transaction';
 import {
-  create,
-  findAllByCustomerId,
-  findByIdAndCustomerId,
-  update,
-  deleteAddress,
-  setAsDefault,
-  findDefaultByCustomerId,
-} from "./repository";
-import { AppError } from "../../../utils/AppError";
+    create,
+    findAllByCustomerId,
+    findByIdAndCustomerId,
+    update,
+    deleteAddress,
+    setAsDefault,
+    findDefaultByCustomerId,
+    clearDefaultAddressesForCustomer,
+} from './repository';
+import { AppError } from '../../../utils/AppError';
 
 const isValidPhone = (phone: string): boolean => {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length === 10;
+    const digits = phone.replace(/\D/g, '');
+    return digits.length === 10;
 };
 
 export const createAddressService = async (
-  customerId: string,
-  addressData: {
-    type: AddressType;
-    name?: string;
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-    phone: string;
-    isDefault?: boolean;
-  }
+    customerId: string,
+    addressData: {
+        type: AddressType;
+        name?: string;
+        addressLine1: string;
+        addressLine2?: string;
+        city: string;
+        state: string;
+        postalCode: string;
+        country: string;
+        phone: string;
+        isDefault?: boolean;
+    },
 ) => {
-  return withTransaction(async (transaction) => {
-    if (!isValidPhone(addressData.phone)) {
-      throw new AppError("ValidationError", 400, "Invalid phone number format. Must be 10 digits.");
-    }
+    return withTransaction(async (transaction) => {
+        if (!isValidPhone(addressData.phone)) {
+            throw new AppError(
+                'ValidationError',
+                400,
+                'Invalid phone number format. Must be 10 digits.',
+            );
+        }
 
-    if (addressData.isDefault) {
-      await Address.update(
-        { isDefault: false },
-        { where: { customerId, isDefault: true }, transaction }
-      );
-    }
+        if (addressData.isDefault) {
+            await clearDefaultAddressesForCustomer(customerId, transaction);
+        }
 
-    const address = await create({
-      customerId,
-      ...addressData,
-    }, transaction);
+        const address = await create(
+            {
+                customerId,
+                ...addressData,
+            },
+            transaction,
+        );
 
-    return address;
-  });
+        return address;
+    });
 };
 
 export const getAddressesByCustomerIdService = async (customerId: string) => {
-  const addresses = await findAllByCustomerId(customerId);
-  return addresses;
+    const addresses = await findAllByCustomerId(customerId);
+    return addresses;
 };
 
 export const getAddressByIdService = async (id: string, customerId: string) => {
-  const address = await findByIdAndCustomerId(id, customerId);
-  if (!address) {
-    throw new AppError("NotFoundError", 404, "Address not found");
-  }
-  return address;
+    const address = await findByIdAndCustomerId(id, customerId);
+    if (!address) {
+        throw new AppError('NotFoundError', 404, 'Address not found');
+    }
+    return address;
 };
 
 export const updateAddressService = async (
-  id: string,
-  customerId: string,
-  addressData: Partial<{
-    type: AddressType;
-    name?: string;
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-    phone: string;
-  }>
+    id: string,
+    customerId: string,
+    addressData: Partial<{
+        type: AddressType;
+        name?: string;
+        addressLine1: string;
+        addressLine2?: string;
+        city: string;
+        state: string;
+        postalCode: string;
+        country: string;
+        phone: string;
+    }>,
 ) => {
-  return withTransaction(async (transaction) => {
-    const address = await findByIdAndCustomerId(id, customerId);
-    if (!address) {
-      throw new AppError("NotFoundError", 404, "Address not found");
-    }
+    return withTransaction(async (transaction) => {
+        const address = await findByIdAndCustomerId(id, customerId);
+        if (!address) {
+            throw new AppError('NotFoundError', 404, 'Address not found');
+        }
 
-    if (addressData.phone && !isValidPhone(addressData.phone)) {
-      throw new AppError("ValidationError", 400, "Invalid phone number format. Must be 10 digits.");
-    }
+        if (addressData.phone && !isValidPhone(addressData.phone)) {
+            throw new AppError(
+                'ValidationError',
+                400,
+                'Invalid phone number format. Must be 10 digits.',
+            );
+        }
 
-    const updatedAddress = await update(id, customerId, addressData, transaction);
-    return updatedAddress;
-  });
+        const updatedAddress = await update(id, customerId, addressData, transaction);
+        return updatedAddress;
+    });
 };
 
 export const deleteAddressService = async (id: string, customerId: string) => {
-  return withTransaction(async (transaction) => {
-    const address = await findByIdAndCustomerId(id, customerId);
-    if (!address) {
-      throw new AppError("NotFoundError", 404, "Address not found");
-    }
+    return withTransaction(async (transaction) => {
+        const address = await findByIdAndCustomerId(id, customerId);
+        if (!address) {
+            throw new AppError('NotFoundError', 404, 'Address not found');
+        }
 
-    const deleted = await deleteAddress(id, customerId, transaction);
-    if (!deleted) {
-      throw new AppError("InternalServerError", 500, "Failed to delete address");
-    }
+        const deleted = await deleteAddress(id, customerId, transaction);
+        if (!deleted) {
+            throw new AppError('InternalServerError', 500, 'Failed to delete address');
+        }
 
-    return { message: "Address deleted successfully" };
-  });
+        return { message: 'Address deleted successfully' };
+    });
 };
 
 export const setDefaultAddressService = async (id: string, customerId: string) => {
-  return withTransaction(async (transaction) => {
-    const address = await findByIdAndCustomerId(id, customerId);
-    if (!address) {
-      throw new AppError("NotFoundError", 404, "Address not found");
-    }
+    return withTransaction(async (transaction) => {
+        const address = await findByIdAndCustomerId(id, customerId);
+        if (!address) {
+            throw new AppError('NotFoundError', 404, 'Address not found');
+        }
 
-    const updated = await setAsDefault(id, customerId, transaction);
-    return updated;
-  });
+        const updated = await setAsDefault(id, customerId, transaction);
+        return updated;
+    });
 };
 
 export const getDefaultAddressService = async (customerId: string) => {
-  const address = await findDefaultByCustomerId(customerId);
-  return address;
+    const address = await findDefaultByCustomerId(customerId);
+    return address;
 };
