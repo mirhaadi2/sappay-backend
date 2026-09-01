@@ -1,15 +1,30 @@
-import logger from '../../../utils/logger';
-import { config } from '../../../config';
-import * as jwt from 'jsonwebtoken';
-import { SendOTPRequest, SendOTPResponse, VerifyOTPRequest, VerifyOTPResponse, GuestCheckoutData } from './types';
-import { redisClient as baseRedisClient } from '../../../config/session';
-import { AppError } from '../../../utils/AppError';
-import { awsSNSService, emailService, whatsappService } from '../../notifications';
-import { findCustomerByEmail, findCustomerByPhone, findCustomerByWhatsapp, getOrCreateCustomer } from '../guests/customer.service';
-import { findCustomerAddresses } from '../orders/shipping-address.repository';
-import { Order } from '../../admin/orders/order.model';
-import { sendEmail } from '../../../utils/sendEmail';
-import { otpTemplate } from '../../templates/CheckoutOtpTemplate';
+import logger from "../../../utils/logger";
+import { config } from "../../../config";
+import * as jwt from "jsonwebtoken";
+import {
+  SendOTPRequest,
+  SendOTPResponse,
+  VerifyOTPRequest,
+  VerifyOTPResponse,
+  GuestCheckoutData,
+} from "./types";
+import { redisClient as baseRedisClient } from "../../../config/session";
+import { AppError } from "../../../utils/AppError";
+import {
+  awsSNSService,
+  emailService,
+  whatsappService,
+} from "../../notifications";
+import {
+  findCustomerByEmail,
+  findCustomerByPhone,
+  findCustomerByWhatsapp,
+  getOrCreateCustomer,
+} from "../guests/customer.service";
+import { findCustomerAddresses } from "../orders/shipping-address.repository";
+import { Order } from "../../admin/orders/order.model";
+import { sendEmail } from "../../../utils/sendEmail";
+import { otpTemplate } from "../../templates/CheckoutOtpTemplate";
 
 // Type-safe Redis client
 const redisClient = baseRedisClient as any;
@@ -29,35 +44,40 @@ const isValidEmail = (email: string): boolean => {
 };
 
 const isValidPhone = (phone: string): boolean => {
-  const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
+  const phoneRegex =
+    /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/;
+  return phoneRegex.test(phone.replace(/\s/g, ""));
 };
 
 const validateContact = (contact: string, contactType: string): void => {
   switch (contactType) {
-    case 'email':
+    case "email":
       if (!isValidEmail(contact)) {
-        throw new AppError('InvalidEmail', 400, 'Invalid email format');
+        throw new AppError("InvalidEmail", 400, "Invalid email format");
       }
       break;
-    case 'phone':
+    case "phone":
       if (!isValidPhone(contact)) {
-        throw new AppError('InvalidPhone', 400, 'Invalid phone number format');
+        throw new AppError("InvalidPhone", 400, "Invalid phone number format");
       }
       break;
-    case 'whatsapp':
+    case "whatsapp":
       if (!isValidPhone(contact)) {
-        throw new AppError('InvalidWhatsApp', 400, 'Invalid WhatsApp number format');
+        throw new AppError(
+          "InvalidWhatsApp",
+          400,
+          "Invalid WhatsApp number format",
+        );
       }
       break;
     default:
-      throw new AppError('InvalidContactType', 400, 'Invalid contact type');
+      throw new AppError("InvalidContactType", 400, "Invalid contact type");
   }
 };
 
 const maskContact = (contact: string, type: string): string => {
-  if (type === 'email') {
-    const [local, domain] = contact.split('@');
+  if (type === "email") {
+    const [local, domain] = contact.split("@");
     return `${local.substring(0, 2)}***@${domain}`;
   }
   return `***${contact.substring(contact.length - 4)}`;
@@ -71,71 +91,104 @@ const generateGuestToken = (contact: string, contactType: string): string => {
     iat: Date.now(),
   };
 
-  return jwt.sign(payload, config.jwt.secret || 'change_me', {
-    expiresIn: '1h',
+  return jwt.sign(payload, config.jwt.secret || "change_me", {
+    expiresIn: "1h",
   });
 };
 
-const sendOTPViaChannel = async (contact: string, contactType: string, otp: string): Promise<void> => {
+const sendOTPViaChannel = async (
+  contact: string,
+  contactType: string,
+  otp: string,
+): Promise<void> => {
   const otpMessage = `Your OTP for checkout is: ${otp}. Valid for 10 minutes. Do not share this with anyone.`;
-  const activeChannel = config.notificationChannel?.toLowerCase() || 'email';
+  const activeChannel = config.notificationChannel?.toLowerCase() || "email";
 
   try {
     switch (activeChannel) {
-      case 'email': {
-        if (contactType !== 'email') {
-          throw new AppError('ChannelMismatch', 400, 'Email channel requires email contact type');
+      case "email": {
+        if (contactType !== "email") {
+          throw new AppError(
+            "ChannelMismatch",
+            400,
+            "Email channel requires email contact type",
+          );
         }
-        logger.info('[EMAIL] Sending OTP', { recipient: maskContact(contact, 'email') });
+        logger.info("[EMAIL] Sending OTP", {
+          recipient: maskContact(contact, "email"),
+        });
         await sendEmail({
           to: contact,
-          subject: 'Your OTP Code for Checkout',
+          subject: "Your OTP Code for Checkout",
           html: otpTemplate(otp),
-          text: `Your OTP for checkout is: ${otp}. Valid for 10 minutes.`
+          text: `Your OTP for checkout is: ${otp}. Valid for 10 minutes.`,
         });
         break;
       }
 
-      case 'sms': {
-        if (contactType !== 'phone') {
-          throw new AppError('ChannelMismatch', 400, 'SMS channel requires phone contact type');
+      case "sms": {
+        if (contactType !== "phone") {
+          throw new AppError(
+            "ChannelMismatch",
+            400,
+            "SMS channel requires phone contact type",
+          );
         }
-        logger.info('[SMS] Sending OTP', { recipient: maskContact(contact, 'phone') });
+        logger.info("[SMS] Sending OTP", {
+          recipient: maskContact(contact, "phone"),
+        });
         await awsSNSService.sendSMS(contact, otpMessage);
         break;
       }
 
-      case 'whatsapp': {
-        if (contactType !== 'whatsapp') {
-          throw new AppError('ChannelMismatch', 400, 'WhatsApp channel requires whatsapp contact type');
+      case "whatsapp": {
+        if (contactType !== "whatsapp") {
+          throw new AppError(
+            "ChannelMismatch",
+            400,
+            "WhatsApp channel requires whatsapp contact type",
+          );
         }
-        logger.info('[WHATSAPP] Sending OTP', { recipient: maskContact(contact, 'whatsapp') });
+        logger.info("[WHATSAPP] Sending OTP", {
+          recipient: maskContact(contact, "whatsapp"),
+        });
         await whatsappService.sendMessage(contact, otpMessage);
         break;
       }
 
       default:
-        throw new AppError('UnsupportedChannel', 400, `Unsupported notification channel: ${activeChannel}`);
+        throw new AppError(
+          "UnsupportedChannel",
+          400,
+          `Unsupported notification channel: ${activeChannel}`,
+        );
     }
   } catch (error) {
-    logger.error('✗ Failed to send OTP via channel', { channel: activeChannel, error });
-    throw new AppError('OTPSendFailed', 500, `Failed to send OTP via ${activeChannel}. Please try again.`);
+    logger.error("✗ Failed to send OTP via channel", {
+      channel: activeChannel,
+      error,
+    });
+    throw new AppError(
+      "OTPSendFailed",
+      500,
+      `Failed to send OTP via ${activeChannel}. Please try again.`,
+    );
   }
 };
 
 export const findCustomerByContact = async (
   contact: string,
-  contactType: 'email' | 'phone' | 'whatsapp'
+  contactType: "email" | "phone" | "whatsapp",
 ): Promise<{ customer: any | null; addresses: any[]; orderCount: number }> => {
   validateContact(contact, contactType);
 
   let customer = null;
 
-  if (contactType === 'email') {
+  if (contactType === "email") {
     customer = await findCustomerByEmail(contact);
-  } else if (contactType === 'phone') {
+  } else if (contactType === "phone") {
     customer = await findCustomerByPhone(contact);
-  } else if (contactType === 'whatsapp') {
+  } else if (contactType === "whatsapp") {
     customer = await findCustomerByWhatsapp(contact);
   }
 
@@ -143,8 +196,13 @@ export const findCustomerByContact = async (
     return { customer: null, addresses: [], orderCount: 0 };
   }
 
-  const addresses = await findCustomerAddresses(customer.id);
-  const orderCount = await Order.count({ where: { customerId: customer.id } });
+  console.log(customer, "c");
+  const addresses = await findCustomerAddresses(
+    customer?.id || customer?.dataValues?.id,
+  );
+  const orderCount = await Order.count({
+    where: { customerId: customer?.id || customer?.dataValues?.id },
+  });
 
   return {
     customer,
@@ -156,7 +214,9 @@ export const findCustomerByContact = async (
 /**
  * Send OTP to contact
  */
-export const sendOTP = async (request: SendOTPRequest): Promise<SendOTPResponse> => {
+export const sendOTP = async (
+  request: SendOTPRequest,
+): Promise<SendOTPResponse> => {
   try {
     const { contact, contactType } = request;
 
@@ -167,7 +227,11 @@ export const sendOTP = async (request: SendOTPRequest): Promise<SendOTPResponse>
     const cooldownKey = `otp:cooldown:${contact}`;
     const existingOtp = await redisClient.get(cooldownKey);
     if (existingOtp) {
-      throw new AppError('OTPCooldownActive', 429, 'OTP already sent. Please wait 1 minute before requesting again.');
+      throw new AppError(
+        "OTPCooldownActive",
+        429,
+        "OTP already sent. Please wait 1 minute before requesting again.",
+      );
     }
 
     // Generate OTP
@@ -177,15 +241,18 @@ export const sendOTP = async (request: SendOTPRequest): Promise<SendOTPResponse>
 
     // Store OTP in Redis with proper redis v5 API
     await redisClient.set(otpKey, otp, { EX: OTP_EXPIRY });
-    await redisClient.set(attemptsKey, '0', { EX: OTP_EXPIRY });
-    await redisClient.set(cooldownKey, '1', { EX: 60 });
+    await redisClient.set(attemptsKey, "0", { EX: OTP_EXPIRY });
+    await redisClient.set(cooldownKey, "1", { EX: 60 });
 
     // Send OTP via configured notification channel
     await sendOTPViaChannel(contact, contactType, otp);
 
-    logger.info(`✓ OTP sent to ${contactType}: ${maskContact(contact, contactType)}`, {
-      contactType,
-    });
+    logger.info(
+      `✓ OTP sent to ${contactType}: ${maskContact(contact, contactType)}`,
+      {
+        contactType,
+      },
+    );
 
     return {
       success: true,
@@ -193,7 +260,7 @@ export const sendOTP = async (request: SendOTPRequest): Promise<SendOTPResponse>
       expiresIn: OTP_EXPIRY,
     };
   } catch (error) {
-    logger.error('✗ Failed to send OTP', { error });
+    logger.error("✗ Failed to send OTP", { error });
     throw error;
   }
 };
@@ -201,13 +268,19 @@ export const sendOTP = async (request: SendOTPRequest): Promise<SendOTPResponse>
 /**
  * Verify OTP and return guest token
  */
-export const verifyOTP = async (request: VerifyOTPRequest): Promise<VerifyOTPResponse> => {
+export const verifyOTP = async (
+  request: VerifyOTPRequest,
+): Promise<VerifyOTPResponse> => {
   try {
     const { contact, contactType, otp } = request;
 
     // Validate OTP format
     if (!otp || otp.length !== OTP_LENGTH) {
-      throw new AppError('InvalidOTPFormat', 400, `OTP must be ${OTP_LENGTH} digits`);
+      throw new AppError(
+        "InvalidOTPFormat",
+        400,
+        `OTP must be ${OTP_LENGTH} digits`,
+      );
     }
 
     const otpKey = `otp:${contact}`;
@@ -217,20 +290,34 @@ export const verifyOTP = async (request: VerifyOTPRequest): Promise<VerifyOTPRes
     const attempts = await redisClient.get(attemptsKey);
     if (attempts && parseInt(attempts as string) >= MAX_OTP_ATTEMPTS) {
       await redisClient.del(otpKey);
-      throw new AppError('MaxAttemptsExceeded', 429, 'Maximum OTP verification attempts exceeded. Request a new OTP.');
+      throw new AppError(
+        "MaxAttemptsExceeded",
+        429,
+        "Maximum OTP verification attempts exceeded. Request a new OTP.",
+      );
     }
 
     // Get stored OTP
     const storedOtp = await redisClient.get(otpKey);
     if (!storedOtp) {
-      throw new AppError('OTPNotFound', 400, 'OTP expired or not found. Please request a new OTP.');
+      throw new AppError(
+        "OTPNotFound",
+        400,
+        "OTP expired or not found. Please request a new OTP.",
+      );
     }
 
     // Verify OTP
     if (storedOtp !== otp) {
       const newAttempts = attempts ? parseInt(attempts as string) + 1 : 1;
-      await redisClient.set(attemptsKey, newAttempts.toString(), { EX: OTP_EXPIRY });
-      throw new AppError('InvalidOTP', 401, `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempts remaining.`);
+      await redisClient.set(attemptsKey, newAttempts.toString(), {
+        EX: OTP_EXPIRY,
+      });
+      throw new AppError(
+        "InvalidOTP",
+        401,
+        `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempts remaining.`,
+      );
     }
 
     // OTP verified - generate guest token
@@ -248,10 +335,10 @@ export const verifyOTP = async (request: VerifyOTPRequest): Promise<VerifyOTPRes
     return {
       success: true,
       guestToken,
-      message: 'OTP verified successfully. You can now proceed to checkout.',
+      message: "OTP verified successfully. You can now proceed to checkout.",
     };
   } catch (error) {
-    logger.error('✗ OTP verification failed', { error });
+    logger.error("✗ OTP verification failed", { error });
     throw error;
   }
 };
@@ -259,12 +346,14 @@ export const verifyOTP = async (request: VerifyOTPRequest): Promise<VerifyOTPRes
 /**
  * Verify guest token from checkout requests
  */
-export const verifyGuestToken = async (token: string): Promise<GuestCheckoutData> => {
+export const verifyGuestToken = async (
+  token: string,
+): Promise<GuestCheckoutData> => {
   try {
-    const decoded = jwt.verify(token, config.jwt.secret || 'change_me') as any;
+    const decoded = jwt.verify(token, config.jwt.secret || "change_me") as any;
 
     if (!decoded.isGuest || !decoded.contact || !decoded.contactType) {
-      throw new AppError('InvalidGuestToken', 401, 'Invalid guest token');
+      throw new AppError("InvalidGuestToken", 401, "Invalid guest token");
     }
 
     return {
@@ -273,8 +362,12 @@ export const verifyGuestToken = async (token: string): Promise<GuestCheckoutData
       isGuest: true,
     };
   } catch (error) {
-    logger.error('✗ Guest token verification failed', { error });
-    throw new AppError('InvalidGuestToken', 401, 'Invalid or expired guest token');
+    logger.error("✗ Guest token verification failed", { error });
+    throw new AppError(
+      "InvalidGuestToken",
+      401,
+      "Invalid or expired guest token",
+    );
   }
 };
 
@@ -291,18 +384,18 @@ export const createOrGetCustomerFromToken = async (guestToken: string) => {
     let phone: string | undefined;
     let whatsapp: string | undefined;
 
-    if (guestData.contactType === 'email') {
+    if (guestData.contactType === "email") {
       email = guestData.contact;
-    } else if (guestData.contactType === 'phone') {
+    } else if (guestData.contactType === "phone") {
       phone = guestData.contact;
-    } else if (guestData.contactType === 'whatsapp') {
+    } else if (guestData.contactType === "whatsapp") {
       whatsapp = guestData.contact;
     }
 
     // Create or get customer
     const customerId = await getOrCreateCustomer(email, phone, whatsapp);
 
-    logger.info('✓ Customer created or retrieved', {
+    logger.info("✓ Customer created or retrieved", {
       customerId,
       contactType: guestData.contactType,
     });
@@ -310,11 +403,10 @@ export const createOrGetCustomerFromToken = async (guestToken: string) => {
     return {
       success: true,
       customerId,
-      message: 'Customer record created/retrieved successfully',
+      message: "Customer record created/retrieved successfully",
     };
   } catch (error) {
-    logger.error('✗ Failed to create or get customer', { error });
+    logger.error("✗ Failed to create or get customer", { error });
     throw error;
   }
 };
-

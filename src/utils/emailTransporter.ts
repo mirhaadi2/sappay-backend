@@ -1,12 +1,6 @@
 import nodemailer from "nodemailer";
 import { config } from "../config/index";
 
-console.log({
-  host: config.email.smtpHost,
-  port: config.email.smtpPort,
-  secure: config.email.smtpSecure,
-});
-
 // 1. Pre-initialize the transporters
 const transporters = {
   sales: nodemailer.createTransport({

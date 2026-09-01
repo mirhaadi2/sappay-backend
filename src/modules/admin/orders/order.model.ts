@@ -133,15 +133,15 @@ Order.init(
         "PENDING",
         "CONFIRMED",
         "PROCESSING",
-        "PACKED",            // New: Warehouse packing done
-        "HANDOVER",          // New: Courier received
+        "PACKED", // New: Warehouse packing done
+        "HANDOVER", // New: Courier received
         "SHIPPED",
-        "OUT_FOR_DELIVERY",  // New: Last mile transit
+        "OUT_FOR_DELIVERY", // New: Last mile transit
         "DELIVERED",
-        "DELIVERY_FAILED",   // New: Specific failure
-        "RTO",               // New: Return to Origin
+        "DELIVERY_FAILED", // New: Specific failure
+        "RTO", // New: Return to Origin
         "CANCELLED",
-        "FAILED"
+        "FAILED",
       ),
       allowNull: false,
       defaultValue: "PENDING",

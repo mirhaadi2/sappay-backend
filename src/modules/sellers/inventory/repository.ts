@@ -1,19 +1,25 @@
-import { Inventory } from './model';
-import { SellerProduct } from '../../admin/products/seller-product/model';
-import { AppError } from '../../../utils/AppError';
-import { sequelize } from '../../../db/sequelize';
-import { QueryTypes, Transaction } from 'sequelize';
-import logger from '../../../utils/logger';
-import { InventoryHistory } from './histories';
-import { ProductVariant } from '../../admin/products/product-variant/model';
+import { Inventory } from "./model";
+import { SellerProduct } from "../../admin/products/seller-product/model";
+import { AppError } from "../../../utils/AppError";
+import { sequelize } from "../../../db/sequelize";
+import { QueryTypes, Transaction } from "sequelize";
+import logger from "../../../utils/logger";
+import { InventoryHistory } from "./histories";
+import { ProductVariant } from "../../admin/products/product-variant/model";
 
-export const findInventoryByProductId = async (productId: string, transaction?: Transaction) => {
-  return await Inventory.findOne({ where: { productId }, ...(transaction ? { transaction } : {}) });
+export const findInventoryByProductId = async (
+  productId: string,
+  transaction?: Transaction,
+) => {
+  return await Inventory.findOne({
+    where: { productId },
+    ...(transaction ? { transaction } : {}),
+  });
 };
 
 export const createInventory = async (data: any, transaction?: any) => {
   const inventory = await Inventory.create(data, { transaction });
-  logger.info('Inventory created', { inventoryId: inventory?.dataValues?.id });
+  logger.info("Inventory created", { inventoryId: inventory?.dataValues?.id });
   return inventory;
 };
 
@@ -25,19 +31,22 @@ export const updateInventory = async (id: string, data: any) => {
   const transaction = await sequelize.transaction();
   try {
     const inventory = await Inventory.findByPk(id, { transaction });
-    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+    if (!inventory) throw new AppError("NotFound", 404, "Inventory not found");
     const updated = await inventory.update(data, { transaction });
     await transaction.commit();
-    logger.info('Inventory updated', { inventoryId: id });
+    logger.info("Inventory updated", { inventoryId: id });
     return updated;
   } catch (error) {
     await transaction.rollback();
-    logger.error('Error updating inventory', { inventoryId: id, error });
+    logger.error("Error updating inventory", { inventoryId: id, error });
     throw error;
   }
 };
 
-export const getSellerInventory = async (sellerId: string, filters: any = {}) => {
+export const getSellerInventory = async (
+  sellerId: string,
+  filters: any = {},
+) => {
   const { page = 1, limit = 20, offset = 0 } = filters;
 
   // 2. Define Queries
@@ -82,7 +91,7 @@ export const getSellerInventory = async (sellerId: string, filters: any = {}) =>
       sequelize.query(countQuery, {
         replacements: { sellerId },
         type: QueryTypes.SELECT,
-      })
+      }),
     ]);
 
     // 4. Return clean response
@@ -91,13 +100,18 @@ export const getSellerInventory = async (sellerId: string, filters: any = {}) =>
       count: (countResult[0] as any)?.count || 0,
     };
   } catch (error) {
-    console.error('Error fetching seller inventory:', error);
+    console.error("Error fetching seller inventory:", error);
     // Assuming AppError is defined in your custom errors file
     throw error;
   }
 };
 
-export const decrementStock = async (productId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
+export const decrementStock = async (
+  productId: string,
+  productVariantId: string,
+  quantity: number,
+  transaction?: Transaction,
+) => {
   let txn = transaction;
   const needsCommit = !transaction; // Only commit if we created the transaction
 
@@ -106,18 +120,24 @@ export const decrementStock = async (productId: string, productVariantId: string
       txn = await sequelize.transaction();
     }
 
-    const inventory = await Inventory.findOne({ where: { productId }, transaction: txn });
-    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+    const inventory = await Inventory.findOne({
+      where: { productId },
+      transaction: txn,
+    });
+    if (!inventory) throw new AppError("NotFound", 404, "Inventory not found");
 
     const productVariant = await ProductVariant.findByPk(productVariantId, {
-      attributes: ['weight', 'weightUnit'],
+      attributes: ["weight", "weightUnit"],
       raw: true,
-      transaction: txn
+      transaction: txn,
     });
-    if (!productVariant) throw new AppError('NotFound', 404, 'Product variant not found');
+    if (!productVariant)
+      throw new AppError("NotFound", 404, "Product variant not found");
 
-    const unitMultiplier = productVariant.weightUnit?.toUpperCase() === 'G' ? 0.001 : 1;
-    const weightPerUnitKg = parseFloat(String(productVariant.weight || '0')) * unitMultiplier;
+    const unitMultiplier =
+      productVariant.weightUnit?.toUpperCase() === "G" ? 0.001 : 1;
+    const weightPerUnitKg =
+      parseFloat(String(productVariant.weight || "0")) * unitMultiplier;
     const totalWeightToDecrement = weightPerUnitKg * quantity;
 
     // Parse current values to numbers
@@ -130,20 +150,23 @@ export const decrementStock = async (productId: string, productVariantId: string
     const directQty = totalWeightToDecrement - reservedQty;
 
     if (currentAvailable < directQty) {
-      throw new AppError('BadRequest', 400, 'Insufficient stock');
+      throw new AppError("BadRequest", 400, "Insufficient stock");
     }
 
-    const updated = await inventory.update({
-      totalStock: Math.max(0, currentTotal - totalWeightToDecrement),
-      availableStock: currentAvailable - directQty,
-      reservedStock: Math.max(0, currentReserved - reservedQty),
-      soldStock: currentSold + totalWeightToDecrement,
-    }, { transaction: txn });
+    const updated = await inventory.update(
+      {
+        totalStock: Math.max(0, currentTotal - totalWeightToDecrement),
+        availableStock: currentAvailable - directQty,
+        reservedStock: Math.max(0, currentReserved - reservedQty),
+        soldStock: currentSold + totalWeightToDecrement,
+      },
+      { transaction: txn },
+    );
 
     if (needsCommit) {
       await txn!.commit();
     }
-    logger.info('Stock decremented', {
+    logger.info("Stock decremented", {
       productId,
       productVariantId,
       quantity,
@@ -160,12 +183,22 @@ export const decrementStock = async (productId: string, productVariantId: string
     if (needsCommit && txn) {
       await txn.rollback();
     }
-    logger.error('Error decrementing stock', { productId, productVariantId, quantity, error });
+    logger.error("Error decrementing stock", {
+      productId,
+      productVariantId,
+      quantity,
+      error,
+    });
     throw error;
   }
 };
 
-export const decrementStockByProductId = async (productId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
+export const decrementStockByProductId = async (
+  productId: string,
+  productVariantId: string,
+  quantity: number,
+  transaction?: Transaction,
+) => {
   let txn = transaction;
   const needsCommit = !transaction; // Only commit if we created the transaction
 
@@ -174,55 +207,71 @@ export const decrementStockByProductId = async (productId: string, productVarian
       txn = await sequelize.transaction();
     }
 
-    const inventory = await Inventory.findOne({ where: { productId }, transaction: txn });
-    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+    const inventory = await Inventory.findOne({
+      where: { productId },
+      transaction: txn,
+    });
+    if (!inventory) throw new AppError("NotFound", 404, "Inventory not found");
 
     const productVariant = await ProductVariant.findByPk(productVariantId, {
-      attributes: ['weight', 'weightUnit'],
+      attributes: ["weight", "weightUnit"],
       raw: true,
-      transaction: txn
+      transaction: txn,
     });
-    if (!productVariant) throw new AppError('NotFound', 404, 'Product variant not found');
+    if (!productVariant)
+      throw new AppError("NotFound", 404, "Product variant not found");
 
-    const unitMultiplier = productVariant.weightUnit?.toUpperCase() === 'G' ? 0.001 : 1;
-    const weightPerUnitKg = parseFloat(String(productVariant.weight || '0')) * unitMultiplier;
+    const unitMultiplier =
+      productVariant.weightUnit?.toUpperCase() === "G" ? 0.001 : 1;
+    const weightPerUnitKg =
+      parseFloat(String(productVariant.weight || "0")) * unitMultiplier;
     const totalWeightToDecrement = weightPerUnitKg * quantity;
 
     // Parse current values to numbers
     const currentTotal = parseFloat(String(inventory?.dataValues?.totalStock));
-    const currentAvailable = parseFloat(String(inventory?.dataValues?.availableStock));
-    const currentReserved = parseFloat(String(inventory?.dataValues?.reservedStock));
+    const currentAvailable = parseFloat(
+      String(inventory?.dataValues?.availableStock),
+    );
+    const currentReserved = parseFloat(
+      String(inventory?.dataValues?.reservedStock),
+    );
     const currentSold = parseFloat(String(inventory?.dataValues?.soldStock));
 
     const reservedQty = Math.min(currentReserved, totalWeightToDecrement);
     const directQty = totalWeightToDecrement - reservedQty;
 
     if (currentAvailable < directQty) {
-      throw new AppError('BadRequest', 400, 'Insufficient stock');
+      throw new AppError("BadRequest", 400, "Insufficient stock");
     }
 
-    const updated = await inventory.update({
-      totalStock: Math.max(0, currentTotal - totalWeightToDecrement),
-      availableStock: currentAvailable - directQty,
-      reservedStock: Math.max(0, currentReserved - reservedQty),
-      soldStock: currentSold + totalWeightToDecrement,
-    }, { transaction: txn });
+    const updated = await inventory.update(
+      {
+        totalStock: Math.max(0, currentTotal - totalWeightToDecrement),
+        availableStock: currentAvailable - directQty,
+        reservedStock: Math.max(0, currentReserved - reservedQty),
+        soldStock: currentSold + totalWeightToDecrement,
+      },
+      { transaction: txn },
+    );
 
-    await InventoryHistory.create({
-      inventoryId: inventory.dataValues.id,
-      productId: inventory?.dataValues?.productId,
-      type: 'RESERVED_RELEASED',
-      quantity: -totalWeightToDecrement,
-      previousStock: currentTotal,
-      newStock: Math.max(0, currentTotal - totalWeightToDecrement),
-      reference: `Decrement by productId. Reserved: ${reservedQty}, Direct: ${directQty}`,
-      notes: `Stock decremented by productId. Reserved: ${reservedQty}, Direct: ${directQty}`,
-    }, { transaction });
+    await InventoryHistory.create(
+      {
+        inventoryId: inventory.dataValues.id,
+        productId: inventory?.dataValues?.productId,
+        type: "RESERVED_RELEASED",
+        quantity: -totalWeightToDecrement,
+        previousStock: currentTotal,
+        newStock: Math.max(0, currentTotal - totalWeightToDecrement),
+        reference: `Decrement by productId. Reserved: ${reservedQty}, Direct: ${directQty}`,
+        notes: `Stock decremented by productId. Reserved: ${reservedQty}, Direct: ${directQty}`,
+      },
+      { transaction },
+    );
 
     if (needsCommit) {
       await txn!.commit();
     }
-    logger.info('Stock decremented', {
+    logger.info("Stock decremented", {
       productId,
       productVariantId,
       quantity,
@@ -239,7 +288,12 @@ export const decrementStockByProductId = async (productId: string, productVarian
     if (needsCommit && txn) {
       await txn.rollback();
     }
-    logger.error('Error decrementing stock', { productId, productVariantId, quantity, error });
+    logger.error("Error decrementing stock", {
+      productId,
+      productVariantId,
+      quantity,
+      error,
+    });
     throw error;
   }
 };
@@ -248,60 +302,82 @@ export const reserveStockByProductIdRepo = async (
   productId: string,
   productVariantId: string,
   quantity: number,
-  transaction?: Transaction
+  transaction?: Transaction,
 ) => {
-  const inventory = await Inventory.findOne({ 
-    where: { productId }, 
-    transaction 
+  const inventory = await Inventory.findOne({
+    where: { productId },
+    transaction,
   });
-  
-  if (!inventory) throw new AppError('NotFound', 404, 'Inventory record not found');
+
+  if (!inventory)
+    throw new AppError("NotFound", 404, "Inventory record not found");
 
   const productVariant = await ProductVariant.findByPk(productVariantId, {
-    attributes: ['weight', 'weightUnit'],
+    attributes: ["weight", "weightUnit"],
     raw: true,
-    transaction
+    transaction,
   });
 
-  if (!productVariant) throw new AppError('NotFound', 404, 'Product variant not found');
+  if (!productVariant)
+    throw new AppError("NotFound", 404, "Product variant not found");
 
   // 1. Convert DB values (Strings) to Numbers for math
   // We use parseFloat because DECIMAL comes back as a string from the DB
-  const currentAvailable = parseFloat(inventory.availableStock as any);
-  const currentReserved = parseFloat(inventory.reservedStock as any);
+  const currentAvailable = parseFloat(
+    (inventory?.availableStock || inventory?.dataValues?.availableStock) as any,
+  );
+  const currentReserved = parseFloat(
+    (inventory?.reservedStock || inventory?.dataValues?.reservedStock) as any,
+  );
 
   // 2. Calculate Weight Logic
-  const unitMultiplier = productVariant.weightUnit?.toUpperCase() === 'G' ? 0.001 : 1;
-  const weightPerUnitKg = parseFloat(String(productVariant.weight || '0')) * unitMultiplier;
-  
+  const unitMultiplier =
+    productVariant.weightUnit?.toUpperCase() === "G" ? 0.001 : 1;
+  const weightPerUnitKg =
+    parseFloat(String(productVariant.weight || "0")) * unitMultiplier;
+
   const totalWeightToReserve = weightPerUnitKg * quantity;
 
   // 3. Validation
   if (currentAvailable < totalWeightToReserve) {
-    throw new AppError('BadRequest', 400, `Insufficient stock. Need ${totalWeightToReserve}kg but only ${currentAvailable}kg available.`);
+    throw new AppError(
+      "BadRequest",
+      400,
+      `Insufficient stock. Need ${totalWeightToReserve}kg but only ${currentAvailable}kg available.`,
+    );
   }
 
   // 4. Update using calculated numbers
   // Sequelize will handle converting these numbers back to strings for the SQL query
-  await inventory.update({
-    availableStock: currentAvailable - totalWeightToReserve,
-    reservedStock: currentReserved + totalWeightToReserve,
-  }, { transaction });
+  await inventory.update(
+    {
+      availableStock: currentAvailable - totalWeightToReserve,
+      reservedStock: currentReserved + totalWeightToReserve,
+    },
+    { transaction },
+  );
 
   // 5. History Logging
-  await InventoryHistory.create({
-    inventoryId: inventory.id,
-    productId: inventory.productId,
-    type: 'STOCK_RESERVED',
-    quantity: -totalWeightToReserve, 
-    previousStock: currentAvailable,
-    newStock: currentAvailable - totalWeightToReserve,
-    notes: `Reserved ${quantity} units of ${productVariant.weight}${productVariant.weightUnit} (Total: ${totalWeightToReserve}kg)`,
-  }, { transaction });
+  await InventoryHistory.create(
+    {
+      inventoryId: inventory?.id || inventory?.dataValues?.id,
+      productId: inventory?.productId || inventory?.dataValues?.productId,
+      type: "STOCK_RESERVED",
+      quantity: -totalWeightToReserve,
+      previousStock: currentAvailable,
+      newStock: currentAvailable - totalWeightToReserve,
+      notes: `Reserved ${quantity} units of ${productVariant.weight}${productVariant.weightUnit} (Total: ${totalWeightToReserve}kg)`,
+    },
+    { transaction },
+  );
 };
 
-
-export const reserveStockRepo = async (sellerProductId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
+export const reserveStockRepo = async (
+  sellerProductId: string,
+  productVariantId: string,
+  quantity: number,
+  transaction?: Transaction,
+) => {
   let txn = transaction;
   const needsCommit = !transaction; // Only commit if we created the transaction
 
@@ -310,18 +386,24 @@ export const reserveStockRepo = async (sellerProductId: string, productVariantId
       txn = await sequelize.transaction();
     }
 
-    const inventory = await Inventory.findOne({ where: { sellerProductId }, transaction: txn });
-    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+    const inventory = await Inventory.findOne({
+      where: { sellerProductId },
+      transaction: txn,
+    });
+    if (!inventory) throw new AppError("NotFound", 404, "Inventory not found");
 
     const productVariant = await ProductVariant.findByPk(productVariantId, {
-      attributes: ['weight', 'weightUnit'],
+      attributes: ["weight", "weightUnit"],
       raw: true,
-      transaction: txn
+      transaction: txn,
     });
-    if (!productVariant) throw new AppError('NotFound', 404, 'Product variant not found');
+    if (!productVariant)
+      throw new AppError("NotFound", 404, "Product variant not found");
 
-    const unitMultiplier = productVariant.weightUnit?.toUpperCase() === 'G' ? 0.001 : 1;
-    const weightPerUnitKg = parseFloat(String(productVariant.weight || '0')) * unitMultiplier;
+    const unitMultiplier =
+      productVariant.weightUnit?.toUpperCase() === "G" ? 0.001 : 1;
+    const weightPerUnitKg =
+      parseFloat(String(productVariant.weight || "0")) * unitMultiplier;
     const totalWeightToReserve = weightPerUnitKg * quantity;
 
     // Parse current values to numbers
@@ -329,29 +411,47 @@ export const reserveStockRepo = async (sellerProductId: string, productVariantId
     const currentReserved = parseFloat(String(inventory.reservedStock));
 
     if (currentAvailable < totalWeightToReserve) {
-      throw new AppError('BadRequest', 400, 'Insufficient stock');
+      throw new AppError("BadRequest", 400, "Insufficient stock");
     }
 
-    const updated = await inventory.update({
-      availableStock: currentAvailable - totalWeightToReserve,
-      reservedStock: currentReserved + totalWeightToReserve,
-    }, { transaction: txn });
+    const updated = await inventory.update(
+      {
+        availableStock: currentAvailable - totalWeightToReserve,
+        reservedStock: currentReserved + totalWeightToReserve,
+      },
+      { transaction: txn },
+    );
 
     if (needsCommit) {
       await txn!.commit();
     }
-    logger.info('Stock reserved', { sellerProductId, productVariantId, quantity, totalWeightToReserve });
+    logger.info("Stock reserved", {
+      sellerProductId,
+      productVariantId,
+      quantity,
+      totalWeightToReserve,
+    });
     return updated;
   } catch (error) {
     if (needsCommit && txn) {
       await txn.rollback();
     }
-    logger.error('Error reserving stock', { sellerProductId, productVariantId, quantity, error });
+    logger.error("Error reserving stock", {
+      sellerProductId,
+      productVariantId,
+      quantity,
+      error,
+    });
     throw error;
   }
 };
 
-export const releaseReservedStock = async (productId: string, productVariantId: string, quantity: number, transaction?: Transaction) => {
+export const releaseReservedStock = async (
+  productId: string,
+  productVariantId: string,
+  quantity: number,
+  transaction?: Transaction,
+) => {
   let txn = transaction;
   const needsCommit = !transaction; // Only commit if we created the transaction
 
@@ -360,39 +460,58 @@ export const releaseReservedStock = async (productId: string, productVariantId: 
       txn = await sequelize.transaction();
     }
 
-    const inventory = await Inventory.findOne({ where: { productId }, transaction: txn });
-    if (!inventory) throw new AppError('NotFound', 404, 'Inventory not found');
+    const inventory = await Inventory.findOne({
+      where: { productId },
+      transaction: txn,
+    });
+    if (!inventory) throw new AppError("NotFound", 404, "Inventory not found");
 
     const productVariant = await ProductVariant.findByPk(productVariantId, {
-      attributes: ['weight', 'weightUnit'],
+      attributes: ["weight", "weightUnit"],
       raw: true,
-      transaction: txn
+      transaction: txn,
     });
-    if (!productVariant) throw new AppError('NotFound', 404, 'Product variant not found');
+    if (!productVariant)
+      throw new AppError("NotFound", 404, "Product variant not found");
 
-    const unitMultiplier = productVariant.weightUnit?.toUpperCase() === 'G' ? 0.001 : 1;
-    const weightPerUnitKg = parseFloat(String(productVariant.weight || '0')) * unitMultiplier;
+    const unitMultiplier =
+      productVariant.weightUnit?.toUpperCase() === "G" ? 0.001 : 1;
+    const weightPerUnitKg =
+      parseFloat(String(productVariant.weight || "0")) * unitMultiplier;
     const totalWeightToRelease = weightPerUnitKg * quantity;
 
     // Parse current values to numbers
     const currentAvailable = parseFloat(String(inventory.availableStock));
     const currentReserved = parseFloat(String(inventory.reservedStock));
 
-    const updated = await inventory.update({
-      availableStock: currentAvailable + totalWeightToRelease,
-      reservedStock: currentReserved - totalWeightToRelease,
-    }, { transaction: txn });
+    const updated = await inventory.update(
+      {
+        availableStock: currentAvailable + totalWeightToRelease,
+        reservedStock: currentReserved - totalWeightToRelease,
+      },
+      { transaction: txn },
+    );
 
     if (needsCommit) {
       await txn!.commit();
     }
-    logger.info('Reserved stock released', { productId, productVariantId, quantity, totalWeightToRelease });
+    logger.info("Reserved stock released", {
+      productId,
+      productVariantId,
+      quantity,
+      totalWeightToRelease,
+    });
     return updated;
   } catch (error) {
     if (needsCommit && txn) {
       await txn.rollback();
     }
-    logger.error('Error releasing reserved stock', { productId, productVariantId, quantity, error });
+    logger.error("Error releasing reserved stock", {
+      productId,
+      productVariantId,
+      quantity,
+      error,
+    });
     throw error;
   }
 };

@@ -1,13 +1,6 @@
 import * as dotenv from "dotenv";
 
 dotenv.config();
-console.log({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: process.env.SMTP_SECURE,
-  user: process.env.SMTP_USER,
-  from: process.env.SMTP_FROM_EMAIL,
-});
 
 export const config = {
   port: Number(process.env.PORT ?? 4000),
