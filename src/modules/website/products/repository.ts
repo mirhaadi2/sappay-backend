@@ -1,6 +1,10 @@
 import { Product } from '../../admin/products/model';
 import { ProductVariant } from '../../admin/products/product-variant/model';
-import { fetchFromR2, getR2SignedUrl, resolveR2Urls } from '../../uploads/r2-utils';
+import {
+    fetchFromCloudflareR2 as fetchFromR2,
+    getCloudflareR2SignedUrl as getR2SignedUrl,
+    resolveCloudflareR2Urls as resolveR2Urls,
+} from '../../../infrastructure/storage/cloudflare';
 import { Category } from '../../admin/products/categories/model';
 import { SellerProduct } from '../../admin/products/seller-product/model';
 import { AppError } from '../../../utils/AppError';
