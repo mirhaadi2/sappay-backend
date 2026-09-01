@@ -11,18 +11,18 @@ import {
     Promotion,
     PromotionType,
     PromotionAttributes,
-} from "./models";
+} from './models';
 // import { Coupon, CouponAttributes } from "../../models/Coupon";
-import { getR2SignedUrl } from "../../uploads/r2-utils";
-import { sequelize } from "../../../db/sequelize";
-import { Op, QueryTypes } from "sequelize";
-import { redisClient } from "../../../config/session";
-import { createHash } from "crypto";
-import logger from "../../../utils/logger";
-import { withTransaction } from "../../../utils/transaction";
-import { Coupon, CouponAttributes } from "../../../models/Coupon";
+import { getR2SignedUrl } from '../../uploads/r2-utils';
+import { sequelize } from '../../../db/sequelize';
+import { Op, QueryTypes } from 'sequelize';
+import { redisClient } from '../../../config/session';
+import { createHash } from 'crypto';
+import logger from '../../../utils/logger';
+import { withTransaction } from '../../../utils/transaction';
+import { Coupon, CouponAttributes } from '../../coupons/models';
 
-const HOMEPAGE_CACHE_KEY = "website:homepage:data";
+const HOMEPAGE_CACHE_KEY = 'website:homepage:data';
 const HOMEPAGE_CACHE_TTL = 60 * 2; // 2 minutes
 
 // ===================== BANNER SERVICES =====================
@@ -43,7 +43,7 @@ export const getActiveBanners = async (status?: boolean) => {
 
     let banners: HomepageBanner[] = [];
     try {
-        banners = await sequelize.query(query, { 
+        banners = await sequelize.query(query, {
             type: QueryTypes.SELECT,
             replacements: status !== undefined ? { status } : {},
             logging(sql, timing) {
@@ -52,18 +52,14 @@ export const getActiveBanners = async (status?: boolean) => {
             benchmark: true,
         });
     } catch (error) {
-        console.error("Error fetching active banners:", error);
+        console.error('Error fetching active banners:', error);
         return [];
     }
 
-    return banners as HomepageBanner[] || [];
+    return (banners as HomepageBanner[]) || [];
 };
 
-export const createBanner = async (data: {
-    text: string;
-    isActive?: boolean;
-    order?: number;
-}) => {
+export const createBanner = async (data: { text: string; isActive?: boolean; order?: number }) => {
     return withTransaction(async (transaction) => {
         const banner = await HomepageBanner.create(
             {
@@ -71,7 +67,7 @@ export const createBanner = async (data: {
                 isActive: data.isActive ?? true,
                 order: data.order ?? 0,
             },
-            { transaction }
+            { transaction },
         );
         logger.info('Banner created in admin', { bannerId: banner.id });
         return banner;
@@ -84,7 +80,7 @@ export const updateBanner = async (
 ) => {
     return withTransaction(async (transaction) => {
         const banner = await HomepageBanner.findByPk(id, { transaction });
-        if (!banner) throw new Error("Banner not found");
+        if (!banner) throw new Error('Banner not found');
         const updated = await banner.update(data, { transaction });
         logger.info('Banner updated in admin', { bannerId: id });
         return updated;
@@ -94,7 +90,7 @@ export const updateBanner = async (
 export const deleteBanner = async (id: string) => {
     return withTransaction(async (transaction) => {
         const banner = await HomepageBanner.findByPk(id, { transaction });
-        if (!banner) throw new Error("Banner not found");
+        if (!banner) throw new Error('Banner not found');
         await banner.destroy({ transaction });
         logger.info('Banner deleted in admin', { bannerId: id });
     });
@@ -149,19 +145,19 @@ export const getActiveHero = async (status?: boolean) => {
 
         return resolvedHeroes?.length > 0 ? resolvedHeroes : [];
     } catch (error) {
-        console.error("[HeroService] Failed to fetch active heroes:", error);
+        console.error('[HeroService] Failed to fetch active heroes:', error);
         return [];
     }
 };
 
 const resolveR2Url = async (key: string | null): Promise<string> => {
-    if (!key) return "";
-    if (key.startsWith("http")) return key;
+    if (!key) return '';
+    if (key.startsWith('http')) return key;
 
     try {
         return await getR2SignedUrl(key);
     } catch (err) {
-        return "";
+        return '';
     }
 };
 
@@ -193,7 +189,7 @@ export const createHero = async (data: {
                 ...data,
                 isActive: data.isActive ?? true,
             },
-            { transaction }
+            { transaction },
         );
         logger.info('Hero created in admin', { heroId: hero.id });
         return hero;
@@ -216,7 +212,7 @@ export const updateHero = async (
 ) => {
     return withTransaction(async (transaction) => {
         const hero = await HomepageHero.findByPk(id, { transaction });
-        if (!hero) throw new Error("Hero section not found");
+        if (!hero) throw new Error('Hero section not found');
 
         if (data.isActive) {
             await HomepageHero.update(
@@ -234,7 +230,7 @@ export const updateHero = async (
 export const deleteHero = async (id: string) => {
     return withTransaction(async (transaction) => {
         const hero = await HomepageHero.findByPk(id, { transaction });
-        if (!hero) throw new Error("Hero section not found");
+        if (!hero) throw new Error('Hero section not found');
         await hero.destroy({ transaction });
         logger.info('Hero deleted in admin', { heroId: id });
     });
@@ -278,7 +274,7 @@ export const getActiveSections = async (status?: boolean) => {
             const [videoUrl, imageUrl, backgroundImageUrl] = await Promise.all([
                 resolveR2Url(section?.videoUrl),
                 resolveR2Url(section?.imageUrl),
-                resolveR2Url(section?.backgroundImageUrl)
+                resolveR2Url(section?.backgroundImageUrl),
             ]);
 
             return {
@@ -287,7 +283,7 @@ export const getActiveSections = async (status?: boolean) => {
                 imageUrl,
                 backgroundImageUrl,
             };
-        })
+        }),
     );
 
     return resolvedSections?.length > 0 ? resolvedSections : [];
@@ -330,7 +326,7 @@ export const getSectionsByType = async (sectionType: string) => {
             const [videoUrl, imageUrl, backgroundImageUrl] = await Promise.all([
                 resolveR2Url(section?.videoUrl),
                 resolveR2Url(section?.imageUrl),
-                resolveR2Url(section?.backgroundImageUrl)
+                resolveR2Url(section?.backgroundImageUrl),
             ]);
 
             return {
@@ -339,7 +335,7 @@ export const getSectionsByType = async (sectionType: string) => {
                 imageUrl,
                 backgroundImageUrl,
             };
-        })
+        }),
     );
 
     return resolvedSections?.length > 0 ? resolvedSections : [];
@@ -347,16 +343,16 @@ export const getSectionsByType = async (sectionType: string) => {
 
 export const createSection = async (data: {
     sectionType:
-        | "collections"
-        | "bestsellers"
-        | "health_wellness"
-        | "new_arrivals"
-        | "story"
-        | "testimonials"
-        | "instagram"
-        | "contact"
-        | "about"
-        | "footer";
+        | 'collections'
+        | 'bestsellers'
+        | 'health_wellness'
+        | 'new_arrivals'
+        | 'story'
+        | 'testimonials'
+        | 'instagram'
+        | 'contact'
+        | 'about'
+        | 'footer';
     title: string;
     subtitle?: string;
     content?: string;
@@ -375,7 +371,7 @@ export const createSection = async (data: {
                 isActive: data.isActive ?? true,
                 order: data.order ?? 0,
             },
-            { transaction }
+            { transaction },
         );
         logger.info('Section created in admin', { sectionId: section.id });
         return section;
@@ -386,16 +382,16 @@ export const updateSection = async (
     id: string,
     data: Partial<{
         sectionType:
-        | "collections"
-        | "bestsellers"
-        | "health_wellness"
-        | "new_arrivals"
-        | "story"
-        | "testimonials"
-        | "instagram"
-        | "contact"
-        | "about"
-        | "footer";
+            | 'collections'
+            | 'bestsellers'
+            | 'health_wellness'
+            | 'new_arrivals'
+            | 'story'
+            | 'testimonials'
+            | 'instagram'
+            | 'contact'
+            | 'about'
+            | 'footer';
         title: string;
         subtitle?: string;
         content?: string;
@@ -410,7 +406,7 @@ export const updateSection = async (
 ) => {
     return withTransaction(async (transaction) => {
         const section = await HomepageSection.findByPk(id, { transaction });
-        if (!section) throw new Error("Section not found");
+        if (!section) throw new Error('Section not found');
         const updated = await section.update(data, { transaction });
         logger.info('Section updated in admin', { sectionId: id });
         return updated;
@@ -420,7 +416,7 @@ export const updateSection = async (
 export const deleteSection = async (id: string) => {
     return withTransaction(async (transaction) => {
         const section = await HomepageSection.findByPk(id, { transaction });
-        if (!section) throw new Error("Section not found");
+        if (!section) throw new Error('Section not found');
         await section.destroy({ transaction });
         logger.info('Section deleted in admin', { sectionId: id });
     });
@@ -473,7 +469,7 @@ export const createTestimonial = async (data: {
                 isActive: data.isActive ?? true,
                 order: data.order ?? 0,
             },
-            { transaction }
+            { transaction },
         );
         await transaction.commit();
         logger.info('Testimonial created in admin', { testimonialId: testimonial.id });
@@ -500,7 +496,7 @@ export const updateTestimonial = async (
     const transaction = await sequelize.transaction();
     try {
         const testimonial = await Testimonial.findByPk(id, { transaction });
-        if (!testimonial) throw new Error("Testimonial not found");
+        if (!testimonial) throw new Error('Testimonial not found');
         const updated = await testimonial.update(data, { transaction });
         await transaction.commit();
         logger.info('Testimonial updated in admin', { testimonialId: id });
@@ -516,7 +512,7 @@ export const deleteTestimonial = async (id: string) => {
     const transaction = await sequelize.transaction();
     try {
         const testimonial = await Testimonial.findByPk(id, { transaction });
-        if (!testimonial) throw new Error("Testimonial not found");
+        if (!testimonial) throw new Error('Testimonial not found');
         await testimonial.destroy({ transaction });
         await transaction.commit();
         logger.info('Testimonial deleted in admin', { testimonialId: id });
@@ -554,8 +550,8 @@ export const getActiveInstagramPosts = async (status?: boolean) => {
     const resolvedPosts = await Promise.all(
         posts.map(async (post) => ({
             ...post,
-            imageUrl: await resolveR2Url(post.imageUrl)
-        }))
+            imageUrl: await resolveR2Url(post.imageUrl),
+        })),
     );
     return resolvedPosts;
 };
@@ -575,7 +571,7 @@ export const createInstagramPost = async (data: {
                 isActive: data.isActive ?? true,
                 order: data.order ?? 0,
             },
-            { transaction }
+            { transaction },
         );
         await transaction.commit();
         logger.info('Instagram post created in admin', { postId: post.id });
@@ -600,7 +596,7 @@ export const updateInstagramPost = async (
     const transaction = await sequelize.transaction();
     try {
         const post = await InstagramPost.findByPk(id, { transaction });
-        if (!post) throw new Error("Instagram post not found");
+        if (!post) throw new Error('Instagram post not found');
         const updated = await post.update(data, { transaction });
         await transaction.commit();
         logger.info('Instagram post updated in admin', { postId: id });
@@ -616,7 +612,7 @@ export const deleteInstagramPost = async (id: string) => {
     const transaction = await sequelize.transaction();
     try {
         const post = await InstagramPost.findByPk(id, { transaction });
-        if (!post) throw new Error("Instagram post not found");
+        if (!post) throw new Error('Instagram post not found');
         await post.destroy({ transaction });
         await transaction.commit();
         logger.info('Instagram post deleted in admin', { postId: id });
@@ -635,8 +631,8 @@ export const getWebsiteSettings = async (category?: string) => {
     const settings = await WebsiteSetting.findAll({
         where,
         order: [
-            ["category", "ASC"],
-            ["key", "ASC"],
+            ['category', 'ASC'],
+            ['key', 'ASC'],
         ],
     });
 
@@ -663,7 +659,7 @@ export const getWebsiteSetting = async (key: string) => {
 export const createWebsiteSetting = async (data: {
     key: string;
     value: string;
-    type: "string" | "number" | "boolean" | "json";
+    type: 'string' | 'number' | 'boolean' | 'json';
     category: string;
     description?: string;
     isActive?: boolean;
@@ -675,7 +671,7 @@ export const createWebsiteSetting = async (data: {
                 ...data,
                 isActive: data.isActive ?? true,
             },
-            { transaction }
+            { transaction },
         );
         await transaction.commit();
         logger.info('Website setting created', { key: data.key, category: data.category });
@@ -691,7 +687,7 @@ export const updateWebsiteSetting = async (
     key: string,
     data: Partial<{
         value: string;
-        type: "string" | "number" | "boolean" | "json";
+        type: 'string' | 'number' | 'boolean' | 'json';
         category: string;
         description?: string;
         isActive: boolean;
@@ -700,7 +696,7 @@ export const updateWebsiteSetting = async (
     const transaction = await sequelize.transaction();
     try {
         const setting = await WebsiteSetting.findOne({ where: { key }, transaction });
-        if (!setting) throw new Error("Website setting not found");
+        if (!setting) throw new Error('Website setting not found');
         const updated = await setting.update(data, { transaction });
         await transaction.commit();
         logger.info('Website setting updated', { key });
@@ -716,7 +712,7 @@ export const deleteWebsiteSetting = async (key: string) => {
     const transaction = await sequelize.transaction();
     try {
         const setting = await WebsiteSetting.findOne({ where: { key }, transaction });
-        if (!setting) throw new Error("Website setting not found");
+        if (!setting) throw new Error('Website setting not found');
         await setting.destroy({ transaction });
         await transaction.commit();
         logger.info('Website setting deleted', { key });
@@ -732,8 +728,8 @@ export const getPublishedPages = async () => {
     return await WebsitePage.findAll({
         where: { isPublished: true },
         order: [
-            ["order", "ASC"],
-            ["createdAt", "DESC"],
+            ['order', 'ASC'],
+            ['createdAt', 'DESC'],
         ],
     });
 };
@@ -742,8 +738,8 @@ export const getAllPages = async () => {
     return await WebsitePage.findAll({
         where: { deletedAt: null },
         order: [
-            ["order", "ASC"],
-            ["createdAt", "DESC"],
+            ['order', 'ASC'],
+            ['createdAt', 'DESC'],
         ],
     });
 };
@@ -771,7 +767,7 @@ export const createPage = async (data: {
                 isPublished: data.isPublished ?? false,
                 order: data.order ?? 0,
             },
-            { transaction }
+            { transaction },
         );
         await transaction.commit();
         logger.info('Website page created', { pageId: page.id, slug: data.slug });
@@ -798,7 +794,7 @@ export const updatePage = async (
     const transaction = await sequelize.transaction();
     try {
         const page = await WebsitePage.findByPk(id, { transaction });
-        if (!page) throw new Error("Page not found");
+        if (!page) throw new Error('Page not found');
         const updated = await page.update(data, { transaction });
         await transaction.commit();
         logger.info('Website page updated', { pageId: id });
@@ -814,7 +810,7 @@ export const deletePage = async (id: string) => {
     const transaction = await sequelize.transaction();
     try {
         const page = await WebsitePage.findByPk(id, { transaction });
-        if (!page) throw new Error("Page not found");
+        if (!page) throw new Error('Page not found');
         await page.destroy({ transaction });
         await transaction.commit();
         logger.info('Website page deleted', { pageId: id });
@@ -829,17 +825,21 @@ export const deletePage = async (id: string) => {
 export const getPage = async (type: PageType) => {
     return await Page.findOne({
         where: { type },
-        order: [["createdAt", "DESC"]],
+        order: [['createdAt', 'DESC']],
     });
 };
 
-export const createOrUpdatePage = async (type: PageType, slug: string, data: {
-    title: string;
-    content: string;
-    metaTitle?: string;
-    metaDescription?: string;
-    isPublished?: boolean;
-}) => {
+export const createOrUpdatePage = async (
+    type: PageType,
+    slug: string,
+    data: {
+        title: string;
+        content: string;
+        metaTitle?: string;
+        metaDescription?: string;
+        isPublished?: boolean;
+    },
+) => {
     const transaction = await sequelize.transaction();
     try {
         const existingPages = await Page.findAll({ where: { type }, transaction });
@@ -849,29 +849,35 @@ export const createOrUpdatePage = async (type: PageType, slug: string, data: {
 
             // Ensure exactly one record exists per type by removing any accidental duplicates.
             if (duplicates.length > 0) {
-                await Page.destroy({ 
+                await Page.destroy({
                     where: { id: duplicates.map((page) => page.id) },
-                    transaction 
+                    transaction,
                 });
             }
 
-            const updated = await primary.update({
-                slug,
-                ...data,
-                isPublished: data.isPublished ?? false,
-            }, { transaction });
-            
+            const updated = await primary.update(
+                {
+                    slug,
+                    ...data,
+                    isPublished: data.isPublished ?? false,
+                },
+                { transaction },
+            );
+
             await transaction.commit();
             logger.info('Unified page updated', { pageId: primary.id, type });
             return updated;
         } else {
-            const created = await Page.create({
-                type,
-                slug,
-                ...data,
-                isPublished: data.isPublished ?? false,
-            }, { transaction });
-            
+            const created = await Page.create(
+                {
+                    type,
+                    slug,
+                    ...data,
+                    isPublished: data.isPublished ?? false,
+                },
+                { transaction },
+            );
+
             await transaction.commit();
             logger.info('Unified page created', { pageId: created.id, type });
             return created;
@@ -899,8 +905,6 @@ export const deletePageByType = async (type: PageType) => {
     }
 };
 
-
-
 // ===================== HOMEPAGE DATA AGGREGATOR =====================
 export const getHomepageData = async () => {
     if (redisClient.isOpen) {
@@ -912,18 +916,17 @@ export const getHomepageData = async () => {
                 return await resolveHomepageUrls(rawData);
             }
         } catch (err: any) {
-            console.warn("Redis homepage cache read failed:", err?.message || String(err));
+            console.warn('Redis homepage cache read failed:', err?.message || String(err));
         }
     }
 
-    const [banners, hero, sections, testimonials, instagramPosts] =
-        await Promise.all([
-            getActiveBanners(true),
-            getActiveHero(true),
-            getActiveSections(true),
-            getActiveTestimonials(true),
-            getActiveInstagramPosts(true),
-        ]);
+    const [banners, hero, sections, testimonials, instagramPosts] = await Promise.all([
+        getActiveBanners(true),
+        getActiveHero(true),
+        getActiveSections(true),
+        getActiveTestimonials(true),
+        getActiveInstagramPosts(true),
+    ]);
 
     const result = {
         banners,
@@ -938,26 +941,29 @@ export const getHomepageData = async () => {
         try {
             const cachePayload = {
                 banners, // No images
-                hero: hero.map(h => ({
+                hero: hero.map((h) => ({
                     ...h,
                     videoUrl: h.videoUrl?.replace(/^https?:\/\//, ''),
                     imageUrl: h.imageUrl?.replace(/^https?:\/\//, ''),
                     backgroundImageUrl: h.backgroundImageUrl?.replace(/^https?:\/\//, ''),
                 })), // Store raw keys
-                sections: sections.map(s => ({
+                sections: sections.map((s) => ({
                     ...s,
                     imageUrl: s.imageUrl?.replace(/^https?:\/\//, ''),
                     videoUrl: s.videoUrl?.replace(/^https?:\/\//, ''),
-                    backgroundImageUrl: s.backgroundImageUrl?.replace(/^https?:\/\//, '')
+                    backgroundImageUrl: s.backgroundImageUrl?.replace(/^https?:\/\//, ''),
                 })), // Store raw keys
                 testimonials, // No images
-                instagramPosts: instagramPosts.map(p => ({ ...p, imageUrl: p.imageUrl?.replace(/^https?:\/\//, '') })), // Store raw keys
+                instagramPosts: instagramPosts.map((p) => ({
+                    ...p,
+                    imageUrl: p.imageUrl?.replace(/^https?:\/\//, ''),
+                })), // Store raw keys
             };
             await redisClient.set(HOMEPAGE_CACHE_KEY, JSON.stringify(cachePayload), {
                 EX: HOMEPAGE_CACHE_TTL,
             });
         } catch (err: any) {
-            console.warn("Redis homepage cache write failed:", err?.message || String(err));
+            console.warn('Redis homepage cache write failed:', err?.message || String(err));
         }
     }
 
@@ -967,27 +973,35 @@ export const getHomepageData = async () => {
 // Helper to resolve URLs from cached raw data
 const resolveHomepageUrls = async (rawData: any) => {
     const [banners, hero, sections, testimonials, instagramPosts] = await Promise.all([
-        Promise.all(rawData.banners.map(async (b: any) => ({
-            ...b,
-            imageUrl: await resolveR2Url(b.imageUrl)
-        }))),
-        Promise.all(rawData.hero.map(async (h: any) => ({
-            ...h,
-            videoUrl: await resolveR2Url(h.videoUrl),
-            imageUrl: await resolveR2Url(h.imageUrl),
-            backgroundImageUrl: await resolveR2Url(h.backgroundImageUrl),
-        }))),
-        Promise.all(rawData.sections.map(async (s: any) => ({
-            ...s,
-            imageUrl: await resolveR2Url(s.imageUrl),
-            videoUrl: await resolveR2Url(s.videoUrl),
-            backgroundImageUrl: await resolveR2Url(s.backgroundImageUrl),
-        }))),
+        Promise.all(
+            rawData.banners.map(async (b: any) => ({
+                ...b,
+                imageUrl: await resolveR2Url(b.imageUrl),
+            })),
+        ),
+        Promise.all(
+            rawData.hero.map(async (h: any) => ({
+                ...h,
+                videoUrl: await resolveR2Url(h.videoUrl),
+                imageUrl: await resolveR2Url(h.imageUrl),
+                backgroundImageUrl: await resolveR2Url(h.backgroundImageUrl),
+            })),
+        ),
+        Promise.all(
+            rawData.sections.map(async (s: any) => ({
+                ...s,
+                imageUrl: await resolveR2Url(s.imageUrl),
+                videoUrl: await resolveR2Url(s.videoUrl),
+                backgroundImageUrl: await resolveR2Url(s.backgroundImageUrl),
+            })),
+        ),
         rawData.testimonials,
-        Promise.all(rawData.instagramPosts.map(async (p: any) => ({
-            ...p,
-            imageUrl: await resolveR2Url(p.imageUrl)
-        }))),
+        Promise.all(
+            rawData.instagramPosts.map(async (p: any) => ({
+                ...p,
+                imageUrl: await resolveR2Url(p.imageUrl),
+            })),
+        ),
     ]);
 
     return {
@@ -1028,7 +1042,10 @@ export const getActivePromotions = async () => {
             validFrom: { [Op.lte]: now },
             validUntil: { [Op.gte]: now },
         },
-        order: [['priority', 'DESC'], ['createdAt', 'DESC']],
+        order: [
+            ['priority', 'DESC'],
+            ['createdAt', 'DESC'],
+        ],
         logging: (sql, timing) => {
             console.log(`[SQL - ${timing}ms]: ${sql}`);
         },
@@ -1065,8 +1082,8 @@ export const getApplicablePromotions = async (cartValue: number = 0) => {
 
     // Filter by cart value if provided
     if (cartValue > 0) {
-        return promotions.filter(p => {
-            const qualifies = 
+        return promotions.filter((p) => {
+            const qualifies =
                 (!p.minOrderValue || cartValue >= Number(p.minOrderValue)) &&
                 (!p.maxOrderValue || cartValue <= Number(p.maxOrderValue));
             return qualifies;
@@ -1084,7 +1101,7 @@ export const createPromotion = async (data: Partial<PromotionAttributes>) => {
     try {
         // Filter out undefined properties and cast to ensure type safety
         const filteredData = Object.fromEntries(
-            Object.entries(data).filter(([, value]) => value !== undefined)
+            Object.entries(data).filter(([, value]) => value !== undefined),
         ) as Record<string, any>;
 
         // couponCode is not part of Promotion anymore
@@ -1096,7 +1113,7 @@ export const createPromotion = async (data: Partial<PromotionAttributes>) => {
                 isActive: filteredData.isActive ?? true,
                 priority: filteredData.priority ?? 0,
             } as any,
-            { transaction }
+            { transaction },
         );
         await transaction.commit();
         logger.info('Promotion created in admin', { promotionId: promotion.id });
@@ -1111,15 +1128,12 @@ export const createPromotion = async (data: Partial<PromotionAttributes>) => {
 /**
  * Update promotion
  */
-export const updatePromotion = async (
-    id: string,
-    data: Partial<PromotionAttributes>
-) => {
+export const updatePromotion = async (id: string, data: Partial<PromotionAttributes>) => {
     const transaction = await sequelize.transaction();
     try {
         const promotion = await Promotion.findByPk(id, { transaction });
         if (!promotion) throw new Error('Promotion not found');
-        
+
         const updateData: Record<string, any> = { ...data };
         // couponCode is not part of Promotion anymore
 
@@ -1142,7 +1156,7 @@ export const deletePromotion = async (id: string) => {
     try {
         const promotion = await Promotion.findByPk(id, { transaction });
         if (!promotion) throw new Error('Promotion not found');
-        
+
         await promotion.destroy({ transaction });
         await transaction.commit();
         logger.info('Promotion deleted in admin', { promotionId: id });
@@ -1160,9 +1174,12 @@ export const getAllPromotions = async (limit = 20, offset = 0) => {
     const { count, rows } = await Promotion.findAndCountAll({
         limit,
         offset,
-        order: [['priority', 'DESC'], ['createdAt', 'DESC']],
+        order: [
+            ['priority', 'DESC'],
+            ['createdAt', 'DESC'],
+        ],
     });
-    
+
     return {
         total: count,
         data: rows,
@@ -1180,17 +1197,17 @@ export const incrementPromotionUsage = async (promotionId: string) => {
     try {
         const promotion = await Promotion.findByPk(promotionId, { transaction });
         if (!promotion) throw new Error('Promotion not found');
-        
+
         const newUsage = (promotion.currentUsage || 0) + 1;
-        
+
         // Check if usage limit exceeded
         if (promotion.usageLimit && newUsage > promotion.usageLimit) {
             throw new Error('Promotion usage limit exceeded');
         }
-        
+
         await promotion.update({ currentUsage: newUsage }, { transaction });
         await transaction.commit();
-        
+
         return promotion;
     } catch (error) {
         await transaction.rollback();
@@ -1209,7 +1226,7 @@ export const createCoupon = async (data: Partial<CouponAttributes>) => {
     try {
         // Filter out undefined properties
         const filteredData = Object.fromEntries(
-            Object.entries(data).filter(([, value]) => value !== undefined)
+            Object.entries(data).filter(([, value]) => value !== undefined),
         ) as Record<string, any>;
 
         const coupon = await Coupon.create(
@@ -1219,7 +1236,7 @@ export const createCoupon = async (data: Partial<CouponAttributes>) => {
                 isActive: filteredData.isActive ?? true,
                 firstOrderOnly: filteredData.firstOrderOnly ?? false,
             } as any,
-            { transaction }
+            { transaction },
         );
         await transaction.commit();
         logger.info('Coupon created in admin', { couponId: coupon.id, code: coupon.code });
@@ -1234,15 +1251,12 @@ export const createCoupon = async (data: Partial<CouponAttributes>) => {
 /**
  * Update coupon (admin)
  */
-export const updateCoupon = async (
-    id: string,
-    data: Partial<CouponAttributes>
-) => {
+export const updateCoupon = async (id: string, data: Partial<CouponAttributes>) => {
     const transaction = await sequelize.transaction();
     try {
         const coupon = await Coupon.findByPk(id, { transaction });
         if (!coupon) throw new Error('Coupon not found');
-        
+
         const updated = await coupon.update(data, { transaction });
         await transaction.commit();
         logger.info('Coupon updated in admin', { couponId: id });
@@ -1262,7 +1276,7 @@ export const deleteCoupon = async (id: string) => {
     try {
         const coupon = await Coupon.findByPk(id, { transaction });
         if (!coupon) throw new Error('Coupon not found');
-        
+
         await coupon.destroy({ transaction });
         await transaction.commit();
         logger.info('Coupon deleted in admin', { couponId: id });
@@ -1291,7 +1305,7 @@ export const getAllCoupons = async (limit = 20, offset = 0) => {
         offset,
         order: [['createdAt', 'DESC']],
     });
-    
+
     return {
         total: count,
         data: rows,
@@ -1301,16 +1315,13 @@ export const getAllCoupons = async (limit = 20, offset = 0) => {
 };
 
 // ===================== HELPER FUNCTIONS =====================
-function parseSettingValue(
-    value: string,
-    type: "string" | "number" | "boolean" | "json",
-) {
+function parseSettingValue(value: string, type: 'string' | 'number' | 'boolean' | 'json') {
     switch (type) {
-        case "number":
+        case 'number':
             return parseFloat(value);
-        case "boolean":
-            return value.toLowerCase() === "true";
-        case "json":
+        case 'boolean':
+            return value.toLowerCase() === 'true';
+        case 'json':
             try {
                 return JSON.parse(value);
             } catch {
