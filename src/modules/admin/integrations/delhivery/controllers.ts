@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { createShipment } from '../../../integrations/delhivery/services';
+import { createShipment } from '../../../../integrations/delhivery/services';
 
 export const handleCreateShipment = async (req: Request, res: Response, next: NextFunction) => {
     try {

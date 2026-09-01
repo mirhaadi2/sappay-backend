@@ -5,16 +5,23 @@ import session from "express-session";
 import cookieParser from "cookie-parser";
 import { config } from "./config";
 import { getSessionOptionsForPortal } from "./config/session";
-import { Portal, portalConfigs, getPortalFromPath } from "./config/portal-config";
+import {
+  Portal,
+  portalConfigs,
+  getPortalFromPath,
+} from "./config/portal-config";
 import authRoutes from "./modules/website/auth/routes";
 import customerRoutes from "./modules/website/customers/routes";
 import addressRoutes from "./modules/website/address/routes";
 import productRoutes from "./modules/website/products/routes";
 import { homepageRoutes } from "./modules/website/homepage";
 import { promotionsRoutes } from "./modules/website/promotions";
-import couponsRoutes from './modules/website/coupons/routes';
+import couponsRoutes from "./modules/website/coupons/routes";
 import { errorHandler } from "./middleware/error.middleware";
-import { requestLoggingMiddleware, errorLoggingMiddleware } from "./middleware/logging.middleware";
+import {
+  requestLoggingMiddleware,
+  errorLoggingMiddleware,
+} from "./middleware/logging.middleware";
 import { sellerRoutes } from "./modules/sellers";
 import { uploadsRoutes } from "./modules/uploads";
 import adminAuthRoutes from "./modules/admin/auth/routes";
@@ -26,7 +33,7 @@ import { notificationRoutes } from "./modules/notifications";
 import { guestRoutes } from "./modules/website/guest";
 import { bulkOrderRoutes } from "./modules/website/bulk-orders/routes";
 import { reviewRoutes } from "./modules/website/reviews/routes";
-import { delhiveryRoutes } from "./modules/integrations/delhivery/routes";
+import { delhiveryRoutes } from "./integrations/delhivery/routes";
 import { delhiveryAdminRoutes } from "./modules/admin/integrations/delhivery/routes";
 import farmerAuthRoutes from "./modules/farmers/auth/routes";
 import farmerRoutes from "./modules/farmers/routes";
@@ -36,18 +43,20 @@ import farmerSalesRoutes from "./modules/farmers/sales/routes";
 
 const app = express();
 
-app.set('trust proxy', 1); // Trust first proxy for development/production
+app.set("trust proxy", 1); // Trust first proxy for development/production
 
 // Add request logging middleware as the first middleware
 app.use(requestLoggingMiddleware);
 
 app.use(helmet());
-app.use(cors({
-  origin: config.frontendOrigin,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: config.frontendOrigin,
+    credentials: true,
+  }),
+);
 app.use(cookieParser(config.session.secret));
-app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
+app.use("/api/orders/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 
 // Create session middleware instances for each portal upfront (not per-request)
@@ -55,28 +64,51 @@ const websiteSession = session(getSessionOptionsForPortal(Portal.WEBSITE));
 const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
 const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
 
-
 // Universal session middleware for all portals
-app.use(["/api/auth", "/api/customers", "/api/addresses", "/api/products", "/api/sellers", "/api/farmers", "/api/admin", "/api/staff", "/api/orders", "/api/notifications", "/api/bulk-orders", "/api/reviews", "/api/delhivery"], (req, res, next) => {
-  // Determine the effective path to support mounted routers (req.path may be stripped)
-  const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toString();
-  const cookieHeader =
-    typeof req.headers.cookie === 'string'
-      ? req.headers.cookie
-      : req.cookies && typeof req.cookies === 'object'
-      ? Object.keys(req.cookies).join('; ')
-      : '';
+app.use(
+  [
+    "/api/auth",
+    "/api/customers",
+    "/api/addresses",
+    "/api/products",
+    "/api/sellers",
+    "/api/farmers",
+    "/api/admin",
+    "/api/staff",
+    "/api/orders",
+    "/api/notifications",
+    "/api/bulk-orders",
+    "/api/reviews",
+    "/api/delhivery",
+  ],
+  (req, res, next) => {
+    // Determine the effective path to support mounted routers (req.path may be stripped)
+    const effectivePath = (
+      req.originalUrl ||
+      req.baseUrl ||
+      req.path ||
+      ""
+    ).toString();
+    const cookieHeader =
+      typeof req.headers.cookie === "string"
+        ? req.headers.cookie
+        : req.cookies && typeof req.cookies === "object"
+          ? Object.keys(req.cookies).join("; ")
+          : "";
 
-  const portal = getPortalFromPath(effectivePath, cookieHeader);
+    const portal = getPortalFromPath(effectivePath, cookieHeader);
 
-  // Use the appropriate session middleware instance
-  const sessionMiddleware =
-    portal === Portal.SELLER ? sellerSession :
-    portal === Portal.ADMIN ? adminSession :
-    websiteSession;
+    // Use the appropriate session middleware instance
+    const sessionMiddleware =
+      portal === Portal.SELLER
+        ? sellerSession
+        : portal === Portal.ADMIN
+          ? adminSession
+          : websiteSession;
 
-  return sessionMiddleware(req, res, next);
-});
+    return sessionMiddleware(req, res, next);
+  },
+);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
@@ -84,7 +116,7 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/homepage", homepageRoutes);
 app.use("/api/website/promotions", promotionsRoutes);
-app.use('/api/website/coupons', couponsRoutes);
+app.use("/api/website/coupons", couponsRoutes);
 app.use("/api/guest", guestRoutes);
 app.use("/api/bulk-orders", bulkOrderRoutes);
 app.use("/api/reviews", reviewRoutes);
