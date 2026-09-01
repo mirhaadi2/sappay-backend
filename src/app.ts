@@ -1,11 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import { config } from './config';
-import { getSessionOptionsForPortal } from './config/session';
-import { Portal, getPortalFromPath } from './config/portal-config';
+import {
+    portalSessionMiddleware,
+    portalSessionPaths,
+} from './middleware/portal-session.middleware';
 import { websiteAuthRoutes } from './modules/website/auth/routes';
 import { customerRoutes } from './modules/website/customers/routes';
 import { addressRoutes } from './modules/website/address/routes';
@@ -36,11 +37,8 @@ import { farmerSalesRoutes } from './modules/farmers/sales/routes';
 
 const app = express();
 
-app.set('trust proxy', 1); // Trust first proxy for development/production
-
-// Add request logging middleware as the first middleware
+app.set('trust proxy', 1);
 app.use(requestLoggingMiddleware);
-
 app.use(helmet());
 app.use(
     cors({
@@ -52,51 +50,7 @@ app.use(cookieParser(config.session.secret));
 app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
-// Create session middleware instances for each portal upfront (not per-request)
-const websiteSession = session(getSessionOptionsForPortal(Portal.WEBSITE));
-const sellerSession = session(getSessionOptionsForPortal(Portal.SELLER));
-const adminSession = session(getSessionOptionsForPortal(Portal.ADMIN));
-
-// Universal session middleware for all portals
-app.use(
-    [
-        '/api/auth',
-        '/api/customers',
-        '/api/addresses',
-        '/api/products',
-        '/api/sellers',
-        '/api/farmers',
-        '/api/admin',
-        '/api/staff',
-        '/api/orders',
-        '/api/notifications',
-        '/api/bulk-orders',
-        '/api/reviews',
-        '/api/delhivery',
-    ],
-    (req, res, next) => {
-        // Determine the effective path to support mounted routers (req.path may be stripped)
-        const effectivePath = (req.originalUrl || req.baseUrl || req.path || '').toString();
-        const cookieHeader =
-            typeof req.headers.cookie === 'string'
-                ? req.headers.cookie
-                : req.cookies && typeof req.cookies === 'object'
-                  ? Object.keys(req.cookies).join('; ')
-                  : '';
-
-        const portal = getPortalFromPath(effectivePath, cookieHeader);
-
-        // Use the appropriate session middleware instance
-        const sessionMiddleware =
-            portal === Portal.SELLER
-                ? sellerSession
-                : portal === Portal.ADMIN
-                  ? adminSession
-                  : websiteSession;
-
-        return sessionMiddleware(req, res, next);
-    },
-);
+app.use(portalSessionPaths, portalSessionMiddleware);
 
 app.use('/api/auth', websiteAuthRoutes);
 app.use('/api/customers', customerRoutes);

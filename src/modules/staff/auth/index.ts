@@ -5,4 +5,4 @@
 export * from './service';
 export * from './controller';
 export * from './middleware';
-export { default as staffAuthRoutes } from './routes';
+export { staffAuthRoutes } from './routes';

@@ -4,4 +4,4 @@ export { SellerProduct } from '../../admin/products/seller-product/model';
 export * from './repository';
 export * from './service';
 export * from './controller';
-export { default as productRoutes } from './routes';
+export { productRoutes } from './routes';

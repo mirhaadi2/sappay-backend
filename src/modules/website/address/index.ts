@@ -1,5 +1,5 @@
-export { Address, AddressType } from "../../admin/address/model";
-export * from "./repository";
-export * from "./service";
-export * from "./controller";
-export { default as addressRoutes } from "./routes";
+export { Address, AddressType } from '../../admin/address/model';
+export * from './repository';
+export * from './service';
+export * from './controller';
+export { addressRoutes } from './routes';
