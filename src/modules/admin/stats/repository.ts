@@ -1,5 +1,5 @@
 import { Op, fn, col } from 'sequelize';
-import { User } from '../../../models';
+import { User } from '../../admin/customers/models';
 import { Seller, SellerStatus } from '../../sellers/model';
 import { Order } from '../orders/order.model';
 import { Product } from '../products/model';
