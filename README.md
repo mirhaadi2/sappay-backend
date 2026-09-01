@@ -1,37 +1,57 @@
 # SapPay Backend
 
 ## Overview
-This backend is built with **Express + TypeScript** and uses **Sequelize** (PostgreSQL) for data persistence. It is structured to support modular features and scalability, with a comprehensive notification system for multi-channel communication.
+This backend is built with **Express + TypeScript** and uses **Sequelize** with **PostgreSQL** for persistence. The current codebase is a modular monolith with multiple portal features: website, seller, admin, staff, and farmer flows.
+
+### Current architecture notes
+The current implementation includes the following patterns and integrations that are active in the codebase:
+- Session storage is handled through Redis via `connect-redis` and `express-session`.
+- Redis is also used for catalog/product list cache invalidation and product list caching in the website product module.
+- Cloudflare R2 storage is the active object-storage layer for uploads and signed image URLs.
+- Razorpay is integrated for payment order creation and signature verification.
+- Delhivery integration is registered in the API layer for shipping-related flows.
+- Notification logic exists as a modular feature, but it is not the only or central business concern of the project.
 
 ## Key folders
-- `src/config` — centralized configuration (env vars, JWT, session, AWS)
-- `src/db` — database setup, migrations, and models
-- `src/modules` — feature modules (users, auth, notifications, etc.)
-- `src/middleware` — shared request middleware (auth, error handling)
-- `src/utils` — shared helpers (errors, hashing, email)
-- `src/types` — shared TypeScript types
+- `src/config` — environment and app configuration (database, Redis, session, payments, email, Cloudflare, WhatsApp)
+- `src/db` — database setup and migration helpers
+- `src/infrastructure` — shared infrastructure concerns such as Redis, storage, and email
+- `src/integrations` — provider integrations such as Delhivery and Razorpay
+- `src/modules` — feature modules for website, sellers, admin, staff, farmers, notifications, uploads, and reviews
+- `src/middleware` — auth, session, logging, and error-handling middleware
+- `src/utils` — shared helpers, formatter logic, AppError, logger, and transaction helpers
+- `src/types` — shared TypeScript interfaces and type utilities
+
+## Current application structure
+The active app entrypoint is `src/app.ts`, which registers the current API surface:
+- `/api/auth`, `/api/customers`, `/api/addresses`, `/api/products`
+- `/api/homepage`, `/api/website/promotions`, `/api/website/coupons`
+- `/api/guest`, `/api/bulk-orders`, `/api/reviews`
+- `/api/sellers`, `/api/farmers`, `/api/farmers/products`, `/api/farmers/inventory`, `/api/farmers/sales`
+- `/api/orders`, `/api/notifications`, `/api/uploads`
+- `/api/admin`, `/api/staff`, `/api/delhivery`, `/api/admin/delhivery`
 
 ## Getting started
-1. Set up Redis for session storage:
-   - **Windows**: Download Redis from https://github.com/microsoftarchive/redis/releases (choose redis-x.x.x.zip)
-     - Extract the zip file
-     - Run `redis-server.exe` from the extracted folder
-     - Keep it running in a separate terminal/command prompt
-   - **Linux/Mac**: Install via package manager or use Docker:
+1. Start Redis for sessions and cache usage:
+   - **Windows**: Download Redis from https://github.com/microsoftarchive/redis/releases
+   - **Linux/Mac**: Use Docker or a local Redis service
      ```sh
      docker run -d -p 6379:6379 --name redis redis:alpine
      ```
-   - Or install Redis from https://redis.io/download
-   - Update `REDIS_URL` in `.env` if needed (default: redis://localhost:6379)
+   - Update `REDIS_URL` if needed in the environment (`redis://localhost:6379` by default)
 
-2. Copy `.env.example` to `.env` and update values.
+2. Copy the environment file for your local setup and fill required values:
+   ```sh
+   cp .env.example .env
+   ```
+   Required values normally include database, Redis, session, email, Cloudflare, AWS, Razorpay, and Delhivery settings depending on the flows you want to run.
 
 3. Install dependencies:
    ```sh
    npm install
    ```
 
-4. Create the database and run migrations:
+4. Run the project migrations / safe migration flow:
    ```sh
    npm run migrate
    ```
@@ -42,12 +62,13 @@ This backend is built with **Express + TypeScript** and uses **Sequelize** (Post
    ```
 
 ## Common commands
-- `npm run dev` — start in development mode (auto-reload)
-- `npm run build` — build TypeScript to `dist`
-- `npm run start` — run production build
-- `npm run migrate` — apply database migrations
-- `npm run migrate:undo` — rollback latest migration
-- `npm test` — run unit tests
+- `npm run dev` — start the backend in development mode
+- `npm run build` — compile the TypeScript project
+- `npm run start` — run the production build
+- `npm run typecheck` — run TypeScript type-check without emitting build output
+- `npm run migrate` — run the safe migration flow used by this project
+- `npm run migration:status` — check current migration status
+- `npm test` — run the Jest test suite
 
 ---
 
