@@ -3,7 +3,7 @@ import { OrderItem } from '../../admin/orders/order-item.model';
 import { AppError } from '../../../utils/AppError';
 import { QueryTypes, Transaction } from 'sequelize';
 import { sequelize } from '../../../db/sequelize';
-import { Promotion } from '../../../models';
+import { Promotion } from '../../admin/website/models';
 import { Customer } from '../guests/customer.model';
 
 export const createOrder = async (data: any, transaction: Transaction) => {

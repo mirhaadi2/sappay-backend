@@ -3,7 +3,7 @@
  * Real database implementation for platform analytics and metrics
  */
 
-import { User } from '../../../models';
+import { User } from '../../admin/customers/models';
 import { Order } from '../orders/order.model';
 import { PlatformStats, StatsQueryParams } from './types';
 import logger from '../../../utils/logger';
