@@ -26,4 +26,4 @@ router.post('/logout', requireStaffAuth, logoutHandler);
  */
 router.get('/me', requireStaffAuth, meHandler);
 
-export default router;
+export { router as staffAuthRoutes };

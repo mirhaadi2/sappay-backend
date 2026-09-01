@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import {
-  createProductHandler,
-  getProductDetailsHandler,
-  fetchProductsHandler,
-  searchProductsHandler,
-  getCategoriesHandler,
-  createCategoryHandler,
-  addProductToSellerHandler,
-  getSellerProductsHandler,
-  updateProductPriceHandler,
-  updateProductStatusHandler,
+    createProductHandler,
+    getProductDetailsHandler,
+    fetchProductsHandler,
+    searchProductsHandler,
+    getCategoriesHandler,
+    createCategoryHandler,
+    addProductToSellerHandler,
+    getSellerProductsHandler,
+    updateProductPriceHandler,
+    updateProductStatusHandler,
 } from './controller';
 import { requireAuth } from '../../../middleware/auth.middleware';
 
@@ -40,4 +40,4 @@ router.get('/:id', getProductDetailsHandler);
 router.post('/:productId/add-to-seller', addProductToSellerHandler);
 router.patch('/:sellerProductId/status', updateProductStatusHandler);
 
-export default router;
+export { router as productRoutes };

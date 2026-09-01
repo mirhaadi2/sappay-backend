@@ -9,7 +9,10 @@ router.get('/', async (req, res, next) => {
         const farmerId = (req.session as any)?.farmerId;
         if (!farmerId) throw new AppError('Unauthorized', 401, 'Authentication required');
 
-        const inventory = await FarmerInventory.findAll({ where: { farmerId }, order: [['createdAt', 'DESC']] });
+        const inventory = await FarmerInventory.findAll({
+            where: { farmerId },
+            order: [['createdAt', 'DESC']],
+        });
         res.json({ success: true, data: { inventory } });
     } catch (error) {
         next(error);
@@ -36,4 +39,4 @@ router.post('/', async (req, res, next) => {
     }
 });
 
-export default router;
+export { router as farmerInventoryRoutes };

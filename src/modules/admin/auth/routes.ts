@@ -28,4 +28,4 @@ router.post('/logout', requireAdminPortalAuth, logoutHandler);
  */
 router.get('/me', requireAdminPortalAuth, meHandler);
 
-export default router;
+export { router as adminAuthRoutes };

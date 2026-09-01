@@ -7,4 +7,4 @@ router.post('/register', registerFarmerHandler);
 router.post('/login', loginFarmerHandler);
 router.post('/logout', logoutFarmerHandler);
 
-export default router;
+export { router as farmersAuthRoutes };

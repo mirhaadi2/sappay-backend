@@ -1,14 +1,14 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
-  createAddressHandler,
-  getAddressesHandler,
-  getAddressByIdHandler,
-  updateAddressHandler,
-  deleteAddressHandler,
-  setDefaultAddressHandler,
-  getDefaultAddressHandler,
-} from "./controller";
-import { requireAuth } from "../../../middleware/auth.middleware";
+    createAddressHandler,
+    getAddressesHandler,
+    getAddressByIdHandler,
+    updateAddressHandler,
+    deleteAddressHandler,
+    setDefaultAddressHandler,
+    getDefaultAddressHandler,
+} from './controller';
+import { requireAuth } from '../../../middleware/auth.middleware';
 
 const router = Router();
 
@@ -16,24 +16,24 @@ const router = Router();
 router.use(requireAuth);
 
 // Create new address
-router.post("/", createAddressHandler);
+router.post('/', createAddressHandler);
 
 // Get all addresses for current user
-router.get("/", getAddressesHandler);
+router.get('/', getAddressesHandler);
 
 // Get default address
-router.get("/default", getDefaultAddressHandler);
+router.get('/default', getDefaultAddressHandler);
 
 // Get address by ID
-router.get("/:id", getAddressByIdHandler);
+router.get('/:id', getAddressByIdHandler);
 
 // Update address
-router.put("/:id", updateAddressHandler);
+router.put('/:id', updateAddressHandler);
 
 // Delete address
-router.delete("/:id", deleteAddressHandler);
+router.delete('/:id', deleteAddressHandler);
 
 // Set address as default
-router.post("/:id/set-default", setDefaultAddressHandler);
+router.post('/:id/set-default', setDefaultAddressHandler);
 
-export default router;
+export { router as addressRoutes };

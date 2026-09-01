@@ -36,4 +36,4 @@ mainAdminRouter.use('/website', websiteAdminRoutes);
 mainAdminRouter.use('/dashboard', dashboardRoutes);
 mainAdminRouter.use('/tools', toolsRoutes);
 
-export default mainAdminRouter;
+export { mainAdminRouter as adminRoutes };
