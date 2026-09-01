@@ -15,7 +15,7 @@ import {
     sendEmail,
     sendNewOrderNotificationEmail,
     sendOrderConfirmationEmail,
-} from '../../../utils/sendEmail';
+} from '../../../infrastructure/email';
 import logger from '../../../utils/logger';
 import { Customer } from '../guests/customer.model';
 import {

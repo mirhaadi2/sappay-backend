@@ -8,7 +8,7 @@ import {
     VerifyOTPResponse,
     GuestCheckoutData,
 } from './types';
-import { redisClient as baseRedisClient } from '../../../config/session';
+import { redisClient as baseRedisClient } from '../../../infrastructure/redis';
 import { AppError } from '../../../utils/AppError';
 import { awsSNSService, emailService, whatsappService } from '../../notifications';
 import {
@@ -20,7 +20,7 @@ import {
 import { countCustomerOrdersRecord } from '../guests/repository';
 import { findCustomerAddresses } from '../orders/shipping-address.repository';
 import { Order } from '../../admin/orders/order.model';
-import { sendEmail } from '../../../utils/sendEmail';
+import { sendEmail } from '../../../infrastructure/email';
 import { otpTemplate } from '../../templates/CheckoutOtpTemplate';
 
 // Type-safe Redis client

@@ -39,7 +39,7 @@ import {
     sendEmail,
     sendNewOrderNotificationEmail,
     sendOrderConfirmationEmail,
-} from '../../../utils/sendEmail';
+} from '../../../infrastructure/email';
 import { findCustomerByIdRecord, findPromotionByIdRecord } from './repository';
 
 const isPrepaidPaymentMethod = (paymentMethod: string) => paymentMethod !== 'cod';

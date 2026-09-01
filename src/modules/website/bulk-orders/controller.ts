@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { sequelize } from '../../../db/sequelize';
-import { sendEmail } from '../../../utils/sendEmail';
+import { sendEmail } from '../../../infrastructure/email';
 import { config } from '../../../config';
 import { AppError } from '../../../utils/AppError';
 import { BulkOrderRequest } from './types';
@@ -8,12 +8,31 @@ import { bulkOrderInquiryTemplate } from '../../templates/BulkOrderInquiryTempla
 import { bulkOrderCustomerTemplate } from '../../templates/BulkOrderCustomerTemplate';
 import { generateBulkOrderNumber } from './utils';
 
-export const submitBulkOrderHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const submitBulkOrderHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> => {
     try {
-        const { companyName, contactPerson, phone, email, product, estimatedQuantity, additionalRequirements } = req.body as BulkOrderRequest;
+        const {
+            companyName,
+            contactPerson,
+            phone,
+            email,
+            product,
+            estimatedQuantity,
+            additionalRequirements,
+        } = req.body as BulkOrderRequest;
 
         // Validation
-        if (!companyName?.trim() || !contactPerson?.trim() || !phone?.trim() || !email?.trim() || !product?.trim() || !estimatedQuantity?.trim()) {
+        if (
+            !companyName?.trim() ||
+            !contactPerson?.trim() ||
+            !phone?.trim() ||
+            !email?.trim() ||
+            !product?.trim() ||
+            !estimatedQuantity?.trim()
+        ) {
             throw new AppError('ValidationError', 400, 'All required fields must be filled');
         }
 
@@ -40,15 +59,26 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
         `;
 
         const result = await sequelize.query(query, {
-            bind: [bulkOrderNumber, companyName, contactPerson, phone, email, product, estimatedQuantity, additionalRequirements || ''],
+            bind: [
+                bulkOrderNumber,
+                companyName,
+                contactPerson,
+                phone,
+                email,
+                product,
+                estimatedQuantity,
+                additionalRequirements || '',
+            ],
             type: 'INSERT',
         });
 
         const bulkOrderId = (result[0] as any)?.[0]?.id || 'N/A';
-        const returnedBulkOrderNumber = (result[0] as any)?.[0]?.bulk_order_number || bulkOrderNumber;
+        const returnedBulkOrderNumber =
+            (result[0] as any)?.[0]?.bulk_order_number || bulkOrderNumber;
 
         // Send email notification to sales team
-        const salesTeamEmail = config.email.salesTeamEmail || config.email.fromEmail || 'support@sappey.com';
+        const salesTeamEmail =
+            config.email.salesTeamEmail || config.email.fromEmail || 'support@sappey.com';
         const emailSubject = `🚀 New Bulk Order Inquiry from ${companyName}`;
         await sendEmail({
             to: salesTeamEmail,
@@ -61,9 +91,9 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
                 product,
                 estimatedQuantity,
                 additionalRequirements,
-                bulkOrderId: returnedBulkOrderNumber
+                bulkOrderId: returnedBulkOrderNumber,
             }),
-            fromMailType: 'support' // Or 'sales' if you want internal leads to come from sales@sappey.com
+            fromMailType: 'support', // Or 'sales' if you want internal leads to come from sales@sappey.com
         }).catch((err: any) => {
             console.error('Failed to send bulk order email notification:', err);
         });
@@ -79,10 +109,10 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
                 estimatedQuantity,
                 bulkOrderId: returnedBulkOrderNumber,
                 phone,
-                email
+                email,
             }),
             text: `Hello ${contactPerson}, we received your inquiry for ${product}. Ref ID: ${returnedBulkOrderNumber}.`,
-            fromMailType: 'sales' // Using the sales account for B2B feel
+            fromMailType: 'sales', // Using the sales account for B2B feel
         }).catch((err: any) => {
             console.error('Failed to send customer confirmation email:', err);
         });
@@ -98,7 +128,11 @@ export const submitBulkOrderHandler = async (req: Request, res: Response, next: 
     }
 };
 
-export const getBulkOrdersHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getBulkOrdersHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> => {
     try {
         const query = `
             SELECT id, bulk_order_number, company_name, contact_person, email, phone, product, estimated_quantity, status, created_at
@@ -115,7 +149,11 @@ export const getBulkOrdersHandler = async (req: Request, res: Response, next: Ne
     }
 };
 
-export const updateBulkOrderStatusHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateBulkOrderStatusHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> => {
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -125,7 +163,14 @@ export const updateBulkOrderStatusHandler = async (req: Request, res: Response, 
         }
 
         // Validate status
-        const validStatuses = ['pending', 'contacted', 'quoted', 'confirmed', 'completed', 'cancelled'];
+        const validStatuses = [
+            'pending',
+            'contacted',
+            'quoted',
+            'confirmed',
+            'completed',
+            'cancelled',
+        ];
         if (!validStatuses.includes(status)) {
             throw new AppError('ValidationError', 400, 'Invalid status');
         }
@@ -149,7 +194,7 @@ export const updateBulkOrderStatusHandler = async (req: Request, res: Response, 
         res.json({
             success: true,
             message: 'Bulk order status updated successfully',
-            data: result[0][0]
+            data: result[0][0],
         });
     } catch (error) {
         console.error('Error updating bulk order status:', error);

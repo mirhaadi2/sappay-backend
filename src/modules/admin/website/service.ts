@@ -14,7 +14,7 @@ import {
 } from './models';
 import { getR2SignedUrl } from '../../uploads/r2-utils';
 import { sequelize } from '../../../db/sequelize';
-import { redisClient } from '../../../config/session';
+import { redisClient } from '../../../infrastructure/redis';
 import logger from '../../../utils/logger';
 import { withTransaction } from '../../../utils/transaction';
 import { Coupon, CouponAttributes } from '../../coupons/models';

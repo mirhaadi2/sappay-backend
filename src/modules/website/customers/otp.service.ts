@@ -3,7 +3,7 @@ import { OtpType } from '../../admin/customers/otp.model';
 import { createOtp, findOtpByContact, deleteOtp, cleanupExpiredOtps } from './repository';
 import { AppError } from '../../../utils/AppError';
 import { awsSNSService, emailService, whatsappService } from '../../notifications';
-import { sendEmail } from '../../../utils/sendEmail';
+import { sendEmail } from '../../../infrastructure/email';
 import { verificationOtpTemplate } from '../../templates/VerificationOtpTemplate';
 
 export const generateOtp = (): string => {

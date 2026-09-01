@@ -1,0 +1,49 @@
+import nodemailer from 'nodemailer';
+import { config } from '../../config';
+
+export type EmailAccountType = 'sales' | 'support';
+
+const transporters = {
+    sales: nodemailer.createTransport({
+        host: config.email.smtpHost,
+        port: config.email.smtpPort,
+        secure: config.email.smtpSecure,
+        logger: true,
+        debug: true,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+        auth: {
+            user: config.email.salesTeamEmail,
+            pass: config.email.salesTeamPassword,
+        },
+    }),
+    support: nodemailer.createTransport({
+        host: config.email.smtpHost,
+        port: config.email.smtpPort,
+        secure: config.email.smtpSecure,
+        logger: true,
+        debug: true,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+        auth: {
+            user: config.email.smtpUser,
+            pass: config.email.smtpPassword,
+        },
+    }),
+} as const;
+
+export const emailTransporter = (type: EmailAccountType = 'support') => {
+    return transporters[type];
+};
+
+Object.entries(transporters).forEach(([name, transporter]) => {
+    transporter.verify((error) => {
+        if (error) {
+            console.error(`❌ ${name} email failed:`, error);
+            return;
+        }
+        console.log(`✅ ${name} email ready`);
+    });
+});
