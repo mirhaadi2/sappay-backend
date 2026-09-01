@@ -12,63 +12,84 @@ import {
     PromotionType,
     PromotionAttributes,
 } from './models';
-// import { Coupon, CouponAttributes } from "../../models/Coupon";
 import { getR2SignedUrl } from '../../uploads/r2-utils';
 import { sequelize } from '../../../db/sequelize';
-import { Op, QueryTypes } from 'sequelize';
 import { redisClient } from '../../../config/session';
-import { createHash } from 'crypto';
 import logger from '../../../utils/logger';
 import { withTransaction } from '../../../utils/transaction';
 import { Coupon, CouponAttributes } from '../../coupons/models';
+import {
+    listActiveBanners,
+    createBannerRecord,
+    updateBannerRecord,
+    deleteBannerRecord,
+    listActiveHeroes,
+    deactivateActiveHeroes,
+    createHeroRecord,
+    updateHeroRecord,
+    deleteHeroRecord,
+    listActiveSections,
+    listSectionsByType,
+    createSectionRecord,
+    updateSectionRecord,
+    deleteSectionRecord,
+    listActiveTestimonials,
+    createTestimonialRecord,
+    updateTestimonialRecord,
+    deleteTestimonialRecord,
+    listActiveInstagramPosts,
+    createInstagramPostRecord,
+    updateInstagramPostRecord,
+    deleteInstagramPostRecord,
+    listWebsiteSettings,
+    getWebsiteSettingByKey,
+    createWebsiteSettingRecord,
+    updateWebsiteSettingByKey,
+    deleteWebsiteSettingByKey,
+    listPublishedPages,
+    listAllPages,
+    getPageBySlugRecord,
+    getPageById,
+    createPageRecord,
+    updatePageRecord,
+    deletePageRecord,
+    getPageByTypeRecord,
+    listPagesByType,
+    createUnifiedPageRecord,
+    updateUnifiedPageRecord,
+    deletePageByTypeRecord,
+    listActivePromotions,
+    getPromotionByIdRecord,
+    getApplicablePromotionsRecord,
+    createPromotionRecord,
+    updatePromotionRecord,
+    deletePromotionRecord,
+    listAllPromotions,
+    incrementPromotionUsageRecord,
+    destroyDuplicatePageRecords,
+    createCouponRecord,
+    updateCouponRecord,
+    deleteCouponRecord,
+    getCouponByIdRecord,
+    getAllCoupons as getAllCouponsRecord,
+} from './repository';
 
 const HOMEPAGE_CACHE_KEY = 'website:homepage:data';
 const HOMEPAGE_CACHE_TTL = 60 * 2; // 2 minutes
 
 // ===================== BANNER SERVICES =====================
 export const getActiveBanners = async (status?: boolean) => {
-    const query = `
-        SELECT 
-            id, 
-            text, 
-            "is_active" AS "isActive", 
-            "order", 
-            "created_at" AS "createdAt", 
-            "updated_at" AS "updatedAt"
-        FROM "homepage_banners"
-        WHERE "deleted_at" IS NULL
-        ${status !== undefined ? `AND "is_active" = :status` : ''}
-        ORDER BY "created_at" DESC
-    `;
-
-    let banners: HomepageBanner[] = [];
     try {
-        banners = await sequelize.query(query, {
-            type: QueryTypes.SELECT,
-            replacements: status !== undefined ? { status } : {},
-            logging(sql, timing) {
-                console.log(`[SQL - ${timing}ms]: ${sql}`);
-            },
-            benchmark: true,
-        });
+        return await listActiveBanners(status);
     } catch (error) {
         console.error('Error fetching active banners:', error);
         return [];
     }
-
-    return (banners as HomepageBanner[]) || [];
 };
 
 export const createBanner = async (data: { text: string; isActive?: boolean; order?: number }) => {
     return withTransaction(async (transaction) => {
-        const banner = await HomepageBanner.create(
-            {
-                ...data,
-                isActive: data.isActive ?? true,
-                order: data.order ?? 0,
-            },
-            { transaction },
-        );
+        const banner = await createBannerRecord(data, transaction);
         logger.info('Banner created in admin', { bannerId: banner.id });
         return banner;
     });
@@ -79,9 +100,7 @@ export const updateBanner = async (
     data: Partial<{ text: string; isActive: boolean; order: number }>,
 ) => {
     return withTransaction(async (transaction) => {
-        const banner = await HomepageBanner.findByPk(id, { transaction });
-        if (!banner) throw new Error('Banner not found');
-        const updated = await banner.update(data, { transaction });
+        const updated = await updateBannerRecord(id, data, transaction);
         logger.info('Banner updated in admin', { bannerId: id });
         return updated;
     });
@@ -89,43 +108,14 @@ export const updateBanner = async (
 
 export const deleteBanner = async (id: string) => {
     return withTransaction(async (transaction) => {
-        const banner = await HomepageBanner.findByPk(id, { transaction });
-        if (!banner) throw new Error('Banner not found');
-        await banner.destroy({ transaction });
+        await deleteBannerRecord(id, transaction);
         logger.info('Banner deleted in admin', { bannerId: id });
     });
 };
 
 export const getActiveHero = async (status?: boolean) => {
     try {
-        const query = `
-            SELECT
-                id,
-                title,
-                subtitle,
-                "video_url" AS "videoUrl",
-                "image_url" AS "imageUrl",
-                "background_image_url" AS "backgroundImageUrl",
-                "video_poster_url" AS "videoPosterUrl",
-                "button_text" AS "buttonText",
-                "button_link" AS "buttonLink",
-                "is_active" AS "isActive",
-                "created_at" AS "createdAt",
-                "updated_at" AS "updatedAt"
-            FROM "homepage_hero"
-            WHERE "deleted_at" IS NULL
-            ${status !== undefined ? `AND "is_active" = :status` : ''}
-            ORDER BY "created_at" DESC
-        `;
-
-        const heroes: HomepageHero[] = await sequelize.query(query, {
-            type: QueryTypes.SELECT,
-            replacements: status !== undefined ? { status } : {},
-            logging(sql, timing) {
-                console.log(`[SQL - ${timing}ms]: ${sql}`);
-            },
-            benchmark: true,
-        });
+        const heroes: HomepageHero[] = (await listActiveHeroes(status)) as HomepageHero[];
 
         const resolvedHeroes = await Promise.all(
             heroes.map(async (hero) => {
@@ -174,23 +164,14 @@ export const createHero = async (data: {
 }) => {
     return withTransaction(async (transaction) => {
         if (data.isActive) {
-            await HomepageHero.update(
-                { isActive: false },
-                { where: { isActive: true }, transaction },
-            );
+            await deactivateActiveHeroes(transaction);
         }
 
         if (!data.videoUrl && !data.imageUrl && !data.backgroundImageUrl) {
             throw new Error('Hero section must include either a video or an image.');
         }
 
-        const hero = await HomepageHero.create(
-            {
-                ...data,
-                isActive: data.isActive ?? true,
-            },
-            { transaction },
-        );
+        const hero = await createHeroRecord(data, transaction);
         logger.info('Hero created in admin', { heroId: hero.id });
         return hero;
     });
@@ -211,17 +192,11 @@ export const updateHero = async (
     }>,
 ) => {
     return withTransaction(async (transaction) => {
-        const hero = await HomepageHero.findByPk(id, { transaction });
-        if (!hero) throw new Error('Hero section not found');
-
         if (data.isActive) {
-            await HomepageHero.update(
-                { isActive: false },
-                { where: { isActive: true }, transaction },
-            );
+            await deactivateActiveHeroes(transaction);
         }
 
-        const updated = await hero.update(data, { transaction });
+        const updated = await updateHeroRecord(id, data, transaction);
         logger.info('Hero updated in admin', { heroId: id });
         return updated;
     });
@@ -229,43 +204,14 @@ export const updateHero = async (
 
 export const deleteHero = async (id: string) => {
     return withTransaction(async (transaction) => {
-        const hero = await HomepageHero.findByPk(id, { transaction });
-        if (!hero) throw new Error('Hero section not found');
-        await hero.destroy({ transaction });
+        await deleteHeroRecord(id, transaction);
         logger.info('Hero deleted in admin', { heroId: id });
     });
 };
 
 // ===================== SECTION SERVICES =====================
 export const getActiveSections = async (status?: boolean) => {
-    const query = `
-        SELECT
-            id,
-            section_type AS "sectionType",
-            title,
-            subtitle,
-            content,
-            image_url AS "imageUrl",
-            video_url AS "videoUrl",
-            button_text AS "buttonText",
-            button_link AS "buttonLink",
-            background_image_url AS "backgroundImageUrl",
-            is_active AS "isActive",
-            "order",
-            created_at AS "createdAt",
-            updated_at AS "updatedAt"
-        FROM homepage_sections
-        WHERE deleted_at IS NULL
-        ${status !== undefined ? `AND is_active = :status` : ''}
-        ORDER BY "order" ASC, created_at DESC
-    `;
-
-    const sections = await sequelize.query<HomepageSection>(query, {
-        type: QueryTypes.SELECT,
-        replacements: status !== undefined ? { status } : {},
-        benchmark: true,
-        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
-    });
+    const sections = await listActiveSections(status);
 
     if (!sections.length) return [];
 
@@ -290,34 +236,7 @@ export const getActiveSections = async (status?: boolean) => {
 };
 
 export const getSectionsByType = async (sectionType: string) => {
-    const query = `
-        SELECT
-            id,
-            section_type AS "sectionType",
-            title,
-            subtitle,
-            content,
-            image_url AS "imageUrl",
-            video_url AS "videoUrl",
-            button_text AS "buttonText",
-            button_link AS "buttonLink",
-            background_image_url AS "backgroundImageUrl",
-            is_active AS "isActive",
-            "order",
-            created_at AS "createdAt",
-            updated_at AS "updatedAt"
-        FROM homepage_sections
-        WHERE is_active = true AND deleted_at IS NULL 
-        AND section_type = :sectionType
-        ORDER BY "order" ASC, created_at DESC
-    `;
-
-    const sections = await sequelize.query<HomepageSection>(query, {
-        type: QueryTypes.SELECT,
-        replacements: { sectionType },
-        benchmark: true,
-        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
-    });
+    const sections = await listSectionsByType(sectionType);
 
     if (!sections.length) return [];
 
@@ -365,14 +284,7 @@ export const createSection = async (data: {
     order?: number;
 }) => {
     return withTransaction(async (transaction) => {
-        const section = await HomepageSection.create(
-            {
-                ...data,
-                isActive: data.isActive ?? true,
-                order: data.order ?? 0,
-            },
-            { transaction },
-        );
+        const section = await createSectionRecord(data, transaction);
         logger.info('Section created in admin', { sectionId: section.id });
         return section;
     });
@@ -405,9 +317,7 @@ export const updateSection = async (
     }>,
 ) => {
     return withTransaction(async (transaction) => {
-        const section = await HomepageSection.findByPk(id, { transaction });
-        if (!section) throw new Error('Section not found');
-        const updated = await section.update(data, { transaction });
+        const updated = await updateSectionRecord(id, data, transaction);
         logger.info('Section updated in admin', { sectionId: id });
         return updated;
     });
@@ -415,41 +325,14 @@ export const updateSection = async (
 
 export const deleteSection = async (id: string) => {
     return withTransaction(async (transaction) => {
-        const section = await HomepageSection.findByPk(id, { transaction });
-        if (!section) throw new Error('Section not found');
-        await section.destroy({ transaction });
+        await deleteSectionRecord(id, transaction);
         logger.info('Section deleted in admin', { sectionId: id });
     });
 };
 
 // ===================== TESTIMONIAL SERVICES =====================
 export const getActiveTestimonials = async (status?: boolean) => {
-    const query = `
-        SELECT
-            id,
-            author,
-            initials,
-            location,
-            comment,
-            rating,
-            is_active AS "isActive",
-            "order",
-            "created_at" AS "createdAt",
-            "updated_at" AS "updatedAt"
-        FROM testimonials
-        WHERE deleted_at IS NULL
-        ${status !== undefined ? `AND is_active = :status` : ''}
-        ORDER BY "order" ASC, created_at DESC
-    `;
-
-    const testimonials: Testimonial[] = await sequelize.query<Testimonial>(query, {
-        type: QueryTypes.SELECT,
-        replacements: status !== undefined ? { status } : {},
-        benchmark: true,
-        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
-    });
-
-    return testimonials;
+    return listActiveTestimonials(status);
 };
 
 export const createTestimonial = async (data: {
@@ -461,24 +344,11 @@ export const createTestimonial = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const testimonial = await Testimonial.create(
-            {
-                ...data,
-                isActive: data.isActive ?? true,
-                order: data.order ?? 0,
-            },
-            { transaction },
-        );
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const testimonial = await createTestimonialRecord(data, transaction);
         logger.info('Testimonial created in admin', { testimonialId: testimonial.id });
         return testimonial;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating testimonial in admin', { error });
-        throw error;
-    }
+    });
 };
 
 export const updateTestimonial = async (
@@ -493,59 +363,23 @@ export const updateTestimonial = async (
         order: number;
     }>,
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const testimonial = await Testimonial.findByPk(id, { transaction });
-        if (!testimonial) throw new Error('Testimonial not found');
-        const updated = await testimonial.update(data, { transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const updated = await updateTestimonialRecord(id, data, transaction);
         logger.info('Testimonial updated in admin', { testimonialId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating testimonial in admin', { testimonialId: id, error });
-        throw error;
-    }
+    });
 };
 
 export const deleteTestimonial = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const testimonial = await Testimonial.findByPk(id, { transaction });
-        if (!testimonial) throw new Error('Testimonial not found');
-        await testimonial.destroy({ transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        await deleteTestimonialRecord(id, transaction);
         logger.info('Testimonial deleted in admin', { testimonialId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting testimonial in admin', { testimonialId: id, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== INSTAGRAM POST SERVICES =====================
 export const getActiveInstagramPosts = async (status?: boolean) => {
-    const query = `
-        SELECT
-            "id",
-            "image_url" AS "imageUrl",
-            "alt_text"  AS "altText",
-            "link",
-            "is_active" AS "isActive",
-            "order",
-            "created_at" AS "createdAt"
-        FROM "instagram_posts"
-        WHERE deleted_at IS NULL
-        ${status !== undefined ? `AND "is_active" = :status` : ''}
-        ORDER BY "created_at" DESC
-    `;
-
-    const posts: InstagramPost[] = await sequelize.query<InstagramPost>(query, {
-        type: QueryTypes.SELECT,
-        replacements: status !== undefined ? { status } : {},
-        benchmark: true,
-        logging: (sql, timing) => console.log(`[SQL - ${timing}ms]: ${sql}`),
-    });
+    const posts: InstagramPost[] = (await listActiveInstagramPosts(status)) as InstagramPost[];
 
     const resolvedPosts = await Promise.all(
         posts.map(async (post) => ({
@@ -563,24 +397,11 @@ export const createInstagramPost = async (data: {
     isActive?: boolean;
     order?: number;
 }) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const post = await InstagramPost.create(
-            {
-                ...data,
-                isActive: data.isActive ?? true,
-                order: data.order ?? 0,
-            },
-            { transaction },
-        );
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const post = await createInstagramPostRecord(data, transaction);
         logger.info('Instagram post created in admin', { postId: post.id });
         return post;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating Instagram post in admin', { error });
-        throw error;
-    }
+    });
 };
 
 export const updateInstagramPost = async (
@@ -593,50 +414,24 @@ export const updateInstagramPost = async (
         order: number;
     }>,
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const post = await InstagramPost.findByPk(id, { transaction });
-        if (!post) throw new Error('Instagram post not found');
-        const updated = await post.update(data, { transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const updated = await updateInstagramPostRecord(id, data, transaction);
         logger.info('Instagram post updated in admin', { postId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating Instagram post in admin', { postId: id, error });
-        throw error;
-    }
+    });
 };
 
 export const deleteInstagramPost = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const post = await InstagramPost.findByPk(id, { transaction });
-        if (!post) throw new Error('Instagram post not found');
-        await post.destroy({ transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        await deleteInstagramPostRecord(id, transaction);
         logger.info('Instagram post deleted in admin', { postId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting Instagram post in admin', { postId: id, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== WEBSITE SETTINGS SERVICES =====================
 export const getWebsiteSettings = async (category?: string) => {
-    const where: any = { isActive: true };
-    if (category) where.category = category;
+    const settings = await listWebsiteSettings(category);
 
-    const settings = await WebsiteSetting.findAll({
-        where,
-        order: [
-            ['category', 'ASC'],
-            ['key', 'ASC'],
-        ],
-    });
-
-    // Parse values based on type
     return settings.map((setting) => ({
         ...setting.toJSON(),
         parsedValue: parseSettingValue(setting.value, setting.type),
@@ -644,9 +439,7 @@ export const getWebsiteSettings = async (category?: string) => {
 };
 
 export const getWebsiteSetting = async (key: string) => {
-    const setting = await WebsiteSetting.findOne({
-        where: { key, isActive: true },
-    });
+    const setting = await getWebsiteSettingByKey(key);
 
     if (!setting) return null;
 
@@ -664,23 +457,11 @@ export const createWebsiteSetting = async (data: {
     description?: string;
     isActive?: boolean;
 }) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const setting = await WebsiteSetting.create(
-            {
-                ...data,
-                isActive: data.isActive ?? true,
-            },
-            { transaction },
-        );
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const setting = await createWebsiteSettingRecord(data, transaction);
         logger.info('Website setting created', { key: data.key, category: data.category });
         return setting;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating website setting', { key: data.key, error });
-        throw error;
-    }
+    });
 };
 
 export const updateWebsiteSetting = async (
@@ -693,61 +474,31 @@ export const updateWebsiteSetting = async (
         isActive: boolean;
     }>,
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const setting = await WebsiteSetting.findOne({ where: { key }, transaction });
-        if (!setting) throw new Error('Website setting not found');
-        const updated = await setting.update(data, { transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const updated = await updateWebsiteSettingByKey(key, data, transaction);
         logger.info('Website setting updated', { key });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating website setting', { key, error });
-        throw error;
-    }
+    });
 };
 
 export const deleteWebsiteSetting = async (key: string) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const setting = await WebsiteSetting.findOne({ where: { key }, transaction });
-        if (!setting) throw new Error('Website setting not found');
-        await setting.destroy({ transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        await deleteWebsiteSettingByKey(key, transaction);
         logger.info('Website setting deleted', { key });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting website setting', { key, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== WEBSITE PAGES SERVICES =====================
 export const getPublishedPages = async () => {
-    return await WebsitePage.findAll({
-        where: { isPublished: true },
-        order: [
-            ['order', 'ASC'],
-            ['createdAt', 'DESC'],
-        ],
-    });
+    return listPublishedPages();
 };
 
 export const getAllPages = async () => {
-    return await WebsitePage.findAll({
-        where: { deletedAt: null },
-        order: [
-            ['order', 'ASC'],
-            ['createdAt', 'DESC'],
-        ],
-    });
+    return listAllPages();
 };
 
 export const getPageBySlug = async (slug: string) => {
-    return await WebsitePage.findOne({
-        where: { slug, isPublished: true },
-    });
+    return getPageBySlugRecord(slug);
 };
 
 export const createPage = async (data: {
@@ -759,24 +510,11 @@ export const createPage = async (data: {
     isPublished?: boolean;
     order?: number;
 }) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const page = await WebsitePage.create(
-            {
-                ...data,
-                isPublished: data.isPublished ?? false,
-                order: data.order ?? 0,
-            },
-            { transaction },
-        );
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const page = await createPageRecord(data, transaction);
         logger.info('Website page created', { pageId: page.id, slug: data.slug });
         return page;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating website page', { slug: data.slug, error });
-        throw error;
-    }
+    });
 };
 
 export const updatePage = async (
@@ -791,42 +529,23 @@ export const updatePage = async (
         order: number;
     }>,
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const page = await WebsitePage.findByPk(id, { transaction });
-        if (!page) throw new Error('Page not found');
-        const updated = await page.update(data, { transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const updated = await updatePageRecord(id, data, transaction);
         logger.info('Website page updated', { pageId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating website page', { pageId: id, error });
-        throw error;
-    }
+    });
 };
 
 export const deletePage = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const page = await WebsitePage.findByPk(id, { transaction });
-        if (!page) throw new Error('Page not found');
-        await page.destroy({ transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        await deletePageRecord(id, transaction);
         logger.info('Website page deleted', { pageId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting website page', { pageId: id, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== UNIFIED PAGE SERVICES =====================
 export const getPage = async (type: PageType) => {
-    return await Page.findOne({
-        where: { type },
-        order: [['createdAt', 'DESC']],
-    });
+    return getPageByTypeRecord(type);
 };
 
 export const createOrUpdatePage = async (
@@ -840,69 +559,33 @@ export const createOrUpdatePage = async (
         isPublished?: boolean;
     },
 ) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const existingPages = await Page.findAll({ where: { type }, transaction });
+    return withTransaction(async (transaction) => {
+        const existingPages = await listPagesByType(type, transaction);
 
         if (existingPages.length > 0) {
             const [primary, ...duplicates] = existingPages;
 
-            // Ensure exactly one record exists per type by removing any accidental duplicates.
             if (duplicates.length > 0) {
-                await Page.destroy({
-                    where: { id: duplicates.map((page) => page.id) },
-                    transaction,
-                });
+                await destroyDuplicatePageRecords(duplicates, transaction);
             }
 
-            const updated = await primary.update(
-                {
-                    slug,
-                    ...data,
-                    isPublished: data.isPublished ?? false,
-                },
-                { transaction },
-            );
+            const updated = await updateUnifiedPageRecord(primary, slug, data, transaction);
 
-            await transaction.commit();
             logger.info('Unified page updated', { pageId: primary.id, type });
             return updated;
-        } else {
-            const created = await Page.create(
-                {
-                    type,
-                    slug,
-                    ...data,
-                    isPublished: data.isPublished ?? false,
-                },
-                { transaction },
-            );
-
-            await transaction.commit();
-            logger.info('Unified page created', { pageId: created.id, type });
-            return created;
         }
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating/updating unified page', { type, error });
-        throw error;
-    }
+
+        const created = await createUnifiedPageRecord(type, slug, data, transaction);
+        logger.info('Unified page created', { pageId: created.id, type });
+        return created;
+    });
 };
 
 export const deletePageByType = async (type: PageType) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const page = await Page.findOne({ where: { type }, transaction });
-        if (page) {
-            await page.destroy({ transaction });
-        }
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        await deletePageByTypeRecord(type, transaction);
         logger.info('Unified page deleted', { type });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting unified page', { type, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== HOMEPAGE DATA AGGREGATOR =====================
@@ -1034,32 +717,14 @@ export const getWebsiteData = async () => {
  * Used by customers to see current available offers
  */
 export const getActivePromotions = async () => {
-    const now = new Date();
-    const promotions = await Promotion.findAll({
-        where: {
-            isActive: true,
-            deletedAt: null,
-            validFrom: { [Op.lte]: now },
-            validUntil: { [Op.gte]: now },
-        },
-        order: [
-            ['priority', 'DESC'],
-            ['createdAt', 'DESC'],
-        ],
-        logging: (sql, timing) => {
-            console.log(`[SQL - ${timing}ms]: ${sql}`);
-        },
-    });
-    return promotions;
+    return listActivePromotions();
 };
-
-// (coupon code lookup removed - coupons are handled by dedicated Coupon module)
 
 /**
  * Get promotion by ID with full details
  */
 export const getPromotionById = async (id: string) => {
-    const promotion = await Promotion.findByPk(id);
+    const promotion = await getPromotionByIdRecord(id);
     if (!promotion) throw new Error('Promotion not found');
     return promotion;
 };
@@ -1069,116 +734,46 @@ export const getPromotionById = async (id: string) => {
  * Used by checkout page to display relevant promotions
  */
 export const getApplicablePromotions = async (cartValue: number = 0) => {
-    const now = new Date();
-    const promotions = await Promotion.findAll({
-        where: {
-            isActive: true,
-            validFrom: { [Op.lte]: now },
-            validUntil: { [Op.gte]: now },
-        },
-        order: [['priority', 'DESC']],
-        raw: true,
-    });
-
-    // Filter by cart value if provided
-    if (cartValue > 0) {
-        return promotions.filter((p) => {
-            const qualifies =
-                (!p.minOrderValue || cartValue >= Number(p.minOrderValue)) &&
-                (!p.maxOrderValue || cartValue <= Number(p.maxOrderValue));
-            return qualifies;
-        });
-    }
-
-    return promotions;
+    return getApplicablePromotionsRecord(cartValue);
 };
 
 /**
  * Create new promotion
  */
 export const createPromotion = async (data: Partial<PromotionAttributes>) => {
-    const transaction = await sequelize.transaction();
-    try {
-        // Filter out undefined properties and cast to ensure type safety
-        const filteredData = Object.fromEntries(
-            Object.entries(data).filter(([, value]) => value !== undefined),
-        ) as Record<string, any>;
-
-        // couponCode is not part of Promotion anymore
-
-        const promotion = await Promotion.create(
-            {
-                ...filteredData,
-                currentUsage: 0,
-                isActive: filteredData.isActive ?? true,
-                priority: filteredData.priority ?? 0,
-            } as any,
-            { transaction },
-        );
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const promotion = await createPromotionRecord(data, transaction);
         logger.info('Promotion created in admin', { promotionId: promotion.id });
         return promotion;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating promotion', { error });
-        throw error;
-    }
+    });
 };
 
 /**
  * Update promotion
  */
 export const updatePromotion = async (id: string, data: Partial<PromotionAttributes>) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const promotion = await Promotion.findByPk(id, { transaction });
-        if (!promotion) throw new Error('Promotion not found');
-
-        const updateData: Record<string, any> = { ...data };
-        // couponCode is not part of Promotion anymore
-
-        const updated = await promotion.update(updateData, { transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const updated = await updatePromotionRecord(id, data, transaction);
         logger.info('Promotion updated in admin', { promotionId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating promotion', { promotionId: id, error });
-        throw error;
-    }
+    });
 };
 
 /**
  * Delete promotion (soft delete)
  */
 export const deletePromotion = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const promotion = await Promotion.findByPk(id, { transaction });
-        if (!promotion) throw new Error('Promotion not found');
-
-        await promotion.destroy({ transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        await deletePromotionRecord(id, transaction);
         logger.info('Promotion deleted in admin', { promotionId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting promotion', { promotionId: id, error });
-        throw error;
-    }
+    });
 };
 
 /**
  * Get all promotions (admin view with pagination)
  */
 export const getAllPromotions = async (limit = 20, offset = 0) => {
-    const { count, rows } = await Promotion.findAndCountAll({
-        limit,
-        offset,
-        order: [
-            ['priority', 'DESC'],
-            ['createdAt', 'DESC'],
-        ],
-    });
+    const { count, rows } = await listAllPromotions(limit, offset);
 
     return {
         total: count,
@@ -1193,27 +788,11 @@ export const getAllPromotions = async (limit = 20, offset = 0) => {
  * Called when a customer qualifies for the promotion
  */
 export const incrementPromotionUsage = async (promotionId: string) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const promotion = await Promotion.findByPk(promotionId, { transaction });
-        if (!promotion) throw new Error('Promotion not found');
-
-        const newUsage = (promotion.currentUsage || 0) + 1;
-
-        // Check if usage limit exceeded
-        if (promotion.usageLimit && newUsage > promotion.usageLimit) {
-            throw new Error('Promotion usage limit exceeded');
-        }
-
-        await promotion.update({ currentUsage: newUsage }, { transaction });
-        await transaction.commit();
-
+    return withTransaction(async (transaction) => {
+        const promotion = await incrementPromotionUsageRecord(promotionId, transaction);
+        logger.info('Promotion usage incremented', { promotionId });
         return promotion;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error incrementing promotion usage', { promotionId, error });
-        throw error;
-    }
+    });
 };
 
 // ===================== COUPON SERVICES =====================
@@ -1222,76 +801,39 @@ export const incrementPromotionUsage = async (promotionId: string) => {
  * Create coupon (admin)
  */
 export const createCoupon = async (data: Partial<CouponAttributes>) => {
-    const transaction = await sequelize.transaction();
-    try {
-        // Filter out undefined properties
-        const filteredData = Object.fromEntries(
-            Object.entries(data).filter(([, value]) => value !== undefined),
-        ) as Record<string, any>;
-
-        const coupon = await Coupon.create(
-            {
-                ...filteredData,
-                currentUsage: 0,
-                isActive: filteredData.isActive ?? true,
-                firstOrderOnly: filteredData.firstOrderOnly ?? false,
-            } as any,
-            { transaction },
-        );
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const coupon = await createCouponRecord(data, transaction);
         logger.info('Coupon created in admin', { couponId: coupon.id, code: coupon.code });
         return coupon;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error creating coupon', { error });
-        throw error;
-    }
+    });
 };
 
 /**
  * Update coupon (admin)
  */
 export const updateCoupon = async (id: string, data: Partial<CouponAttributes>) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const coupon = await Coupon.findByPk(id, { transaction });
-        if (!coupon) throw new Error('Coupon not found');
-
-        const updated = await coupon.update(data, { transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        const updated = await updateCouponRecord(id, data, transaction);
         logger.info('Coupon updated in admin', { couponId: id });
         return updated;
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error updating coupon', { couponId: id, error });
-        throw error;
-    }
+    });
 };
 
 /**
  * Delete coupon (soft delete)
  */
 export const deleteCoupon = async (id: string) => {
-    const transaction = await sequelize.transaction();
-    try {
-        const coupon = await Coupon.findByPk(id, { transaction });
-        if (!coupon) throw new Error('Coupon not found');
-
-        await coupon.destroy({ transaction });
-        await transaction.commit();
+    return withTransaction(async (transaction) => {
+        await deleteCouponRecord(id, transaction);
         logger.info('Coupon deleted in admin', { couponId: id });
-    } catch (error) {
-        await transaction.rollback();
-        logger.error('Error deleting coupon', { couponId: id, error });
-        throw error;
-    }
+    });
 };
 
 /**
  * Get coupon by ID (admin)
  */
 export const getCouponById = async (id: string) => {
-    const coupon = await Coupon.findByPk(id);
+    const coupon = await getCouponByIdRecord(id);
     if (!coupon) throw new Error('Coupon not found');
     return coupon;
 };
@@ -1300,11 +842,7 @@ export const getCouponById = async (id: string) => {
  * Get all coupons (admin view with pagination)
  */
 export const getAllCoupons = async (limit = 20, offset = 0) => {
-    const { count, rows } = await Coupon.findAndCountAll({
-        limit,
-        offset,
-        order: [['createdAt', 'DESC']],
-    });
+    const { count, rows } = await getAllCouponsRecord(limit, offset);
 
     return {
         total: count,
